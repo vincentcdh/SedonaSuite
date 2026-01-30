@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, Save, Loader2 } from 'lucide-react'
 import {
   Button,
   Card,
@@ -21,34 +21,36 @@ import {
   SelectValue,
   Badge,
 } from '@sedona/ui'
+import { useCreateTicket, useActiveCategories, type TicketPriority } from '@sedona/tickets'
+import { useOrganization, useSession } from '@/lib/auth'
 
 export const Route = createFileRoute('/_authenticated/tickets/new')({
   component: NewTicketPage,
 })
 
-// Mock categories
-const mockCategories = [
-  { id: '1', name: 'Support Technique', color: '#3B82F6' },
-  { id: '2', name: 'Facturation', color: '#10B981' },
-  { id: '3', name: 'Commercial', color: '#F59E0B' },
-  { id: '4', name: 'Autre', color: '#6B7280' },
-]
-
-// Mock team members
-const mockTeamMembers = [
-  { id: '1', fullName: 'Alice Martin', email: 'alice@example.com' },
-  { id: '2', fullName: 'Bob Durand', email: 'bob@example.com' },
-  { id: '3', fullName: 'Claire Petit', email: 'claire@example.com' },
+// TODO: Replace with real organization members hook when available
+// Using test account UUIDs from test-accounts.ts
+const mockTeamMembers: { id: string; fullName: string; email: string }[] = [
+  { id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b02', fullName: 'Jean-Pierre Martin', email: 'owner.pro@test.sedona.ai' },
+  { id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b05', fullName: 'Claire Moreau', email: 'admin.pro@test.sedona.ai' },
+  { id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b08', fullName: 'Emma Leroy', email: 'member.pro@test.sedona.ai' },
 ]
 
 function NewTicketPage() {
   const navigate = useNavigate()
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { organization } = useOrganization()
+  const { data: session } = useSession()
+
+  // Fetch categories from Supabase
+  const { data: categories, isLoading: categoriesLoading } = useActiveCategories(organization?.id || '')
+
+  // Create ticket mutation
+  const createTicketMutation = useCreateTicket(organization?.id || '')
 
   const [formData, setFormData] = useState({
     subject: '',
     description: '',
-    priority: 'normal',
+    priority: 'normal' as TicketPriority,
     categoryId: '',
     assignedTo: '',
     requesterName: '',
@@ -61,13 +63,30 @@ function NewTicketPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    if (!organization?.id) return
 
-    // Navigate to tickets list
-    navigate({ to: '/tickets' })
+    try {
+      await createTicketMutation.mutateAsync({
+        input: {
+          subject: formData.subject,
+          description: formData.description || undefined,
+          priority: formData.priority,
+          categoryId: formData.categoryId || undefined,
+          assignedTo: formData.assignedTo || undefined,
+          requesterName: formData.requesterName || undefined,
+          requesterEmail: formData.requesterEmail || undefined,
+          requesterPhone: formData.requesterPhone || undefined,
+          tags: formData.tags.length > 0 ? formData.tags : undefined,
+        },
+        userId: session?.user?.id,
+      })
+
+      // Navigate to tickets list
+      navigate({ to: '/tickets' })
+    } catch (error) {
+      console.error('Failed to create ticket:', error)
+    }
   }
 
   const addTag = () => {
@@ -186,7 +205,7 @@ function NewTicketPage() {
                   <Label htmlFor="priority">Priorite</Label>
                   <Select
                     value={formData.priority}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value }))}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value as TicketPriority }))}
                   >
                     <SelectTrigger id="priority">
                       <SelectValue />
@@ -213,12 +232,13 @@ function NewTicketPage() {
                   <Select
                     value={formData.categoryId}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, categoryId: value }))}
+                    disabled={categoriesLoading}
                   >
                     <SelectTrigger id="category">
-                      <SelectValue placeholder="Selectionner une categorie" />
+                      <SelectValue placeholder={categoriesLoading ? 'Chargement...' : 'Selectionner une categorie'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockCategories.map(category => (
+                      {(categories || []).map(category => (
                         <SelectItem key={category.id} value={category.id}>
                           <div className="flex items-center gap-2">
                             <div
@@ -292,9 +312,13 @@ function NewTicketPage() {
               </CardContent>
             </Card>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting || !formData.subject}>
-              <Save className="h-4 w-4 mr-2" />
-              {isSubmitting ? 'Creation...' : 'Creer le ticket'}
+            <Button type="submit" className="w-full" disabled={createTicketMutation.isPending || !formData.subject}>
+              {createTicketMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {createTicketMutation.isPending ? 'Creation...' : 'Creer le ticket'}
             </Button>
           </div>
         </div>

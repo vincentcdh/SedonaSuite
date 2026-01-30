@@ -15,19 +15,19 @@ import type {
 // PIPELINES SERVER FUNCTIONS
 // ===========================================
 
-// Helper to get CRM schema client
-function getCrmClient() {
-  return getSupabaseClient().schema('crm')
+// Helper to get Supabase client (public schema)
+function getClient() {
+  return getSupabaseClient()
 }
 
 /**
  * Get all pipelines for an organization
  */
 export async function getPipelines(organizationId: string): Promise<Pipeline[]> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data, error } = await crm
-    .from('pipelines')
+  const { data, error } = await client
+    .from('crm_pipelines')
     .select('*')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -44,10 +44,10 @@ export async function getPipelines(organizationId: string): Promise<Pipeline[]> 
  * Get a single pipeline with stages
  */
 export async function getPipeline(pipelineId: string): Promise<Pipeline | null> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data: pipeline, error: pipelineError } = await crm
-    .from('pipelines')
+  const { data: pipeline, error: pipelineError } = await client
+    .from('crm_pipelines')
     .select('*')
     .eq('id', pipelineId)
     .is('deleted_at', null)
@@ -61,8 +61,8 @@ export async function getPipeline(pipelineId: string): Promise<Pipeline | null> 
   if (!pipeline) return null
 
   // Get stages
-  const { data: stages, error: stagesError } = await crm
-    .from('pipeline_stages')
+  const { data: stages, error: stagesError } = await client
+    .from('crm_pipeline_stages')
     .select('*')
     .eq('pipeline_id', pipelineId)
     .order('position', { ascending: true })
@@ -81,10 +81,10 @@ export async function getPipeline(pipelineId: string): Promise<Pipeline | null> 
  * Get pipeline with stages and deals
  */
 export async function getPipelineWithDeals(pipelineId: string): Promise<Pipeline | null> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data: pipeline, error: pipelineError } = await crm
-    .from('pipelines')
+  const { data: pipeline, error: pipelineError } = await client
+    .from('crm_pipelines')
     .select('*')
     .eq('id', pipelineId)
     .is('deleted_at', null)
@@ -98,8 +98,8 @@ export async function getPipelineWithDeals(pipelineId: string): Promise<Pipeline
   if (!pipeline) return null
 
   // Get stages with deals count
-  const { data: stages, error: stagesError } = await crm
-    .from('pipeline_stages')
+  const { data: stages, error: stagesError } = await client
+    .from('crm_pipeline_stages')
     .select('*')
     .eq('pipeline_id', pipelineId)
     .order('position', { ascending: true })
@@ -112,9 +112,9 @@ export async function getPipelineWithDeals(pipelineId: string): Promise<Pipeline
   const stagesWithDeals = await Promise.all(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (stages || []).map(async (stage: any) => {
-      const { data: deals } = await crm
-        .from('deals')
-        .select('*, contact:contacts(id, first_name, last_name), company:companies(id, name)')
+      const { data: deals } = await client
+        .from('crm_deals')
+        .select('*, contact:crm_contacts(id, first_name, last_name), company:crm_companies(id, name)')
         .eq('stage_id', stage['id'])
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
@@ -189,10 +189,10 @@ export async function getPipelineWithDeals(pipelineId: string): Promise<Pipeline
  * Get default pipeline for an organization
  */
 export async function getDefaultPipeline(organizationId: string): Promise<Pipeline | null> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data, error } = await crm
-    .from('pipelines')
+  const { data, error } = await client
+    .from('crm_pipelines')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('is_default', true)
@@ -214,19 +214,19 @@ export async function createPipeline(
   organizationId: string,
   input: CreatePipelineInput
 ): Promise<Pipeline> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // If this is set as default, unset other defaults first
   if (input.isDefault) {
-    await crm
-      .from('pipelines')
+    await client
+      .from('crm_pipelines')
       .update({ is_default: false })
       .eq('organization_id', organizationId)
   }
 
   // Create pipeline
-  const { data: pipeline, error: pipelineError } = await crm
-    .from('pipelines')
+  const { data: pipeline, error: pipelineError } = await client
+    .from('crm_pipelines')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -251,7 +251,7 @@ export async function createPipeline(
       probability: stage.probability || 0,
     }))
 
-    const { error: stagesError } = await crm.from('pipeline_stages').insert(stagesData)
+    const { error: stagesError } = await client.from('crm_pipeline_stages').insert(stagesData)
 
     if (stagesError) {
       throw new Error(`Failed to create pipeline stages: ${stagesError.message}`)
@@ -284,7 +284,7 @@ export async function createDefaultPipeline(organizationId: string): Promise<Pip
  * Update a pipeline
  */
 export async function updatePipeline(input: UpdatePipelineInput): Promise<Pipeline> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: Record<string, any> = {}
@@ -296,16 +296,16 @@ export async function updatePipeline(input: UpdatePipelineInput): Promise<Pipeli
   if (input.isDefault !== undefined) {
     if (input.isDefault) {
       // Get organization ID first
-      const { data: current } = await crm
-        .from('pipelines')
+      const { data: current } = await client
+        .from('crm_pipelines')
         .select('organization_id')
         .eq('id', input.id)
         .single()
 
       if (current) {
         // Unset other defaults
-        await crm
-          .from('pipelines')
+        await client
+          .from('crm_pipelines')
           .update({ is_default: false })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .eq('organization_id', (current as any)['organization_id'])
@@ -314,7 +314,7 @@ export async function updatePipeline(input: UpdatePipelineInput): Promise<Pipeli
     updateData['is_default'] = input.isDefault
   }
 
-  const { error } = await crm.from('pipelines').update(updateData).eq('id', input.id)
+  const { error } = await client.from('crm_pipelines').update(updateData).eq('id', input.id)
 
   if (error) {
     throw new Error(`Failed to update pipeline: ${error.message}`)
@@ -327,10 +327,10 @@ export async function updatePipeline(input: UpdatePipelineInput): Promise<Pipeli
  * Delete a pipeline (soft delete)
  */
 export async function deletePipeline(pipelineId: string): Promise<void> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { error } = await crm
-    .from('pipelines')
+  const { error } = await client
+    .from('crm_pipelines')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', pipelineId)
 
@@ -350,10 +350,10 @@ export async function createPipelineStage(
   pipelineId: string,
   input: CreatePipelineStageInput
 ): Promise<PipelineStage> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data, error } = await crm
-    .from('pipeline_stages')
+  const { data, error } = await client
+    .from('crm_pipeline_stages')
     .insert({
       pipeline_id: pipelineId,
       name: input.name,
@@ -375,7 +375,7 @@ export async function createPipelineStage(
  * Update a pipeline stage
  */
 export async function updatePipelineStage(input: UpdatePipelineStageInput): Promise<PipelineStage> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: Record<string, any> = {}
@@ -385,8 +385,8 @@ export async function updatePipelineStage(input: UpdatePipelineStageInput): Prom
   if (input.position !== undefined) updateData['position'] = input.position
   if (input.probability !== undefined) updateData['probability'] = input.probability
 
-  const { data, error } = await crm
-    .from('pipeline_stages')
+  const { data, error } = await client
+    .from('crm_pipeline_stages')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -403,11 +403,11 @@ export async function updatePipelineStage(input: UpdatePipelineStageInput): Prom
  * Delete a pipeline stage
  */
 export async function deletePipelineStage(stageId: string): Promise<void> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // Check if there are deals in this stage
-  const { count } = await crm
-    .from('deals')
+  const { count } = await client
+    .from('crm_deals')
     .select('*', { count: 'exact', head: true })
     .eq('stage_id', stageId)
     .is('deleted_at', null)
@@ -416,7 +416,7 @@ export async function deletePipelineStage(stageId: string): Promise<void> {
     throw new Error('Cannot delete stage with deals. Move deals to another stage first.')
   }
 
-  const { error } = await crm.from('pipeline_stages').delete().eq('id', stageId)
+  const { error } = await client.from('crm_pipeline_stages').delete().eq('id', stageId)
 
   if (error) {
     throw new Error(`Failed to delete pipeline stage: ${error.message}`)
@@ -430,18 +430,18 @@ export async function reorderPipelineStages(
   pipelineId: string,
   stageIds: string[]
 ): Promise<PipelineStage[]> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // Update positions
   await Promise.all(
     stageIds.map((id, index) =>
-      crm.from('pipeline_stages').update({ position: index }).eq('id', id)
+      client.from('crm_pipeline_stages').update({ position: index }).eq('id', id)
     )
   )
 
   // Return updated stages
-  const { data, error } = await crm
-    .from('pipeline_stages')
+  const { data, error } = await client
+    .from('crm_pipeline_stages')
     .select('*')
     .eq('pipeline_id', pipelineId)
     .order('position', { ascending: true })
@@ -457,10 +457,10 @@ export async function reorderPipelineStages(
  * Get pipeline count for an organization
  */
 export async function getPipelineCount(organizationId: string): Promise<number> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { count, error } = await crm
-    .from('pipelines')
+  const { count, error } = await client
+    .from('crm_pipelines')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)

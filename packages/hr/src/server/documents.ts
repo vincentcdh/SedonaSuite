@@ -11,10 +11,6 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getHrClient() {
-  return getSupabaseClient().schema('hr' as any) as any
-}
-
 // ===========================================
 // GET DOCUMENTS BY EMPLOYEE
 // ===========================================
@@ -26,8 +22,8 @@ export async function getDocumentsByEmployee(
   const { page = 1, pageSize = 20, sortBy = 'createdAt', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  const { data, error, count } = await getHrClient()
-    .from('employee_documents')
+  const { data, error, count } = await getSupabaseClient()
+    .from('hr_employee_documents')
     .select('*', { count: 'exact' })
     .eq('employee_id', employeeId)
     .is('deleted_at', null)
@@ -50,8 +46,8 @@ export async function getDocumentsByEmployee(
 // ===========================================
 
 export async function getDocumentById(id: string): Promise<EmployeeDocument | null> {
-  const { data, error } = await getHrClient()
-    .from('employee_documents')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employee_documents')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
@@ -74,8 +70,8 @@ export async function createDocument(
   input: CreateDocumentInput,
   userId?: string
 ): Promise<EmployeeDocument> {
-  const { data, error } = await getHrClient()
-    .from('employee_documents')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employee_documents')
     .insert({
       organization_id: organizationId,
       employee_id: input.employeeId,
@@ -110,8 +106,8 @@ export async function updateDocument(input: UpdateDocumentInput): Promise<Employ
   if (input.validUntil !== undefined) updateData.valid_until = input.validUntil
   if (input.notes !== undefined) updateData.notes = input.notes
 
-  const { data, error } = await getHrClient()
-    .from('employee_documents')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employee_documents')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -127,8 +123,8 @@ export async function updateDocument(input: UpdateDocumentInput): Promise<Employ
 // ===========================================
 
 export async function deleteDocument(id: string): Promise<void> {
-  const { error } = await getHrClient()
-    .from('employee_documents')
+  const { error } = await getSupabaseClient()
+    .from('hr_employee_documents')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -146,8 +142,8 @@ export async function getExpiringDocuments(
   const today = new Date()
   const futureDate = new Date(today.getTime() + daysAhead * 24 * 60 * 60 * 1000)
 
-  const { data, error } = await getHrClient()
-    .from('employee_documents')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employee_documents')
     .select('*')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -163,8 +159,8 @@ export async function getExpiringDocuments(
 
   let employees: any[] = []
   if (employeeIds.length > 0) {
-    const { data: employeeData } = await getHrClient()
-      .from('employees')
+    const { data: employeeData } = await getSupabaseClient()
+      .from('hr_employees')
       .select('id, first_name, last_name')
       .in('id', employeeIds)
     employees = employeeData || []

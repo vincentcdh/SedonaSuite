@@ -9,8 +9,8 @@ import type {
   UpdateTaskChecklistItemInput,
 } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -18,8 +18,8 @@ function getProjectsClient() {
 // ===========================================
 
 export async function getTaskChecklistItems(taskId: string): Promise<TaskChecklistItem[]> {
-  const { data, error } = await getProjectsClient()
-    .from('task_checklist_items')
+  const { data, error } = await getClient()
+    .from('projects_task_checklist_items')
     .select('*')
     .eq('task_id', taskId)
     .order('position', { ascending: true })
@@ -35,8 +35,8 @@ export async function getTaskChecklistItems(taskId: string): Promise<TaskCheckli
 
 export async function createTaskChecklistItem(input: CreateTaskChecklistItemInput): Promise<TaskChecklistItem> {
   // Get next position
-  const { data: maxPosition } = await getProjectsClient()
-    .from('task_checklist_items')
+  const { data: maxPosition } = await getClient()
+    .from('projects_task_checklist_items')
     .select('position')
     .eq('task_id', input.taskId)
     .order('position', { ascending: false })
@@ -45,8 +45,8 @@ export async function createTaskChecklistItem(input: CreateTaskChecklistItemInpu
 
   const position = input.position ?? ((maxPosition?.position || 0) + 1)
 
-  const { data, error } = await getProjectsClient()
-    .from('task_checklist_items')
+  const { data, error } = await getClient()
+    .from('projects_task_checklist_items')
     .insert({
       task_id: input.taskId,
       title: input.title,
@@ -83,8 +83,8 @@ export async function updateTaskChecklistItem(
     }
   }
 
-  const { data, error } = await getProjectsClient()
-    .from('task_checklist_items')
+  const { data, error } = await getClient()
+    .from('projects_task_checklist_items')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -100,8 +100,8 @@ export async function updateTaskChecklistItem(
 // ===========================================
 
 export async function deleteTaskChecklistItem(id: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('task_checklist_items')
+  const { error } = await getClient()
+    .from('projects_task_checklist_items')
     .delete()
     .eq('id', id)
 
@@ -114,8 +114,8 @@ export async function deleteTaskChecklistItem(id: string): Promise<void> {
 
 export async function toggleTaskChecklistItem(id: string, userId?: string): Promise<TaskChecklistItem> {
   // Get current state
-  const { data: current } = await getProjectsClient()
-    .from('task_checklist_items')
+  const { data: current } = await getClient()
+    .from('projects_task_checklist_items')
     .select('is_completed')
     .eq('id', id)
     .single()

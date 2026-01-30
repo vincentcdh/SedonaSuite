@@ -12,9 +12,9 @@ import type {
 // ACTIVITIES SERVER FUNCTIONS
 // ===========================================
 
-// Helper to get CRM schema client
-function getCrmClient() {
-  return getSupabaseClient().schema('crm')
+// Helper to get Supabase client (public schema)
+function getClient() {
+  return getSupabaseClient()
 }
 
 /**
@@ -25,12 +25,12 @@ export async function getActivities(
   filters: ActivityFilters = {},
   pagination: PaginationParams = {}
 ): Promise<PaginatedResult<Activity>> {
-  const crm = getCrmClient()
+  const client = getClient()
   const { page = 1, pageSize = 25, sortBy = 'created_at', sortOrder = 'desc' } = pagination
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = crm
-    .from('activities')
+  let query = client
+    .from('crm_activities')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null) as any
@@ -108,14 +108,14 @@ export async function getContactActivities(
   contactId: string,
   pagination: PaginationParams = {}
 ): Promise<PaginatedResult<Activity>> {
-  const crm = getCrmClient()
+  const client = getClient()
   const { page = 1, pageSize = 25 } = pagination
 
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
-  const { data, error, count } = await crm
-    .from('activities')
+  const { data, error, count } = await client
+    .from('crm_activities')
     .select('*', { count: 'exact' })
     .eq('contact_id', contactId)
     .is('deleted_at', null)
@@ -142,14 +142,14 @@ export async function getDealActivities(
   dealId: string,
   pagination: PaginationParams = {}
 ): Promise<PaginatedResult<Activity>> {
-  const crm = getCrmClient()
+  const client = getClient()
   const { page = 1, pageSize = 25 } = pagination
 
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
-  const { data, error, count } = await crm
-    .from('activities')
+  const { data, error, count } = await client
+    .from('crm_activities')
     .select('*', { count: 'exact' })
     .eq('deal_id', dealId)
     .is('deleted_at', null)
@@ -173,10 +173,10 @@ export async function getDealActivities(
  * Get overdue tasks
  */
 export async function getOverdueTasks(organizationId: string): Promise<Activity[]> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data, error } = await crm
-    .from('activities')
+  const { data, error } = await client
+    .from('crm_activities')
     .select('*')
     .eq('organization_id', organizationId)
     .in('type', ['task', 'meeting'])
@@ -199,13 +199,13 @@ export async function getUpcomingTasks(
   organizationId: string,
   days: number = 7
 ): Promise<Activity[]> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   const now = new Date()
   const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
 
-  const { data, error } = await crm
-    .from('activities')
+  const { data, error } = await client
+    .from('crm_activities')
     .select('*')
     .eq('organization_id', organizationId)
     .in('type', ['task', 'meeting'])
@@ -226,10 +226,10 @@ export async function getUpcomingTasks(
  * Get a single activity by ID
  */
 export async function getActivity(activityId: string): Promise<Activity | null> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data, error } = await crm
-    .from('activities')
+  const { data, error } = await client
+    .from('crm_activities')
     .select('*')
     .eq('id', activityId)
     .is('deleted_at', null)
@@ -251,15 +251,15 @@ export async function createActivity(
   userId: string,
   input: CreateActivityInput
 ): Promise<Activity> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // Validate that at least one relation is provided
   if (!input.contactId && !input.companyId && !input.dealId) {
     throw new Error('Activity must be linked to a contact, company, or deal')
   }
 
-  const { data, error } = await crm
-    .from('activities')
+  const { data, error } = await client
+    .from('crm_activities')
     .insert({
       organization_id: organizationId,
       type: input.type,
@@ -286,7 +286,7 @@ export async function createActivity(
  * Update an activity
  */
 export async function updateActivity(input: UpdateActivityInput): Promise<Activity> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: Record<string, any> = {}
@@ -301,8 +301,8 @@ export async function updateActivity(input: UpdateActivityInput): Promise<Activi
   if (input.durationMinutes !== undefined) updateData['duration_minutes'] = input.durationMinutes
   if (input.completedAt !== undefined) updateData['completed_at'] = input.completedAt
 
-  const { data, error } = await crm
-    .from('activities')
+  const { data, error } = await client
+    .from('crm_activities')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -339,10 +339,10 @@ export async function uncompleteActivity(activityId: string): Promise<Activity> 
  * Delete an activity (soft delete)
  */
 export async function deleteActivity(activityId: string): Promise<void> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { error } = await crm
-    .from('activities')
+  const { error } = await client
+    .from('crm_activities')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', activityId)
 
@@ -360,11 +360,11 @@ export async function getActivityStats(organizationId: string): Promise<{
   overdue: number
   byType: Record<string, number>
 }> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // Get all activities
-  const { data: activities, error } = await crm
-    .from('activities')
+  const { data: activities, error } = await client
+    .from('crm_activities')
     .select('type, completed_at, due_date')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)

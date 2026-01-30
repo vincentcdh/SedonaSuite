@@ -10,10 +10,6 @@ import type {
   MessageFilters,
 } from '../types'
 
-function getTicketsClient() {
-  return getSupabaseClient().schema('tickets' as any) as any
-}
-
 // ===========================================
 // GET MESSAGES FOR TICKET
 // ===========================================
@@ -22,8 +18,8 @@ export async function getTicketMessages(
   ticketId: string,
   filters: MessageFilters = {}
 ): Promise<TicketMessage[]> {
-  let query = getTicketsClient()
-    .from('messages')
+  let query = getSupabaseClient()
+    .from('tickets_messages')
     .select('*')
     .eq('ticket_id', ticketId)
     .order('created_at', { ascending: true })
@@ -52,7 +48,7 @@ export async function getTicketMessages(
   const messageIds = (data || []).map((m: any) => m.id)
   let attachments: any[] = []
   if (messageIds.length > 0) {
-    const result = await getTicketsClient().from('attachments').select('*').in('message_id', messageIds)
+    const result = await getSupabaseClient().from('tickets_attachments').select('*').in('message_id', messageIds)
     attachments = result.data || []
   }
 
@@ -93,8 +89,8 @@ export async function createTicketMessage(
   userId?: string,
   authorType: 'agent' | 'customer' = 'agent'
 ): Promise<TicketMessage> {
-  const { data, error } = await getTicketsClient()
-    .from('messages')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_messages')
     .insert({
       ticket_id: input.ticketId,
       author_type: authorType,
@@ -119,8 +115,8 @@ export async function createTicketMessage(
 // ===========================================
 
 export async function updateTicketMessage(input: UpdateMessageInput): Promise<TicketMessage> {
-  const { data, error } = await getTicketsClient()
-    .from('messages')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_messages')
     .update({
       content: input.content,
       edited_at: new Date().toISOString(),
@@ -139,8 +135,8 @@ export async function updateTicketMessage(input: UpdateMessageInput): Promise<Ti
 // ===========================================
 
 export async function deleteTicketMessage(id: string): Promise<void> {
-  const { error } = await getTicketsClient()
-    .from('messages')
+  const { error } = await getSupabaseClient()
+    .from('tickets_messages')
     .delete()
     .eq('id', id)
 

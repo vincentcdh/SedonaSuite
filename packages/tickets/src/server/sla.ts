@@ -10,17 +10,13 @@ import type {
   TicketPriority,
 } from '../types'
 
-function getTicketsClient() {
-  return getSupabaseClient().schema('tickets' as any) as any
-}
-
 // ===========================================
 // GET ALL SLA POLICIES
 // ===========================================
 
 export async function getSlaPolicies(organizationId: string): Promise<SlaPolicy[]> {
-  const { data, error } = await getTicketsClient()
-    .from('sla_policies')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_sla_policies')
     .select('*')
     .eq('organization_id', organizationId)
     .order('is_default', { ascending: false })
@@ -36,8 +32,8 @@ export async function getSlaPolicies(organizationId: string): Promise<SlaPolicy[
 // ===========================================
 
 export async function getActiveSlaPolicies(organizationId: string): Promise<SlaPolicy[]> {
-  const { data, error } = await getTicketsClient()
-    .from('sla_policies')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_sla_policies')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('is_active', true)
@@ -54,8 +50,8 @@ export async function getActiveSlaPolicies(organizationId: string): Promise<SlaP
 // ===========================================
 
 export async function getDefaultSlaPolicy(organizationId: string): Promise<SlaPolicy | null> {
-  const { data, error } = await getTicketsClient()
-    .from('sla_policies')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_sla_policies')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('is_default', true)
@@ -75,8 +71,8 @@ export async function getDefaultSlaPolicy(organizationId: string): Promise<SlaPo
 // ===========================================
 
 export async function getSlaPolicyById(id: string): Promise<SlaPolicy | null> {
-  const { data, error } = await getTicketsClient()
-    .from('sla_policies')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_sla_policies')
     .select('*')
     .eq('id', id)
     .single()
@@ -99,14 +95,14 @@ export async function createSlaPolicy(
 ): Promise<SlaPolicy> {
   // If this is set as default, unset other defaults first
   if (input.isDefault) {
-    await getTicketsClient()
-      .from('sla_policies')
+    await getSupabaseClient()
+      .from('tickets_sla_policies')
       .update({ is_default: false })
       .eq('organization_id', organizationId)
   }
 
-  const { data, error } = await getTicketsClient()
-    .from('sla_policies')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_sla_policies')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -145,8 +141,8 @@ export async function updateSlaPolicy(
 ): Promise<SlaPolicy> {
   // If setting as default, unset other defaults first
   if (input.isDefault && organizationId) {
-    await getTicketsClient()
-      .from('sla_policies')
+    await getSupabaseClient()
+      .from('tickets_sla_policies')
       .update({ is_default: false })
       .eq('organization_id', organizationId)
       .neq('id', input.id)
@@ -172,8 +168,8 @@ export async function updateSlaPolicy(
   if (input.businessDays !== undefined) updateData.business_days = input.businessDays
   if (input.isDefault !== undefined) updateData.is_default = input.isDefault
 
-  const { data, error } = await getTicketsClient()
-    .from('sla_policies')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_sla_policies')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -189,8 +185,8 @@ export async function updateSlaPolicy(
 // ===========================================
 
 export async function deleteSlaPolicy(id: string): Promise<void> {
-  const { error } = await getTicketsClient()
-    .from('sla_policies')
+  const { error } = await getSupabaseClient()
+    .from('tickets_sla_policies')
     .delete()
     .eq('id', id)
 

@@ -17,6 +17,7 @@ import {
   Tag,
   ArrowUpDown,
   MessageSquare,
+  Loader2,
 } from 'lucide-react'
 import {
   Button,
@@ -38,95 +39,12 @@ import {
   Checkbox,
   cn,
 } from '@sedona/ui'
-import type { TicketStatus, TicketPriority } from '@sedona/tickets'
+import { useTickets, type TicketStatus, type TicketPriority } from '@sedona/tickets'
+import { useOrganization } from '@/lib/auth'
 
 export const Route = createFileRoute('/_authenticated/tickets/')({
   component: TicketsListPage,
 })
-
-// Mock tickets data
-const mockTickets = [
-  {
-    id: '1',
-    ticketNumber: 'TKT-001',
-    subject: 'Probleme de connexion a mon compte',
-    status: 'open' as TicketStatus,
-    priority: 'high' as TicketPriority,
-    requesterName: 'Jean Dupont',
-    requesterEmail: 'jean.dupont@example.com',
-    assignee: { id: '1', fullName: 'Alice Martin', avatarUrl: null },
-    category: { id: '1', name: 'Support Technique', color: '#3B82F6' },
-    tags: ['urgent', 'connexion'],
-    createdAt: '2024-02-14T10:30:00Z',
-    updatedAt: '2024-02-14T14:00:00Z',
-    slaBreached: false,
-    messagesCount: 3,
-  },
-  {
-    id: '2',
-    ticketNumber: 'TKT-002',
-    subject: 'Demande de remboursement commande #12345',
-    status: 'in_progress' as TicketStatus,
-    priority: 'normal' as TicketPriority,
-    requesterName: 'Marie Lambert',
-    requesterEmail: 'marie.lambert@example.com',
-    assignee: { id: '2', fullName: 'Bob Durand', avatarUrl: null },
-    category: { id: '2', name: 'Facturation', color: '#10B981' },
-    tags: ['remboursement'],
-    createdAt: '2024-02-13T15:45:00Z',
-    updatedAt: '2024-02-14T09:00:00Z',
-    slaBreached: false,
-    messagesCount: 5,
-  },
-  {
-    id: '3',
-    ticketNumber: 'TKT-003',
-    subject: 'Bug sur la page de paiement',
-    status: 'open' as TicketStatus,
-    priority: 'urgent' as TicketPriority,
-    requesterName: 'Pierre Martin',
-    requesterEmail: 'pierre.martin@example.com',
-    assignee: null,
-    category: { id: '1', name: 'Support Technique', color: '#3B82F6' },
-    tags: ['bug', 'paiement', 'urgent'],
-    createdAt: '2024-02-14T16:00:00Z',
-    updatedAt: '2024-02-14T16:00:00Z',
-    slaBreached: true,
-    messagesCount: 1,
-  },
-  {
-    id: '4',
-    ticketNumber: 'TKT-004',
-    subject: 'Question sur les tarifs entreprise',
-    status: 'waiting' as TicketStatus,
-    priority: 'low' as TicketPriority,
-    requesterName: 'Sophie Bernard',
-    requesterEmail: 'sophie.bernard@example.com',
-    assignee: { id: '1', fullName: 'Alice Martin', avatarUrl: null },
-    category: { id: '3', name: 'Commercial', color: '#F59E0B' },
-    tags: ['tarifs', 'entreprise'],
-    createdAt: '2024-02-12T11:00:00Z',
-    updatedAt: '2024-02-13T16:30:00Z',
-    slaBreached: false,
-    messagesCount: 4,
-  },
-  {
-    id: '5',
-    ticketNumber: 'TKT-005',
-    subject: 'Probleme resolu - Merci !',
-    status: 'resolved' as TicketStatus,
-    priority: 'normal' as TicketPriority,
-    requesterName: 'Lucas Petit',
-    requesterEmail: 'lucas.petit@example.com',
-    assignee: { id: '2', fullName: 'Bob Durand', avatarUrl: null },
-    category: { id: '1', name: 'Support Technique', color: '#3B82F6' },
-    tags: [],
-    createdAt: '2024-02-10T09:00:00Z',
-    updatedAt: '2024-02-11T14:00:00Z',
-    slaBreached: false,
-    messagesCount: 6,
-  },
-]
 
 const statusConfig: Record<TicketStatus, { label: string; icon: typeof Circle; className: string }> = {
   open: { label: 'Ouvert', icon: Circle, className: 'text-blue-500' },
@@ -144,33 +62,27 @@ const priorityConfig: Record<TicketPriority, { label: string; className: string 
 }
 
 function TicketsListPage() {
+  const { organization } = useOrganization()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [selectedTickets, setSelectedTickets] = useState<string[]>([])
 
-  const filteredTickets = mockTickets.filter(ticket => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      if (
-        !ticket.subject.toLowerCase().includes(query) &&
-        !ticket.ticketNumber.toLowerCase().includes(query) &&
-        !ticket.requesterName.toLowerCase().includes(query) &&
-        !ticket.requesterEmail.toLowerCase().includes(query)
-      ) {
-        return false
-      }
+  // Fetch tickets from Supabase
+  const { data: ticketsData, isLoading, error } = useTickets(
+    organization?.id || '',
+    {
+      search: searchQuery || undefined,
+      status: statusFilter !== 'all' ? statusFilter as TicketStatus : undefined,
     }
-    if (statusFilter !== 'all' && ticket.status !== statusFilter) {
-      return false
-    }
-    return true
-  })
+  )
+
+  const tickets = ticketsData?.data || []
 
   const toggleSelectAll = () => {
-    if (selectedTickets.length === filteredTickets.length) {
+    if (selectedTickets.length === tickets.length) {
       setSelectedTickets([])
     } else {
-      setSelectedTickets(filteredTickets.map(t => t.id))
+      setSelectedTickets(tickets.map(t => t.id))
     }
   }
 
@@ -194,6 +106,28 @@ function TicketsListPage() {
     return date.toLocaleDateString('fr-FR')
   }
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 text-center">
+        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-lg font-semibold mb-2">Erreur de chargement</h2>
+        <p className="text-muted-foreground">
+          Impossible de charger les tickets. Veuillez reessayer.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -201,7 +135,7 @@ function TicketsListPage() {
         <div>
           <h1 className="text-2xl font-bold">Tickets</h1>
           <p className="text-muted-foreground">
-            {filteredTickets.length} ticket{filteredTickets.length !== 1 ? 's' : ''}
+            {tickets.length} ticket{tickets.length !== 1 ? 's' : ''}
           </p>
         </div>
         <Link to="/tickets/new">
@@ -273,7 +207,7 @@ function TicketsListPage() {
           {/* Header row */}
           <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 p-4 bg-muted/50 text-sm font-medium">
             <Checkbox
-              checked={selectedTickets.length === filteredTickets.length && filteredTickets.length > 0}
+              checked={selectedTickets.length === tickets.length && tickets.length > 0}
               onCheckedChange={toggleSelectAll}
             />
             <span>Ticket</span>
@@ -284,7 +218,7 @@ function TicketsListPage() {
           </div>
 
           {/* Ticket rows */}
-          {filteredTickets.map(ticket => {
+          {tickets.map(ticket => {
             const StatusIcon = statusConfig[ticket.status].icon
             return (
               <div
@@ -351,10 +285,10 @@ function TicketsListPage() {
                     <div className="flex items-center gap-2">
                       <Avatar className="h-6 w-6">
                         <AvatarFallback className="text-xs">
-                          {ticket.assignee.fullName.split(' ').map(n => n[0]).join('')}
+                          {(ticket.assignee.fullName || ticket.assignee.email || '?').split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm truncate">{ticket.assignee.fullName}</span>
+                      <span className="text-sm truncate">{ticket.assignee.fullName || ticket.assignee.email}</span>
                     </div>
                   ) : (
                     <span className="text-sm text-muted-foreground">Non assigne</span>
@@ -384,7 +318,7 @@ function TicketsListPage() {
             )
           })}
 
-          {filteredTickets.length === 0 && (
+          {tickets.length === 0 && (
             <div className="p-8 text-center text-muted-foreground">
               Aucun ticket trouve
             </div>

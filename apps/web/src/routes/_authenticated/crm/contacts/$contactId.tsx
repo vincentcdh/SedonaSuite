@@ -13,68 +13,27 @@ import {
   MessageSquare,
   FileText,
   CheckSquare,
+  Loader2,
+  User,
 } from 'lucide-react'
+import { useContact, useContactActivities, useCompleteActivity } from '@sedona/crm'
 
 export const Route = createFileRoute('/_authenticated/crm/contacts/$contactId')({
   component: ContactDetailPage,
 })
 
-// Mock contact for demonstration
-const mockContact = {
-  id: '1',
-  firstName: 'Marie',
-  lastName: 'Dupont',
-  email: 'marie.dupont@example.com',
-  phone: '+33 6 12 34 56 78',
-  mobile: '+33 7 12 34 56 78',
-  company: 'Acme Corp',
-  companyId: '1',
-  jobTitle: 'Directrice Marketing',
-  tags: ['client', 'vip'],
-  address: {
-    line1: '123 Rue de la Paix',
-    city: 'Paris',
-    postalCode: '75001',
-    country: 'France',
-  },
-  source: 'Site web',
-  createdAt: '2024-01-15',
-  lastActivity: '2024-12-20',
-}
-
-const mockActivities = [
-  {
-    id: '1',
-    type: 'email',
-    subject: 'Envoi de la proposition commerciale',
-    date: '2024-12-20',
-    completed: true,
-  },
-  {
-    id: '2',
-    type: 'call',
-    subject: 'Appel de suivi',
-    date: '2024-12-18',
-    completed: true,
-  },
-  {
-    id: '3',
-    type: 'meeting',
-    subject: 'Reunion de presentation',
-    date: '2024-12-15',
-    completed: true,
-  },
-  {
-    id: '4',
-    type: 'task',
-    subject: 'Preparer le devis',
-    date: '2024-12-22',
-    completed: false,
-  },
-]
-
 function ContactDetailPage() {
   const { contactId } = Route.useParams()
+
+  // Fetch contact from Supabase
+  const { data: contact, isLoading, error } = useContact(contactId)
+
+  // Fetch contact activities
+  const { data: activitiesData, isLoading: isLoadingActivities } = useContactActivities(contactId)
+  const activities = activitiesData?.data || []
+
+  // Complete activity mutation
+  const completeActivityMutation = useCompleteActivity()
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -90,6 +49,57 @@ function ContactDetailPage() {
         return FileText
     }
   }
+
+  const handleCompleteActivity = (activityId: string) => {
+    completeActivityMutation.mutate(activityId)
+  }
+
+  if (error) {
+    return (
+      <div className="page-container">
+        <Card className="p-8 text-center">
+          <p className="text-red-500">Erreur lors du chargement du contact</p>
+          <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+          <Link to="/crm/contacts" className="mt-4 inline-block">
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour aux contacts
+            </Button>
+          </Link>
+        </Card>
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="page-container flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!contact) {
+    return (
+      <div className="page-container">
+        <Card className="p-8 text-center">
+          <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-lg font-medium">Contact non trouve</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Ce contact n'existe pas ou a ete supprime.
+          </p>
+          <Link to="/crm/contacts" className="mt-4 inline-block">
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour aux contacts
+            </Button>
+          </Link>
+        </Card>
+      </div>
+    )
+  }
+
+  const tags = (contact as any).tags || []
 
   return (
     <div className="page-container">
@@ -119,24 +129,26 @@ function ContactDetailPage() {
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
                 <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl font-medium">
-                  {mockContact.firstName[0]}
-                  {mockContact.lastName[0]}
+                  {contact.firstName?.[0] || ''}
+                  {contact.lastName?.[0] || ''}
                 </div>
                 <div className="flex-1">
                   <h1 className="text-2xl font-bold font-heading">
-                    {mockContact.firstName} {mockContact.lastName}
+                    {contact.firstName} {contact.lastName}
                   </h1>
-                  <p className="text-muted-foreground">{mockContact.jobTitle}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    {mockContact.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+                  <p className="text-muted-foreground">{contact.jobTitle || '-'}</p>
+                  {tags.length > 0 && (
+                    <div className="flex items-center gap-2 mt-2">
+                      {tags.map((tag: any) => (
+                        <span
+                          key={tag.id || tag.name}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                        >
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -155,9 +167,13 @@ function ContactDetailPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Email</p>
-                    <a href={`mailto:${mockContact.email}`} className="text-sm hover:text-primary">
-                      {mockContact.email}
-                    </a>
+                    {contact.email ? (
+                      <a href={`mailto:${contact.email}`} className="text-sm hover:text-primary">
+                        {contact.email}
+                      </a>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -166,38 +182,47 @@ function ContactDetailPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Telephone</p>
-                    <a href={`tel:${mockContact.phone}`} className="text-sm hover:text-primary">
-                      {mockContact.phone}
-                    </a>
+                    {contact.phone ? (
+                      <a href={`tel:${contact.phone}`} className="text-sm hover:text-primary">
+                        {contact.phone}
+                      </a>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-muted">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                {(contact as any).company && (
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-muted">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Entreprise</p>
+                      <Link
+                        to="/crm/companies/$companyId"
+                        params={{ companyId: (contact as any).company.id }}
+                        className="text-sm hover:text-primary"
+                      >
+                        {(contact as any).company.name}
+                      </Link>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Entreprise</p>
-                    <Link
-                      to="/crm/companies/$companyId"
-                      params={{ companyId: mockContact.companyId }}
-                      className="text-sm hover:text-primary"
-                    >
-                      {mockContact.company}
-                    </Link>
+                )}
+                {(contact.addressLine1 || contact.city) && (
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-muted">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Adresse</p>
+                      <p className="text-sm">
+                        {contact.addressLine1 && `${contact.addressLine1}, `}
+                        {contact.postalCode && `${contact.postalCode} `}
+                        {contact.city}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-muted">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Adresse</p>
-                    <p className="text-sm">
-                      {mockContact.address.line1}, {mockContact.address.postalCode}{' '}
-                      {mockContact.address.city}
-                    </p>
-                  </div>
-                </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -212,35 +237,53 @@ function ContactDetailPage() {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {mockActivities.map((activity) => {
-                  const Icon = getActivityIcon(activity.type)
-                  return (
-                    <div
-                      key={activity.id}
-                      className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className={`p-2 rounded-lg ${activity.completed ? 'bg-muted' : 'bg-primary/10'}`}>
-                        <Icon className={`h-4 w-4 ${activity.completed ? 'text-muted-foreground' : 'text-primary'}`} />
+              {isLoadingActivities ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : activities.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">Aucune activite pour ce contact</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {activities.map((activity: any) => {
+                    const Icon = getActivityIcon(activity.type)
+                    return (
+                      <div
+                        key={activity.id}
+                        className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className={`p-2 rounded-lg ${activity.completed ? 'bg-muted' : 'bg-primary/10'}`}>
+                          <Icon className={`h-4 w-4 ${activity.completed ? 'text-muted-foreground' : 'text-primary'}`} />
+                        </div>
+                        <div className="flex-1">
+                          <p className={`text-sm font-medium ${activity.completed ? 'line-through text-muted-foreground' : ''}`}>
+                            {activity.subject}
+                          </p>
+                          {activity.dueDate && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                              <Clock className="h-3 w-3" />
+                              {new Date(activity.dueDate).toLocaleDateString('fr-FR')}
+                            </p>
+                          )}
+                        </div>
+                        {!activity.completed && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCompleteActivity(activity.id)}
+                            disabled={completeActivityMutation.isPending}
+                          >
+                            Terminer
+                          </Button>
+                        )}
                       </div>
-                      <div className="flex-1">
-                        <p className={`text-sm font-medium ${activity.completed ? 'line-through text-muted-foreground' : ''}`}>
-                          {activity.subject}
-                        </p>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                          <Clock className="h-3 w-3" />
-                          {activity.date}
-                        </p>
-                      </div>
-                      {!activity.completed && (
-                        <Button variant="ghost" size="sm">
-                          Terminer
-                        </Button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -280,15 +323,19 @@ function ContactDetailPage() {
             <CardContent className="space-y-4">
               <div>
                 <p className="text-xs text-muted-foreground">Source</p>
-                <p className="text-sm">{mockContact.source}</p>
+                <p className="text-sm">{contact.source || '-'}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Cree le</p>
-                <p className="text-sm">{mockContact.createdAt}</p>
+                <p className="text-sm">
+                  {contact.createdAt ? new Date(contact.createdAt).toLocaleDateString('fr-FR') : '-'}
+                </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Derniere activite</p>
-                <p className="text-sm">{mockContact.lastActivity}</p>
+                <p className="text-xs text-muted-foreground">Derniere modification</p>
+                <p className="text-sm">
+                  {contact.updatedAt ? new Date(contact.updatedAt).toLocaleDateString('fr-FR') : '-'}
+                </p>
               </div>
             </CardContent>
           </Card>

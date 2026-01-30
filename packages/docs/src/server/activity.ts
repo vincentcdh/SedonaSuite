@@ -11,10 +11,6 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getDocsClient() {
-  return getSupabaseClient().schema('docs' as any) as any
-}
-
 // ===========================================
 // GET ACTIVITY LOG
 // ===========================================
@@ -27,8 +23,8 @@ export async function getActivityLog(
   const { page = 1, pageSize = 20, sortBy = 'createdAt', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getDocsClient()
-    .from('activity_log')
+  let query = getSupabaseClient()
+    .from('docs_activity_log')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
 
@@ -93,8 +89,8 @@ export async function getActivityLog(
 
   let files: any[] = []
   if (fileIds.length > 0) {
-    const { data: fileData } = await getDocsClient()
-      .from('files')
+    const { data: fileData } = await getSupabaseClient()
+      .from('docs_files')
       .select('id, name, file_type')
       .in('id', fileIds)
     files = fileData || []
@@ -110,8 +106,8 @@ export async function getActivityLog(
 
   let folders: any[] = []
   if (folderIds.length > 0) {
-    const { data: folderData } = await getDocsClient()
-      .from('folders')
+    const { data: folderData } = await getSupabaseClient()
+      .from('docs_folders')
       .select('id, name')
       .in('id', folderIds)
     folders = folderData || []
@@ -164,8 +160,8 @@ export async function getFileActivity(
   const { page = 1, pageSize = 20 } = pagination
   const offset = (page - 1) * pageSize
 
-  const { data, error, count } = await getDocsClient()
-    .from('activity_log')
+  const { data, error, count } = await getSupabaseClient()
+    .from('docs_activity_log')
     .select('*', { count: 'exact' })
     .eq('file_id', fileId)
     .order('created_at', { ascending: false })
@@ -217,8 +213,8 @@ export async function logDownload(
   fileId: string,
   userId?: string
 ): Promise<void> {
-  await getDocsClient()
-    .from('activity_log')
+  await getSupabaseClient()
+    .from('docs_activity_log')
     .insert({
       organization_id: organizationId,
       action: 'downloaded',

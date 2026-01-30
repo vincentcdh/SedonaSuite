@@ -14,10 +14,6 @@ import type {
   StorageUsage,
 } from '../types'
 
-function getDocsClient() {
-  return getSupabaseClient().schema('docs' as any) as any
-}
-
 // ===========================================
 // GET FILES
 // ===========================================
@@ -30,8 +26,8 @@ export async function getFiles(
   const { page = 1, pageSize = 20, sortBy = 'createdAt', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getDocsClient()
-    .from('files')
+  let query = getSupabaseClient()
+    .from('docs_files')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
 
@@ -93,8 +89,8 @@ export async function getFiles(
 
   let folders: any[] = []
   if (folderIds.length > 0) {
-    const { data: folderData } = await getDocsClient()
-      .from('folders')
+    const { data: folderData } = await getSupabaseClient()
+      .from('docs_folders')
       .select('id, name, path')
       .in('id', folderIds)
     folders = folderData || []
@@ -152,8 +148,8 @@ export async function getFiles(
 // ===========================================
 
 export async function getFileById(id: string, userId?: string): Promise<DocFileWithRelations | null> {
-  const { data, error } = await getDocsClient()
-    .from('files')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_files')
     .select('*')
     .eq('id', id)
     .single()
@@ -168,8 +164,8 @@ export async function getFileById(id: string, userId?: string): Promise<DocFileW
   // Get folder
   let folder = undefined
   if (file.folderId) {
-    const { data: folderData } = await getDocsClient()
-      .from('folders')
+    const { data: folderData } = await getSupabaseClient()
+      .from('docs_folders')
       .select('id, name, path')
       .eq('id', file.folderId)
       .single()
@@ -205,8 +201,8 @@ export async function getFileById(id: string, userId?: string): Promise<DocFileW
   // Check if favorite
   let isFavorite = false
   if (userId) {
-    const { count } = await getDocsClient()
-      .from('favorites')
+    const { count } = await getSupabaseClient()
+      .from('docs_favorites')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('file_id', id)
@@ -231,8 +227,8 @@ export async function createFile(
   input: CreateFileInput,
   userId?: string
 ): Promise<DocFile> {
-  const { data, error } = await getDocsClient()
-    .from('files')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_files')
     .insert({
       organization_id: organizationId,
       folder_id: input.folderId || null,
@@ -271,8 +267,8 @@ export async function updateFile(input: UpdateFileInput): Promise<DocFile> {
   if (input.linkedEntityType !== undefined) updateData.linked_entity_type = input.linkedEntityType
   if (input.linkedEntityId !== undefined) updateData.linked_entity_id = input.linkedEntityId
 
-  const { data, error } = await getDocsClient()
-    .from('files')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_files')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -288,8 +284,8 @@ export async function updateFile(input: UpdateFileInput): Promise<DocFile> {
 // ===========================================
 
 export async function deleteFile(id: string): Promise<void> {
-  const { error } = await getDocsClient()
-    .from('files')
+  const { error } = await getSupabaseClient()
+    .from('docs_files')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -301,8 +297,8 @@ export async function deleteFile(id: string): Promise<void> {
 // ===========================================
 
 export async function restoreFile(id: string): Promise<DocFile> {
-  const { data, error } = await getDocsClient()
-    .from('files')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_files')
     .update({ deleted_at: null })
     .eq('id', id)
     .select()
@@ -319,8 +315,8 @@ export async function restoreFile(id: string): Promise<DocFile> {
 
 export async function deleteFilePermanently(id: string): Promise<void> {
   // First get the storage path to delete from storage
-  const { data: file } = await getDocsClient()
-    .from('files')
+  const { data: file } = await getSupabaseClient()
+    .from('docs_files')
     .select('storage_path')
     .eq('id', id)
     .single()
@@ -331,8 +327,8 @@ export async function deleteFilePermanently(id: string): Promise<void> {
   }
 
   // Delete from database
-  const { error } = await getDocsClient()
-    .from('files')
+  const { error } = await getSupabaseClient()
+    .from('docs_files')
     .delete()
     .eq('id', id)
 
@@ -350,8 +346,8 @@ export async function getDeletedFiles(
   const { page = 1, pageSize = 20, sortBy = 'deletedAt', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  const { data, error, count } = await getDocsClient()
-    .from('files')
+  const { data, error, count } = await getSupabaseClient()
+    .from('docs_files')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .not('deleted_at', 'is', null)
@@ -375,8 +371,8 @@ export async function getDeletedFiles(
 
 export async function emptyTrash(organizationId: string): Promise<void> {
   // Get all files to delete from storage
-  const { data: files } = await getDocsClient()
-    .from('files')
+  const { data: files } = await getSupabaseClient()
+    .from('docs_files')
     .select('storage_path')
     .eq('organization_id', organizationId)
     .not('deleted_at', 'is', null)
@@ -388,8 +384,8 @@ export async function emptyTrash(organizationId: string): Promise<void> {
   }
 
   // Delete files from database
-  const { error: fileError } = await getDocsClient()
-    .from('files')
+  const { error: fileError } = await getSupabaseClient()
+    .from('docs_files')
     .delete()
     .eq('organization_id', organizationId)
     .not('deleted_at', 'is', null)
@@ -397,8 +393,8 @@ export async function emptyTrash(organizationId: string): Promise<void> {
   if (fileError) throw fileError
 
   // Delete folders from database
-  const { error: folderError } = await getDocsClient()
-    .from('folders')
+  const { error: folderError } = await getSupabaseClient()
+    .from('docs_folders')
     .delete()
     .eq('organization_id', organizationId)
     .not('deleted_at', 'is', null)
@@ -414,8 +410,8 @@ export async function getRecentFiles(
   organizationId: string,
   limit: number = 10
 ): Promise<DocFile[]> {
-  const { data, error } = await getDocsClient()
-    .from('files')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_files')
     .select('*')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -435,8 +431,8 @@ export async function getFilesByEntity(
   entityType: string,
   entityId: string
 ): Promise<DocFile[]> {
-  const { data, error } = await getDocsClient()
-    .from('files')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_files')
     .select('*')
     .eq('linked_entity_type', entityType)
     .eq('linked_entity_id', entityId)
@@ -453,8 +449,8 @@ export async function getFilesByEntity(
 // ===========================================
 
 export async function lockFile(fileId: string, userId: string): Promise<DocFile> {
-  const { data, error } = await getDocsClient()
-    .from('files')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_files')
     .update({
       is_locked: true,
       locked_by: userId,
@@ -470,8 +466,8 @@ export async function lockFile(fileId: string, userId: string): Promise<DocFile>
 }
 
 export async function unlockFile(fileId: string): Promise<DocFile> {
-  const { data, error } = await getDocsClient()
-    .from('files')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_files')
     .update({
       is_locked: false,
       locked_by: null,
@@ -491,25 +487,26 @@ export async function unlockFile(fileId: string): Promise<DocFile> {
 // ===========================================
 
 export async function incrementDownloadCount(fileId: string): Promise<void> {
-  const { error } = await getDocsClient()
-    .from('files')
+  const supabase = getSupabaseClient()
+  const { error } = await supabase
+    .from('docs_files')
     .update({
-      download_count: getDocsClient().rpc('increment', { x: 1 }),
+      download_count: supabase.rpc('increment', { x: 1 }),
       last_accessed_at: new Date().toISOString(),
     })
     .eq('id', fileId)
 
   if (error) {
     // Fallback: fetch and update
-    const { data: file } = await getDocsClient()
-      .from('files')
+    const { data: file } = await getSupabaseClient()
+      .from('docs_files')
       .select('download_count')
       .eq('id', fileId)
       .single()
 
     if (file) {
-      await getDocsClient()
-        .from('files')
+      await getSupabaseClient()
+        .from('docs_files')
         .update({
           download_count: (file.download_count || 0) + 1,
           last_accessed_at: new Date().toISOString(),
@@ -525,8 +522,8 @@ export async function incrementDownloadCount(fileId: string): Promise<void> {
 
 export async function getStorageUsage(organizationId: string): Promise<StorageUsage> {
   // Get total size of files
-  const { data: filesData, error: filesError } = await getDocsClient()
-    .from('files')
+  const { data: filesData, error: filesError } = await getSupabaseClient()
+    .from('docs_files')
     .select('size_bytes')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -536,15 +533,15 @@ export async function getStorageUsage(organizationId: string): Promise<StorageUs
   const usedBytes = (filesData || []).reduce((sum: number, f: any) => sum + (f.size_bytes || 0), 0)
 
   // Get file count
-  const { count: fileCount } = await getDocsClient()
-    .from('files')
+  const { count: fileCount } = await getSupabaseClient()
+    .from('docs_files')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
 
   // Get folder count
-  const { count: folderCount } = await getDocsClient()
-    .from('folders')
+  const { count: folderCount } = await getSupabaseClient()
+    .from('docs_folders')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -552,8 +549,8 @@ export async function getStorageUsage(organizationId: string): Promise<StorageUs
   // Default limit: 1GB for FREE, can be overridden in settings
   const defaultLimitBytes = 1024 * 1024 * 1024 // 1 GB
 
-  const { data: settings } = await getDocsClient()
-    .from('settings')
+  const { data: settings } = await getSupabaseClient()
+    .from('docs_settings')
     .select('max_storage_bytes')
     .eq('organization_id', organizationId)
     .single()
@@ -582,8 +579,8 @@ export async function searchFiles(
   const { page = 1, pageSize = 20 } = pagination
   const offset = (page - 1) * pageSize
 
-  const { data, error, count } = await getDocsClient()
-    .from('files')
+  const { data, error, count } = await getSupabaseClient()
+    .from('docs_files')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)

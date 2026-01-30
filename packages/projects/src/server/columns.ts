@@ -4,8 +4,8 @@
 
 import { getSupabaseClient } from '@sedona/database'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -42,8 +42,8 @@ export interface UpdateColumnInput {
 // ===========================================
 
 export async function getTaskColumns(projectId: string): Promise<TaskColumn[]> {
-  const { data, error } = await getProjectsClient()
-    .from('task_columns')
+  const { data, error } = await getClient()
+    .from('projects_task_columns')
     .select('*')
     .eq('project_id', projectId)
     .order('position', { ascending: true })
@@ -54,8 +54,8 @@ export async function getTaskColumns(projectId: string): Promise<TaskColumn[]> {
 }
 
 export async function getTaskColumnById(id: string): Promise<TaskColumn | null> {
-  const { data, error } = await getProjectsClient()
-    .from('task_columns')
+  const { data, error } = await getClient()
+    .from('projects_task_columns')
     .select('*')
     .eq('id', id)
     .single()
@@ -72,8 +72,8 @@ export async function createTaskColumn(input: CreateColumnInput): Promise<TaskCo
   // Get max position if not provided
   let position = input.position
   if (position === undefined) {
-    const { data: columns } = await getProjectsClient()
-      .from('task_columns')
+    const { data: columns } = await getClient()
+      .from('projects_task_columns')
       .select('position')
       .eq('project_id', input.projectId)
       .order('position', { ascending: false })
@@ -82,8 +82,8 @@ export async function createTaskColumn(input: CreateColumnInput): Promise<TaskCo
     position = columns && columns.length > 0 ? columns[0].position + 1 : 0
   }
 
-  const { data, error } = await getProjectsClient()
-    .from('task_columns')
+  const { data, error } = await getClient()
+    .from('projects_task_columns')
     .insert({
       project_id: input.projectId,
       name: input.name,
@@ -105,8 +105,8 @@ export async function updateTaskColumn(input: UpdateColumnInput): Promise<TaskCo
   if (input.color !== undefined) updateData['color'] = input.color
   if (input.position !== undefined) updateData['position'] = input.position
 
-  const { data, error } = await getProjectsClient()
-    .from('task_columns')
+  const { data, error } = await getClient()
+    .from('projects_task_columns')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -119,8 +119,8 @@ export async function updateTaskColumn(input: UpdateColumnInput): Promise<TaskCo
 
 export async function deleteTaskColumn(id: string): Promise<void> {
   // Check if column is system column
-  const { data: column } = await getProjectsClient()
-    .from('task_columns')
+  const { data: column } = await getClient()
+    .from('projects_task_columns')
     .select('is_system')
     .eq('id', id)
     .single()
@@ -130,8 +130,8 @@ export async function deleteTaskColumn(id: string): Promise<void> {
   }
 
   // Check if column has tasks
-  const { count } = await getProjectsClient()
-    .from('tasks')
+  const { count } = await getClient()
+    .from('projects_tasks')
     .select('*', { count: 'exact', head: true })
     .eq('column_id', id)
     .is('deleted_at', null)
@@ -140,8 +140,8 @@ export async function deleteTaskColumn(id: string): Promise<void> {
     throw new Error('Cannot delete column with tasks')
   }
 
-  const { error } = await getProjectsClient()
-    .from('task_columns')
+  const { error } = await getClient()
+    .from('projects_task_columns')
     .delete()
     .eq('id', id)
 
@@ -159,8 +159,8 @@ export async function reorderTaskColumns(
   }))
 
   for (const update of updates) {
-    await getProjectsClient()
-      .from('task_columns')
+    await getClient()
+      .from('projects_task_columns')
       .update({ position: update.position })
       .eq('id', update.id)
   }

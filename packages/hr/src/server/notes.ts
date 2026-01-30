@@ -12,10 +12,6 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getHrClient() {
-  return getSupabaseClient().schema('hr' as any) as any
-}
-
 // ===========================================
 // GET NOTES BY EMPLOYEE
 // ===========================================
@@ -27,8 +23,8 @@ export async function getNotesByEmployee(
   const { page = 1, pageSize = 20, sortBy = 'createdAt', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  const { data, error, count } = await getHrClient()
-    .from('employee_notes')
+  const { data, error, count } = await getSupabaseClient()
+    .from('hr_employee_notes')
     .select('*', { count: 'exact' })
     .eq('employee_id', employeeId)
     .is('deleted_at', null)
@@ -77,8 +73,8 @@ export async function getNotesByEmployee(
 // ===========================================
 
 export async function getNoteById(id: string): Promise<EmployeeNoteWithAuthor | null> {
-  const { data, error } = await getHrClient()
-    .from('employee_notes')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employee_notes')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
@@ -125,8 +121,8 @@ export async function createNote(
   input: CreateEmployeeNoteInput,
   userId?: string
 ): Promise<EmployeeNote> {
-  const { data, error } = await getHrClient()
-    .from('employee_notes')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employee_notes')
     .insert({
       organization_id: organizationId,
       employee_id: input.employeeId,
@@ -154,8 +150,8 @@ export async function updateNote(input: UpdateEmployeeNoteInput): Promise<Employ
   if (input.content !== undefined) updateData.content = input.content
   if (input.isPrivate !== undefined) updateData.is_private = input.isPrivate
 
-  const { data, error } = await getHrClient()
-    .from('employee_notes')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employee_notes')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -171,8 +167,8 @@ export async function updateNote(input: UpdateEmployeeNoteInput): Promise<Employ
 // ===========================================
 
 export async function deleteNote(id: string): Promise<void> {
-  const { error } = await getHrClient()
-    .from('employee_notes')
+  const { error } = await getSupabaseClient()
+    .from('hr_employee_notes')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 

@@ -14,8 +14,9 @@ import type {
   CreateLineItemInput,
 } from '../types'
 
-function getInvoiceClient() {
-  return getSupabaseClient().schema('invoice' as any) as any
+// Helper to get Supabase client (public schema)
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -30,11 +31,11 @@ export async function getQuotes(
   const { page = 1, pageSize = 20, sortBy = 'issueDate', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getInvoiceClient()
-    .from('quotes')
+  let query = getClient()
+    .from('invoice_quotes')
     .select(`
       *,
-      client:clients(*)
+      client:invoice_clients(*)
     `, { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -81,11 +82,11 @@ export async function getQuotes(
 // ===========================================
 
 export async function getQuoteById(id: string): Promise<Quote | null> {
-  const { data, error } = await getInvoiceClient()
-    .from('quotes')
+  const { data, error } = await getClient()
+    .from('invoice_quotes')
     .select(`
       *,
-      client:clients(*)
+      client:invoice_clients(*)
     `)
     .eq('id', id)
     .is('deleted_at', null)
@@ -97,8 +98,8 @@ export async function getQuoteById(id: string): Promise<Quote | null> {
   }
 
   // Get line items
-  const { data: lineItems } = await getInvoiceClient()
-    .from('line_items')
+  const { data: lineItems } = await getClient()
+    .from('invoice_line_items')
     .select('*')
     .eq('document_type', 'quote')
     .eq('document_id', id)
@@ -119,14 +120,25 @@ export async function createQuote(
   input: CreateQuoteInput,
   userId?: string
 ): Promise<Quote> {
-  // Generate quote number
-  const { data: numberData } = await getSupabaseClient()
-    .rpc('invoice.get_next_number', {
-      p_organization_id: organizationId,
-      p_type: 'quote'
-    })
+  const client = getClient()
 
-  const quoteNumber = numberData || `DEV-${Date.now()}`
+  // Generate quote number by querying existing quotes
+  const { data: lastQuote } = await client
+    .from('invoice_quotes')
+    .select('quote_number')
+    .eq('organization_id', organizationId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  let nextNumber = 1
+  if (lastQuote?.quote_number) {
+    const match = (lastQuote.quote_number as string).match(/(\d+)$/)
+    if (match) {
+      nextNumber = parseInt(match[1], 10) + 1
+    }
+  }
+  const quoteNumber = `DEV-${String(nextNumber).padStart(4, '0')}`
 
   const issueDate = input.issueDate || new Date().toISOString().split('T')[0]
 
@@ -138,8 +150,8 @@ export async function createQuote(
     validUntil = validUntilDate.toISOString().split('T')[0]
   }
 
-  const { data, error } = await getInvoiceClient()
-    .from('quotes')
+  const { data, error } = await client
+    .from('invoice_quotes')
     .insert({
       organization_id: organizationId,
       client_id: input.clientId,
@@ -160,7 +172,7 @@ export async function createQuote(
     })
     .select(`
       *,
-      client:clients(*)
+      client:invoice_clients(*)
     `)
     .single()
 
@@ -203,8 +215,8 @@ export async function updateQuote(input: UpdateQuoteInput): Promise<Quote> {
     updateData.rejected_at = new Date().toISOString()
   }
 
-  const { error } = await getInvoiceClient()
-    .from('quotes')
+  const { error } = await getClient()
+    .from('invoice_quotes')
     .update(updateData)
     .eq('id', input.id)
 
@@ -218,8 +230,8 @@ export async function updateQuote(input: UpdateQuoteInput): Promise<Quote> {
 // ===========================================
 
 export async function deleteQuote(id: string): Promise<void> {
-  const { error } = await getInvoiceClient()
-    .from('quotes')
+  const { error } = await getClient()
+    .from('invoice_quotes')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -292,8 +304,8 @@ export async function convertQuoteToInvoice(
   )
 
   // Update quote status
-  const { error } = await getInvoiceClient()
-    .from('quotes')
+  const { error } = await getClient()
+    .from('invoice_quotes')
     .update({
       status: 'converted',
       converted_to_invoice_id: invoice.id,
@@ -333,8 +345,8 @@ async function createLineItems(
     vat_rate: item.vatRate ?? 20,
   }))
 
-  const { error } = await getInvoiceClient()
-    .from('line_items')
+  const { error } = await getClient()
+    .from('invoice_line_items')
     .insert(lineItems)
 
   if (error) throw error
@@ -344,8 +356,10 @@ async function recalculateDocumentTotals(
   documentType: 'quote' | 'invoice' | 'credit_note',
   documentId: string
 ): Promise<void> {
-  const { data: lineItems } = await getInvoiceClient()
-    .from('line_items')
+  const client = getClient()
+
+  const { data: lineItems } = await client
+    .from('invoice_line_items')
     .select('line_total, vat_amount')
     .eq('document_type', documentType)
     .eq('document_id', documentId)
@@ -355,8 +369,16 @@ async function recalculateDocumentTotals(
   const subtotal = lineItems.reduce((sum, item) => sum + Number(item.line_total), 0)
   const vatAmount = lineItems.reduce((sum, item) => sum + Number(item.vat_amount), 0)
 
-  const { data: doc } = await getInvoiceClient()
-    .from('quotes')
+  // Get the table name based on document type
+  const tableMap: Record<string, string> = {
+    invoice: 'invoice_invoices',
+    quote: 'invoice_quotes',
+    credit_note: 'invoice_credit_notes',
+  }
+  const tableName = tableMap[documentType]
+
+  const { data: doc } = await client
+    .from(tableName)
     .select('discount_amount')
     .eq('id', documentId)
     .single()
@@ -364,8 +386,8 @@ async function recalculateDocumentTotals(
   const discountAmount = doc?.discount_amount || 0
   const total = subtotal + vatAmount - discountAmount
 
-  await getInvoiceClient()
-    .from('quotes')
+  await client
+    .from(tableName)
     .update({ subtotal, vat_amount: vatAmount, total })
     .eq('id', documentId)
 }
@@ -378,8 +400,10 @@ export async function addQuoteLineItem(
   quoteId: string,
   input: CreateLineItemInput
 ): Promise<LineItem> {
-  const { data: existing } = await getInvoiceClient()
-    .from('line_items')
+  const client = getClient()
+
+  const { data: existing } = await client
+    .from('invoice_line_items')
     .select('position')
     .eq('document_type', 'quote')
     .eq('document_id', quoteId)
@@ -388,8 +412,8 @@ export async function addQuoteLineItem(
 
   const position = existing && existing.length > 0 ? (existing[0].position as number) + 1 : 0
 
-  const { data, error } = await getInvoiceClient()
-    .from('line_items')
+  const { data, error } = await client
+    .from('invoice_line_items')
     .insert({
       document_type: 'quote',
       document_id: quoteId,
@@ -418,14 +442,16 @@ export async function addQuoteLineItem(
 // ===========================================
 
 export async function deleteQuoteLineItem(lineItemId: string): Promise<void> {
-  const { data: lineItem } = await getInvoiceClient()
-    .from('line_items')
+  const client = getClient()
+
+  const { data: lineItem } = await client
+    .from('invoice_line_items')
     .select('document_id')
     .eq('id', lineItemId)
     .single()
 
-  const { error } = await getInvoiceClient()
-    .from('line_items')
+  const { error } = await client
+    .from('invoice_line_items')
     .delete()
     .eq('id', lineItemId)
 

@@ -12,9 +12,9 @@ import type {
 // CONTACTS SERVER FUNCTIONS
 // ===========================================
 
-// Helper to get CRM schema client
-function getCrmClient() {
-  return getSupabaseClient().schema('crm')
+// Helper to get Supabase client
+function getClient() {
+  return getSupabaseClient()
 }
 
 /**
@@ -25,13 +25,13 @@ export async function getContacts(
   filters: ContactFilters = {},
   pagination: PaginationParams = {}
 ): Promise<PaginatedResult<Contact>> {
-  const crm = getCrmClient()
+  const client = getClient()
   const { page = 1, pageSize = 25, sortBy = 'created_at', sortOrder = 'desc' } = pagination
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = crm
-    .from('contacts')
-    .select('*, company:companies(*)', { count: 'exact' })
+  let query = client
+    .from('crm_contacts')
+    .select('*, company:crm_companies(*)', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null) as any
 
@@ -101,11 +101,11 @@ export async function getContacts(
  * Get a single contact by ID
  */
 export async function getContact(contactId: string): Promise<Contact | null> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data, error } = await crm
-    .from('contacts')
-    .select('*, company:companies(*)')
+  const { data, error } = await client
+    .from('crm_contacts')
+    .select('*, company:crm_companies(*)')
     .eq('id', contactId)
     .is('deleted_at', null)
     .single()
@@ -125,10 +125,10 @@ export async function createContact(
   organizationId: string,
   input: CreateContactInput
 ): Promise<Contact> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data, error } = await crm
-    .from('contacts')
+  const { data, error } = await client
+    .from('crm_contacts')
     .insert({
       organization_id: organizationId,
       first_name: input.firstName,
@@ -149,7 +149,7 @@ export async function createContact(
       tags: input.tags || [],
       owner_id: input.ownerId,
     })
-    .select('*, company:companies(*)')
+    .select('*, company:crm_companies(*)')
     .single()
 
   if (error) {
@@ -163,7 +163,7 @@ export async function createContact(
  * Update a contact
  */
 export async function updateContact(input: UpdateContactInput): Promise<Contact> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: Record<string, any> = {}
@@ -186,11 +186,11 @@ export async function updateContact(input: UpdateContactInput): Promise<Contact>
   if (input.tags !== undefined) updateData['tags'] = input.tags
   if (input.ownerId !== undefined) updateData['owner_id'] = input.ownerId
 
-  const { data, error } = await crm
-    .from('contacts')
+  const { data, error } = await client
+    .from('crm_contacts')
     .update(updateData)
     .eq('id', input.id)
-    .select('*, company:companies(*)')
+    .select('*, company:crm_companies(*)')
     .single()
 
   if (error) {
@@ -204,10 +204,10 @@ export async function updateContact(input: UpdateContactInput): Promise<Contact>
  * Delete a contact (soft delete)
  */
 export async function deleteContact(contactId: string): Promise<void> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { error } = await crm
-    .from('contacts')
+  const { error } = await client
+    .from('crm_contacts')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', contactId)
 
@@ -220,10 +220,10 @@ export async function deleteContact(contactId: string): Promise<void> {
  * Bulk delete contacts
  */
 export async function bulkDeleteContacts(contactIds: string[]): Promise<void> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { error } = await crm
-    .from('contacts')
+  const { error } = await client
+    .from('crm_contacts')
     .update({ deleted_at: new Date().toISOString() })
     .in('id', contactIds)
 
@@ -236,11 +236,11 @@ export async function bulkDeleteContacts(contactIds: string[]): Promise<void> {
  * Add tags to a contact
  */
 export async function addContactTags(contactId: string, tags: string[]): Promise<Contact> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // Get current tags
-  const { data: contact } = await crm
-    .from('contacts')
+  const { data: contact } = await client
+    .from('crm_contacts')
     .select('tags')
     .eq('id', contactId)
     .single()
@@ -249,11 +249,11 @@ export async function addContactTags(contactId: string, tags: string[]): Promise
   const currentTags = ((contact as any)?.tags as string[]) || []
   const newTags = [...new Set([...currentTags, ...tags])]
 
-  const { data, error } = await crm
-    .from('contacts')
+  const { data, error } = await client
+    .from('crm_contacts')
     .update({ tags: newTags })
     .eq('id', contactId)
-    .select('*, company:companies(*)')
+    .select('*, company:crm_companies(*)')
     .single()
 
   if (error) {
@@ -267,11 +267,11 @@ export async function addContactTags(contactId: string, tags: string[]): Promise
  * Remove tags from a contact
  */
 export async function removeContactTags(contactId: string, tags: string[]): Promise<Contact> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // Get current tags
-  const { data: contact } = await crm
-    .from('contacts')
+  const { data: contact } = await client
+    .from('crm_contacts')
     .select('tags')
     .eq('id', contactId)
     .single()
@@ -280,11 +280,11 @@ export async function removeContactTags(contactId: string, tags: string[]): Prom
   const currentTags = ((contact as any)?.tags as string[]) || []
   const newTags = currentTags.filter((t) => !tags.includes(t))
 
-  const { data, error } = await crm
-    .from('contacts')
+  const { data, error } = await client
+    .from('crm_contacts')
     .update({ tags: newTags })
     .eq('id', contactId)
-    .select('*, company:companies(*)')
+    .select('*, company:crm_companies(*)')
     .single()
 
   if (error) {
@@ -298,10 +298,10 @@ export async function removeContactTags(contactId: string, tags: string[]): Prom
  * Get contact count for an organization
  */
 export async function getContactCount(organizationId: string): Promise<number> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { count, error } = await crm
-    .from('contacts')
+  const { count, error } = await client
+    .from('crm_contacts')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)

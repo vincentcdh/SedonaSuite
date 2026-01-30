@@ -24,17 +24,13 @@ import type {
   LeaveBalance,
 } from '../types'
 
-function getHrClient() {
-  return getSupabaseClient().schema('hr' as any) as any
-}
-
 // ===========================================
 // LEAVE TYPES
 // ===========================================
 
 export async function getLeaveTypes(organizationId: string): Promise<LeaveType[]> {
-  const { data, error } = await getHrClient()
-    .from('leave_types')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_leave_types')
     .select('*')
     .eq('organization_id', organizationId)
     .order('name', { ascending: true })
@@ -45,8 +41,8 @@ export async function getLeaveTypes(organizationId: string): Promise<LeaveType[]
 }
 
 export async function getLeaveTypeById(id: string): Promise<LeaveType | null> {
-  const { data, error } = await getHrClient()
-    .from('leave_types')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_leave_types')
     .select('*')
     .eq('id', id)
     .single()
@@ -63,8 +59,8 @@ export async function createLeaveType(
   organizationId: string,
   input: CreateLeaveTypeInput
 ): Promise<LeaveType> {
-  const { data, error } = await getHrClient()
-    .from('leave_types')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_leave_types')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -93,8 +89,8 @@ export async function updateLeaveType(input: UpdateLeaveTypeInput): Promise<Leav
   if (input.requiresApproval !== undefined) updateData.requires_approval = input.requiresApproval
   if (input.deductsFromBalance !== undefined) updateData.deducts_from_balance = input.deductsFromBalance
 
-  const { data, error } = await getHrClient()
-    .from('leave_types')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_leave_types')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -106,8 +102,8 @@ export async function updateLeaveType(input: UpdateLeaveTypeInput): Promise<Leav
 }
 
 export async function deleteLeaveType(id: string): Promise<void> {
-  const { error } = await getHrClient()
-    .from('leave_types')
+  const { error } = await getSupabaseClient()
+    .from('hr_leave_types')
     .delete()
     .eq('id', id)
     .eq('is_system', false)
@@ -127,8 +123,8 @@ export async function getLeaveRequests(
   const { page = 1, pageSize = 20, sortBy = 'createdAt', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getHrClient()
-    .from('leave_requests')
+  let query = getSupabaseClient()
+    .from('hr_leave_requests')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -171,10 +167,10 @@ export async function getLeaveRequests(
 
   const [employees, leaveTypes, approvers] = await Promise.all([
     employeeIds.length > 0
-      ? getHrClient().from('employees').select('id, first_name, last_name, photo_url').in('id', employeeIds)
+      ? getSupabaseClient().from('hr_employees').select('id, first_name, last_name, photo_url').in('id', employeeIds)
       : { data: [] },
     leaveTypeIds.length > 0
-      ? getHrClient().from('leave_types').select('*').in('id', leaveTypeIds)
+      ? getSupabaseClient().from('hr_leave_types').select('*').in('id', leaveTypeIds)
       : { data: [] },
     approverIds.length > 0
       ? getSupabaseClient().from('users').select('id, email, full_name').in('id', approverIds)
@@ -226,8 +222,8 @@ export async function getLeaveRequests(
 }
 
 export async function getLeaveRequestById(id: string): Promise<LeaveRequestWithRelations | null> {
-  const { data, error } = await getHrClient()
-    .from('leave_requests')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_leave_requests')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
@@ -242,13 +238,13 @@ export async function getLeaveRequestById(id: string): Promise<LeaveRequestWithR
 
   // Get related data
   const [employeeResult, leaveTypeResult] = await Promise.all([
-    getHrClient()
-      .from('employees')
+    getSupabaseClient()
+      .from('hr_employees')
       .select('id, first_name, last_name, photo_url')
       .eq('id', request.employeeId)
       .single(),
-    getHrClient()
-      .from('leave_types')
+    getSupabaseClient()
+      .from('hr_leave_types')
       .select('*')
       .eq('id', request.leaveTypeId)
       .single(),
@@ -292,8 +288,8 @@ export async function createLeaveRequest(
   input: CreateLeaveRequestInput,
   userId?: string
 ): Promise<LeaveRequest> {
-  const { data, error } = await getHrClient()
-    .from('leave_requests')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_leave_requests')
     .insert({
       organization_id: organizationId,
       employee_id: input.employeeId,
@@ -324,8 +320,8 @@ export async function updateLeaveRequest(input: UpdateLeaveRequestInput): Promis
   if (input.endHalfDay !== undefined) updateData.end_half_day = input.endHalfDay
   if (input.reason !== undefined) updateData.reason = input.reason
 
-  const { data, error } = await getHrClient()
-    .from('leave_requests')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_leave_requests')
     .update(updateData)
     .eq('id', input.id)
     .eq('status', 'pending') // Can only update pending requests
@@ -341,8 +337,8 @@ export async function approveLeaveRequest(
   input: ApproveLeaveRequestInput,
   userId: string
 ): Promise<LeaveRequest> {
-  const { data, error } = await getHrClient()
-    .from('leave_requests')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_leave_requests')
     .update({
       status: 'approved',
       approved_by: userId,
@@ -361,8 +357,8 @@ export async function approveLeaveRequest(
 
   if (leaveType?.deductsFromBalance) {
     // Get current employee balance and deduct
-    const { data: employee } = await getHrClient()
-      .from('employees')
+    const { data: employee } = await getSupabaseClient()
+      .from('hr_employees')
       .select('annual_leave_balance, rtt_balance')
       .eq('id', request.employeeId)
       .single()
@@ -376,8 +372,8 @@ export async function approveLeaveRequest(
       }
 
       if (Object.keys(updateData).length > 0) {
-        await getHrClient()
-          .from('employees')
+        await getSupabaseClient()
+          .from('hr_employees')
           .update(updateData)
           .eq('id', request.employeeId)
       }
@@ -391,8 +387,8 @@ export async function rejectLeaveRequest(
   input: RejectLeaveRequestInput,
   userId: string
 ): Promise<LeaveRequest> {
-  const { data, error } = await getHrClient()
-    .from('leave_requests')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_leave_requests')
     .update({
       status: 'rejected',
       approved_by: userId,
@@ -414,8 +410,8 @@ export async function cancelLeaveRequest(id: string): Promise<LeaveRequest> {
   const request = await getLeaveRequestById(id)
   if (!request) throw new Error('Leave request not found')
 
-  const { data, error } = await getHrClient()
-    .from('leave_requests')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_leave_requests')
     .update({
       status: 'canceled',
     })
@@ -427,8 +423,8 @@ export async function cancelLeaveRequest(id: string): Promise<LeaveRequest> {
 
   // Restore balance if the request was approved
   if (request.status === 'approved' && request.leaveType?.deductsFromBalance) {
-    const { data: employee } = await getHrClient()
-      .from('employees')
+    const { data: employee } = await getSupabaseClient()
+      .from('hr_employees')
       .select('annual_leave_balance, rtt_balance')
       .eq('id', request.employeeId)
       .single()
@@ -442,8 +438,8 @@ export async function cancelLeaveRequest(id: string): Promise<LeaveRequest> {
       }
 
       if (Object.keys(updateData).length > 0) {
-        await getHrClient()
-          .from('employees')
+        await getSupabaseClient()
+          .from('hr_employees')
           .update(updateData)
           .eq('id', request.employeeId)
       }
@@ -454,8 +450,8 @@ export async function cancelLeaveRequest(id: string): Promise<LeaveRequest> {
 }
 
 export async function deleteLeaveRequest(id: string): Promise<void> {
-  const { error } = await getHrClient()
-    .from('leave_requests')
+  const { error } = await getSupabaseClient()
+    .from('hr_leave_requests')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -474,8 +470,8 @@ export async function getAbsences(
   const { page = 1, pageSize = 20, sortBy = 'startDate', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getHrClient()
-    .from('absences')
+  let query = getSupabaseClient()
+    .from('hr_absences')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -510,10 +506,10 @@ export async function getAbsences(
 
   const [employees, leaveTypes] = await Promise.all([
     employeeIds.length > 0
-      ? getHrClient().from('employees').select('id, first_name, last_name, photo_url').in('id', employeeIds)
+      ? getSupabaseClient().from('hr_employees').select('id, first_name, last_name, photo_url').in('id', employeeIds)
       : { data: [] },
     leaveTypeIds.length > 0
-      ? getHrClient().from('leave_types').select('*').in('id', leaveTypeIds)
+      ? getSupabaseClient().from('hr_leave_types').select('*').in('id', leaveTypeIds)
       : { data: [] },
   ])
 
@@ -550,8 +546,8 @@ export async function getAbsences(
 }
 
 export async function getAbsenceById(id: string): Promise<AbsenceWithRelations | null> {
-  const { data, error } = await getHrClient()
-    .from('absences')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_absences')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
@@ -566,13 +562,13 @@ export async function getAbsenceById(id: string): Promise<AbsenceWithRelations |
 
   // Get related data
   const [employeeResult, leaveTypeResult] = await Promise.all([
-    getHrClient()
-      .from('employees')
+    getSupabaseClient()
+      .from('hr_employees')
       .select('id, first_name, last_name, photo_url')
       .eq('id', absence.employeeId)
       .single(),
-    getHrClient()
-      .from('leave_types')
+    getSupabaseClient()
+      .from('hr_leave_types')
       .select('*')
       .eq('id', absence.leaveTypeId)
       .single(),
@@ -604,8 +600,8 @@ export async function createAbsence(
   const endDate = new Date(input.endDate)
   const daysCount = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
 
-  const { data, error } = await getHrClient()
-    .from('absences')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_absences')
     .insert({
       organization_id: organizationId,
       employee_id: input.employeeId,
@@ -636,8 +632,8 @@ export async function updateAbsence(input: UpdateAbsenceInput): Promise<Absence>
 
   // Recalculate days if dates changed
   if (input.startDate !== undefined || input.endDate !== undefined) {
-    const { data: current } = await getHrClient()
-      .from('absences')
+    const { data: current } = await getSupabaseClient()
+      .from('hr_absences')
       .select('start_date, end_date')
       .eq('id', input.id)
       .single()
@@ -647,8 +643,8 @@ export async function updateAbsence(input: UpdateAbsenceInput): Promise<Absence>
     updateData.days_count = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
   }
 
-  const { data, error } = await getHrClient()
-    .from('absences')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_absences')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -660,8 +656,8 @@ export async function updateAbsence(input: UpdateAbsenceInput): Promise<Absence>
 }
 
 export async function deleteAbsence(id: string): Promise<void> {
-  const { error } = await getHrClient()
-    .from('absences')
+  const { error } = await getSupabaseClient()
+    .from('hr_absences')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -674,8 +670,8 @@ export async function deleteAbsence(id: string): Promise<void> {
 
 export async function getLeaveBalance(employeeId: string): Promise<LeaveBalance> {
   // Get employee's current balance
-  const { data: employee, error: employeeError } = await getHrClient()
-    .from('employees')
+  const { data: employee, error: employeeError } = await getSupabaseClient()
+    .from('hr_employees')
     .select('id, annual_leave_balance, rtt_balance, organization_id')
     .eq('id', employeeId)
     .single()
@@ -688,8 +684,8 @@ export async function getLeaveBalance(employeeId: string): Promise<LeaveBalance>
   const yearEnd = `${currentYear}-12-31`
 
   // Get leave types for this org
-  const { data: leaveTypes } = await getHrClient()
-    .from('leave_types')
+  const { data: leaveTypes } = await getSupabaseClient()
+    .from('hr_leave_types')
     .select('id, code')
     .eq('organization_id', employee.organization_id)
 
@@ -697,8 +693,8 @@ export async function getLeaveBalance(employeeId: string): Promise<LeaveBalance>
   const rttTypeIds = (leaveTypes || []).filter((t: any) => t.code === 'rtt').map((t: any) => t.id)
 
   // Get approved leave requests
-  const { data: approvedRequests } = await getHrClient()
-    .from('leave_requests')
+  const { data: approvedRequests } = await getSupabaseClient()
+    .from('hr_leave_requests')
     .select('leave_type_id, days_count')
     .eq('employee_id', employeeId)
     .eq('status', 'approved')
@@ -707,8 +703,8 @@ export async function getLeaveBalance(employeeId: string): Promise<LeaveBalance>
     .is('deleted_at', null)
 
   // Get pending leave requests
-  const { data: pendingRequests } = await getHrClient()
-    .from('leave_requests')
+  const { data: pendingRequests } = await getSupabaseClient()
+    .from('hr_leave_requests')
     .select('leave_type_id, days_count')
     .eq('employee_id', employeeId)
     .eq('status', 'pending')
@@ -759,8 +755,8 @@ export async function getLeaveCalendarData(
   endDate: string
 ): Promise<(LeaveRequestWithRelations | AbsenceWithRelations)[]> {
   // Get approved leave requests in date range
-  const { data: requests } = await getHrClient()
-    .from('leave_requests')
+  const { data: requests } = await getSupabaseClient()
+    .from('hr_leave_requests')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('status', 'approved')
@@ -768,8 +764,8 @@ export async function getLeaveCalendarData(
     .or(`start_date.lte.${endDate},end_date.gte.${startDate}`)
 
   // Get absences in date range
-  const { data: absences } = await getHrClient()
-    .from('absences')
+  const { data: absences } = await getSupabaseClient()
+    .from('hr_absences')
     .select('*')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -791,10 +787,10 @@ export async function getLeaveCalendarData(
 
   const [employees, leaveTypes] = await Promise.all([
     employeeIds.length > 0
-      ? getHrClient().from('employees').select('id, first_name, last_name, photo_url').in('id', employeeIds)
+      ? getSupabaseClient().from('hr_employees').select('id, first_name, last_name, photo_url').in('id', employeeIds)
       : { data: [] },
     leaveTypeIds.length > 0
-      ? getHrClient().from('leave_types').select('*').in('id', leaveTypeIds)
+      ? getSupabaseClient().from('hr_leave_types').select('*').in('id', leaveTypeIds)
       : { data: [] },
   ])
 

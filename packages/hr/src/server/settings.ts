@@ -5,17 +5,13 @@
 import { getSupabaseClient } from '@sedona/database'
 import type { HrSettings, UpdateHrSettingsInput } from '../types'
 
-function getHrClient() {
-  return getSupabaseClient().schema('hr' as any) as any
-}
-
 // ===========================================
 // GET SETTINGS
 // ===========================================
 
 export async function getHrSettings(organizationId: string): Promise<HrSettings | null> {
-  const { data, error } = await getHrClient()
-    .from('settings')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_settings')
     .select('*')
     .eq('organization_id', organizationId)
     .single()
@@ -33,8 +29,8 @@ export async function getHrSettings(organizationId: string): Promise<HrSettings 
 // ===========================================
 
 export async function createHrSettings(organizationId: string): Promise<HrSettings> {
-  const { data, error } = await getHrClient()
-    .from('settings')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_settings')
     .insert({
       organization_id: organizationId,
     })
@@ -80,8 +76,8 @@ export async function updateHrSettings(
   if (input.employeesCanViewDirectory !== undefined) updateData.employees_can_view_directory = input.employeesCanViewDirectory
   if (input.employeesCanEditProfile !== undefined) updateData.employees_can_edit_profile = input.employeesCanEditProfile
 
-  const { data, error } = await getHrClient()
-    .from('settings')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_settings')
     .update(updateData)
     .eq('organization_id', organizationId)
     .select()

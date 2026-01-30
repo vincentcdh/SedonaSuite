@@ -12,9 +12,9 @@ import type {
 // COMPANIES SERVER FUNCTIONS
 // ===========================================
 
-// Helper to get CRM schema client
-function getCrmClient() {
-  return getSupabaseClient().schema('crm')
+// Helper to get Supabase client
+function getClient() {
+  return getSupabaseClient()
 }
 
 /**
@@ -25,12 +25,12 @@ export async function getCompanies(
   filters: CompanyFilters = {},
   pagination: PaginationParams = {}
 ): Promise<PaginatedResult<Company>> {
-  const crm = getCrmClient()
+  const client = getClient()
   const { page = 1, pageSize = 25, sortBy = 'created_at', sortOrder = 'desc' } = pagination
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = crm
-    .from('companies')
+  let query = client
+    .from('crm_companies')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null) as any
@@ -85,10 +85,10 @@ export async function getCompanies(
  * Get a single company by ID
  */
 export async function getCompany(companyId: string): Promise<Company | null> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data, error } = await crm
-    .from('companies')
+  const { data, error } = await client
+    .from('crm_companies')
     .select('*')
     .eq('id', companyId)
     .is('deleted_at', null)
@@ -106,10 +106,10 @@ export async function getCompany(companyId: string): Promise<Company | null> {
  * Get company with related counts
  */
 export async function getCompanyWithCounts(companyId: string): Promise<Company | null> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data, error } = await crm
-    .from('companies')
+  const { data, error } = await client
+    .from('crm_companies')
     .select('*')
     .eq('id', companyId)
     .is('deleted_at', null)
@@ -123,15 +123,15 @@ export async function getCompanyWithCounts(companyId: string): Promise<Company |
   if (!data) return null
 
   // Get contacts count
-  const { count: contactsCount } = await crm
-    .from('contacts')
+  const { count: contactsCount } = await client
+    .from('crm_contacts')
     .select('*', { count: 'exact', head: true })
     .eq('company_id', companyId)
     .is('deleted_at', null)
 
   // Get deals count
-  const { count: dealsCount } = await crm
-    .from('deals')
+  const { count: dealsCount } = await client
+    .from('crm_deals')
     .select('*', { count: 'exact', head: true })
     .eq('company_id', companyId)
     .is('deleted_at', null)
@@ -150,10 +150,10 @@ export async function createCompany(
   organizationId: string,
   input: CreateCompanyInput
 ): Promise<Company> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data, error } = await crm
-    .from('companies')
+  const { data, error } = await client
+    .from('crm_companies')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -184,7 +184,7 @@ export async function createCompany(
  * Update a company
  */
 export async function updateCompany(input: UpdateCompanyInput): Promise<Company> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: Record<string, any> = {}
@@ -203,8 +203,8 @@ export async function updateCompany(input: UpdateCompanyInput): Promise<Company>
   if (input.email !== undefined) updateData['email'] = input.email
   if (input.customFields !== undefined) updateData['custom_fields'] = input.customFields
 
-  const { data, error } = await crm
-    .from('companies')
+  const { data, error } = await client
+    .from('crm_companies')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -221,10 +221,10 @@ export async function updateCompany(input: UpdateCompanyInput): Promise<Company>
  * Delete a company (soft delete)
  */
 export async function deleteCompany(companyId: string): Promise<void> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { error } = await crm
-    .from('companies')
+  const { error } = await client
+    .from('crm_companies')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', companyId)
 
@@ -237,10 +237,10 @@ export async function deleteCompany(companyId: string): Promise<void> {
  * Get company count for an organization
  */
 export async function getCompanyCount(organizationId: string): Promise<number> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { count, error } = await crm
-    .from('companies')
+  const { count, error } = await client
+    .from('crm_companies')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -259,14 +259,14 @@ export async function getCompanyContacts(
   companyId: string,
   pagination: PaginationParams = {}
 ): Promise<PaginatedResult<{ id: string; firstName: string | null; lastName: string | null; email: string | null; jobTitle: string | null }>> {
-  const crm = getCrmClient()
+  const client = getClient()
   const { page = 1, pageSize = 25 } = pagination
 
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
-  const { data, error, count } = await crm
-    .from('contacts')
+  const { data, error, count } = await client
+    .from('crm_contacts')
     .select('id, first_name, last_name, email, job_title', { count: 'exact' })
     .eq('company_id', companyId)
     .is('deleted_at', null)

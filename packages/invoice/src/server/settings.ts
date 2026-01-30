@@ -12,8 +12,9 @@ import type {
   UpdateNumberSequenceInput,
 } from '../types'
 
-function getInvoiceClient() {
-  return getSupabaseClient().schema('invoice' as any) as any
+// Helper to get Supabase client (public schema)
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -21,8 +22,8 @@ function getInvoiceClient() {
 // ===========================================
 
 export async function getInvoiceSettings(organizationId: string): Promise<InvoiceSettings | null> {
-  const { data, error } = await getInvoiceClient()
-    .from('organization_settings')
+  const { data, error } = await getClient()
+    .from('invoice_settings')
     .select('*')
     .eq('organization_id', organizationId)
     .single()
@@ -43,6 +44,8 @@ export async function updateInvoiceSettings(
   organizationId: string,
   input: UpdateInvoiceSettingsInput
 ): Promise<InvoiceSettings> {
+  const client = getClient()
+
   // Check if settings exist
   const existing = await getInvoiceSettings(organizationId)
 
@@ -86,8 +89,8 @@ export async function updateInvoiceSettings(
     if (input.reminderEmailSubject !== undefined) updateData.reminder_email_subject = input.reminderEmailSubject
     if (input.reminderEmailBody !== undefined) updateData.reminder_email_body = input.reminderEmailBody
 
-    const { data, error } = await getInvoiceClient()
-      .from('organization_settings')
+    const { data, error } = await client
+      .from('invoice_settings')
       .update(updateData)
       .eq('organization_id', organizationId)
       .select()
@@ -97,8 +100,8 @@ export async function updateInvoiceSettings(
     return mapSettingsFromDb(data)
   } else {
     // Insert
-    const { data, error } = await getInvoiceClient()
-      .from('organization_settings')
+    const { data, error } = await client
+      .from('invoice_settings')
       .insert({
         organization_id: organizationId,
         company_name: input.companyName,
@@ -150,8 +153,8 @@ export async function updateInvoiceSettings(
 // ===========================================
 
 export async function getVatRates(organizationId: string): Promise<VatRate[]> {
-  const { data, error } = await getInvoiceClient()
-    .from('vat_rates')
+  const { data, error } = await getClient()
+    .from('invoice_vat_rates')
     .select('*')
     .eq('organization_id', organizationId)
     .order('rate', { ascending: false })
@@ -165,16 +168,18 @@ export async function createVatRate(
   organizationId: string,
   input: CreateVatRateInput
 ): Promise<VatRate> {
+  const client = getClient()
+
   // If this is the default, unset other defaults first
   if (input.isDefault) {
-    await getInvoiceClient()
-      .from('vat_rates')
+    await client
+      .from('invoice_vat_rates')
       .update({ is_default: false })
       .eq('organization_id', organizationId)
   }
 
-  const { data, error } = await getInvoiceClient()
-    .from('vat_rates')
+  const { data, error } = await client
+    .from('invoice_vat_rates')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -190,8 +195,8 @@ export async function createVatRate(
 }
 
 export async function deleteVatRate(id: string): Promise<void> {
-  const { error } = await getInvoiceClient()
-    .from('vat_rates')
+  const { error } = await getClient()
+    .from('invoice_vat_rates')
     .delete()
     .eq('id', id)
 
@@ -203,8 +208,8 @@ export async function deleteVatRate(id: string): Promise<void> {
 // ===========================================
 
 export async function getNumberSequences(organizationId: string): Promise<NumberSequence[]> {
-  const { data, error } = await getInvoiceClient()
-    .from('number_sequences')
+  const { data, error } = await getClient()
+    .from('invoice_number_sequences')
     .select('*')
     .eq('organization_id', organizationId)
 
@@ -217,9 +222,11 @@ export async function updateNumberSequence(
   organizationId: string,
   input: UpdateNumberSequenceInput
 ): Promise<NumberSequence> {
+  const client = getClient()
+
   // Check if sequence exists
-  const { data: existing } = await getInvoiceClient()
-    .from('number_sequences')
+  const { data: existing } = await client
+    .from('invoice_number_sequences')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('type', input.type)
@@ -233,8 +240,8 @@ export async function updateNumberSequence(
     if (input.padding !== undefined) updateData.padding = input.padding
     if (input.resetFrequency !== undefined) updateData.reset_frequency = input.resetFrequency
 
-    const { data, error } = await getInvoiceClient()
-      .from('number_sequences')
+    const { data, error } = await client
+      .from('invoice_number_sequences')
       .update(updateData)
       .eq('id', existing.id)
       .select()
@@ -244,8 +251,8 @@ export async function updateNumberSequence(
     return mapSequenceFromDb(data)
   } else {
     // Create
-    const { data, error } = await getInvoiceClient()
-      .from('number_sequences')
+    const { data, error } = await client
+      .from('invoice_number_sequences')
       .insert({
         organization_id: organizationId,
         type: input.type,

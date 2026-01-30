@@ -13,10 +13,6 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getHrClient() {
-  return getSupabaseClient().schema('hr' as any) as any
-}
-
 // ===========================================
 // GET EMPLOYEES
 // ===========================================
@@ -29,8 +25,8 @@ export async function getEmployees(
   const { page = 1, pageSize = 20, sortBy = 'lastName', sortOrder = 'asc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getHrClient()
-    .from('employees')
+  let query = getSupabaseClient()
+    .from('hr_employees')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -81,8 +77,8 @@ export async function getEmployees(
 
   let managers: any[] = []
   if (managerIds.length > 0) {
-    const { data: managerData } = await getHrClient()
-      .from('employees')
+    const { data: managerData } = await getSupabaseClient()
+      .from('hr_employees')
       .select('id, first_name, last_name, photo_url')
       .in('id', managerIds)
     managers = managerData || []
@@ -117,8 +113,8 @@ export async function getEmployees(
 // ===========================================
 
 export async function getEmployeeById(id: string): Promise<EmployeeWithRelations | null> {
-  const { data, error } = await getHrClient()
-    .from('employees')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employees')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
@@ -134,8 +130,8 @@ export async function getEmployeeById(id: string): Promise<EmployeeWithRelations
   // Get manager
   let manager = null
   if (employee.managerId) {
-    const { data: managerData } = await getHrClient()
-      .from('employees')
+    const { data: managerData } = await getSupabaseClient()
+      .from('hr_employees')
       .select('id, first_name, last_name, photo_url')
       .eq('id', employee.managerId)
       .single()
@@ -151,8 +147,8 @@ export async function getEmployeeById(id: string): Promise<EmployeeWithRelations
   }
 
   // Get direct reports
-  const { data: reportsData } = await getHrClient()
-    .from('employees')
+  const { data: reportsData } = await getSupabaseClient()
+    .from('hr_employees')
     .select('id, first_name, last_name, photo_url')
     .eq('manager_id', id)
     .is('deleted_at', null)
@@ -176,8 +172,8 @@ export async function getEmployeeById(id: string): Promise<EmployeeWithRelations
 // ===========================================
 
 export async function getEmployeeByUserId(userId: string): Promise<Employee | null> {
-  const { data, error } = await getHrClient()
-    .from('employees')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employees')
     .select('*')
     .eq('user_id', userId)
     .is('deleted_at', null)
@@ -199,8 +195,8 @@ export async function createEmployee(
   organizationId: string,
   input: CreateEmployeeInput
 ): Promise<Employee> {
-  const { data, error } = await getHrClient()
-    .from('employees')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employees')
     .insert({
       organization_id: organizationId,
       first_name: input.firstName,
@@ -290,8 +286,8 @@ export async function updateEmployee(input: UpdateEmployeeInput): Promise<Employ
   if (input.notes !== undefined) updateData.notes = input.notes
   if (input.customFields !== undefined) updateData.custom_fields = input.customFields
 
-  const { data, error } = await getHrClient()
-    .from('employees')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employees')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -307,8 +303,8 @@ export async function updateEmployee(input: UpdateEmployeeInput): Promise<Employ
 // ===========================================
 
 export async function deleteEmployee(id: string): Promise<void> {
-  const { error } = await getHrClient()
-    .from('employees')
+  const { error } = await getSupabaseClient()
+    .from('hr_employees')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -320,8 +316,8 @@ export async function deleteEmployee(id: string): Promise<void> {
 // ===========================================
 
 export async function restoreEmployee(id: string): Promise<Employee> {
-  const { data, error } = await getHrClient()
-    .from('employees')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employees')
     .update({ deleted_at: null })
     .eq('id', id)
     .select()
@@ -337,8 +333,8 @@ export async function restoreEmployee(id: string): Promise<Employee> {
 // ===========================================
 
 export async function getDepartments(organizationId: string): Promise<string[]> {
-  const { data, error } = await getHrClient()
-    .from('employees')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employees')
     .select('department')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -355,8 +351,8 @@ export async function getDepartments(organizationId: string): Promise<string[]> 
 // ===========================================
 
 export async function getEmployeeCount(organizationId: string): Promise<number> {
-  const { count, error } = await getHrClient()
-    .from('employees')
+  const { count, error } = await getSupabaseClient()
+    .from('hr_employees')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)

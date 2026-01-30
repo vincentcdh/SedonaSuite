@@ -11,10 +11,6 @@ import type {
   ContractType,
 } from '../types'
 
-function getHrClient() {
-  return getSupabaseClient().schema('hr' as any) as any
-}
-
 // ===========================================
 // GET HR STATS
 // ===========================================
@@ -26,8 +22,8 @@ export async function getHrStats(organizationId: string): Promise<HrStats> {
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
 
   // Get employee counts by status
-  const { data: statusCounts } = await getHrClient()
-    .from('employees')
+  const { data: statusCounts } = await getSupabaseClient()
+    .from('hr_employees')
     .select('status')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -37,8 +33,8 @@ export async function getHrStats(organizationId: string): Promise<HrStats> {
   const trialPeriodEmployees = statusCounts?.filter((e: any) => e.status === 'trial_period').length || 0
 
   // Get hired this month
-  const { count: hiredThisMonth } = await getHrClient()
-    .from('employees')
+  const { count: hiredThisMonth } = await getSupabaseClient()
+    .from('hr_employees')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -46,8 +42,8 @@ export async function getHrStats(organizationId: string): Promise<HrStats> {
     .lte('contract_start_date', lastDayOfMonth.toISOString().split('T')[0])
 
   // Get left this month
-  const { count: leftThisMonth } = await getHrClient()
-    .from('employees')
+  const { count: leftThisMonth } = await getSupabaseClient()
+    .from('hr_employees')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .eq('status', 'left')
@@ -55,16 +51,16 @@ export async function getHrStats(organizationId: string): Promise<HrStats> {
     .lte('left_date', lastDayOfMonth.toISOString().split('T')[0])
 
   // Get pending leave requests
-  const { count: pendingLeaveRequests } = await getHrClient()
-    .from('leave_requests')
+  const { count: pendingLeaveRequests } = await getSupabaseClient()
+    .from('hr_leave_requests')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .eq('status', 'pending')
     .is('deleted_at', null)
 
   // Get upcoming interviews (next 30 days)
-  const { count: upcomingInterviews } = await getHrClient()
-    .from('interviews')
+  const { count: upcomingInterviews } = await getSupabaseClient()
+    .from('hr_interviews')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .eq('status', 'scheduled')
@@ -74,8 +70,8 @@ export async function getHrStats(organizationId: string): Promise<HrStats> {
 
   // Get trial periods ending soon (next 15 days)
   const fifteenDaysFromNow = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000)
-  const { count: trialEndingSoon } = await getHrClient()
-    .from('employees')
+  const { count: trialEndingSoon } = await getSupabaseClient()
+    .from('hr_employees')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -84,8 +80,8 @@ export async function getHrStats(organizationId: string): Promise<HrStats> {
     .lte('trial_end_date', fifteenDaysFromNow.toISOString().split('T')[0])
 
   // Get contracts ending soon (next 30 days)
-  const { count: contractEndingSoon } = await getHrClient()
-    .from('contracts')
+  const { count: contractEndingSoon } = await getSupabaseClient()
+    .from('hr_contracts')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -95,8 +91,8 @@ export async function getHrStats(organizationId: string): Promise<HrStats> {
 
   // Calculate absenteeism rate (last 30 days)
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-  const { data: absences } = await getHrClient()
-    .from('absences')
+  const { data: absences } = await getSupabaseClient()
+    .from('hr_absences')
     .select('days_count')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -108,8 +104,8 @@ export async function getHrStats(organizationId: string): Promise<HrStats> {
   const absenteeismRate = expectedWorkDays > 0 ? (totalAbsenceDays / expectedWorkDays) * 100 : null
 
   // Calculate average tenure
-  const { data: employeesWithStart } = await getHrClient()
-    .from('employees')
+  const { data: employeesWithStart } = await getSupabaseClient()
+    .from('hr_employees')
     .select('contract_start_date')
     .eq('organization_id', organizationId)
     .eq('status', 'active')
@@ -148,8 +144,8 @@ export async function getHrStats(organizationId: string): Promise<HrStats> {
 export async function getEmployeeCountByDepartment(
   organizationId: string
 ): Promise<EmployeeCountByDepartment[]> {
-  const { data, error } = await getHrClient()
-    .from('employees')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employees')
     .select('department')
     .eq('organization_id', organizationId)
     .eq('status', 'active')
@@ -177,8 +173,8 @@ export async function getEmployeeCountByDepartment(
 export async function getEmployeeCountByContractType(
   organizationId: string
 ): Promise<EmployeeCountByContractType[]> {
-  const { data, error } = await getHrClient()
-    .from('employees')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_employees')
     .select('contract_type')
     .eq('organization_id', organizationId)
     .eq('status', 'active')
@@ -210,8 +206,8 @@ export async function getHrAlerts(organizationId: string): Promise<HrAlert[]> {
 
   // Trial periods ending in next 15 days
   const fifteenDaysFromNow = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000)
-  const { data: trialEnding } = await getHrClient()
-    .from('employees')
+  const { data: trialEnding } = await getSupabaseClient()
+    .from('hr_employees')
     .select('id, first_name, last_name, trial_end_date')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -236,8 +232,8 @@ export async function getHrAlerts(organizationId: string): Promise<HrAlert[]> {
 
   // Contracts ending in next 30 days
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-  const { data: contractsEnding } = await getHrClient()
-    .from('contracts')
+  const { data: contractsEnding } = await getSupabaseClient()
+    .from('hr_contracts')
     .select('id, employee_id, end_date')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -248,8 +244,8 @@ export async function getHrAlerts(organizationId: string): Promise<HrAlert[]> {
   // Get employee names for contracts
   if (contractsEnding && contractsEnding.length > 0) {
     const employeeIds = [...new Set(contractsEnding.map((c: any) => c.employee_id))]
-    const { data: employees } = await getHrClient()
-      .from('employees')
+    const { data: employees } = await getSupabaseClient()
+      .from('hr_employees')
       .select('id, first_name, last_name')
       .in('id', employeeIds)
 
@@ -278,8 +274,8 @@ export async function getHrAlerts(organizationId: string): Promise<HrAlert[]> {
   }
 
   // Documents expiring in next 30 days
-  const { data: expiringDocs } = await getHrClient()
-    .from('employee_documents')
+  const { data: expiringDocs } = await getSupabaseClient()
+    .from('hr_employee_documents')
     .select('id, employee_id, name, valid_until')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -290,8 +286,8 @@ export async function getHrAlerts(organizationId: string): Promise<HrAlert[]> {
   // Get employee names for documents
   if (expiringDocs && expiringDocs.length > 0) {
     const employeeIds = [...new Set(expiringDocs.map((d: any) => d.employee_id))]
-    const { data: employees } = await getHrClient()
-      .from('employees')
+    const { data: employees } = await getSupabaseClient()
+      .from('hr_employees')
       .select('id, first_name, last_name')
       .in('id', employeeIds)
 
@@ -339,8 +335,8 @@ export async function getHeadcountHistory(
     const endOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0)
 
     // Count employees active at end of that month
-    const { count } = await getHrClient()
-      .from('employees')
+    const { count } = await getSupabaseClient()
+      .from('hr_employees')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId)
       .lte('contract_start_date', endOfMonth.toISOString().split('T')[0])

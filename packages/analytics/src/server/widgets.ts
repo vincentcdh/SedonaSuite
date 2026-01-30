@@ -12,11 +12,6 @@ import type {
 } from '../types'
 import { getMetricDefinition } from '../metrics/definitions'
 
-// Get Supabase client with analytics schema
-function getAnalyticsClient() {
-  return getSupabaseClient().schema('analytics' as any) as any
-}
-
 // ===========================================
 // GET WIDGETS
 // ===========================================
@@ -24,10 +19,10 @@ function getAnalyticsClient() {
 export async function getWidgetsByDashboard(
   dashboardId: string
 ): Promise<Widget[]> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data, error } = await client
-    .from('widgets')
+    .from('analytics_widgets')
     .select('*')
     .eq('dashboard_id', dashboardId)
     .order('grid_y', { ascending: true })
@@ -43,10 +38,10 @@ export async function getWidgetsByDashboard(
 // ===========================================
 
 export async function getWidgetById(widgetId: string): Promise<Widget | null> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data, error } = await client
-    .from('widgets')
+    .from('analytics_widgets')
     .select('*')
     .eq('id', widgetId)
     .single()
@@ -64,10 +59,10 @@ export async function getWidgetById(widgetId: string): Promise<Widget | null> {
 // ===========================================
 
 export async function createWidget(input: CreateWidgetInput): Promise<Widget> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data, error } = await client
-    .from('widgets')
+    .from('analytics_widgets')
     .insert({
       dashboard_id: input.dashboardId,
       title: input.title,
@@ -96,7 +91,7 @@ export async function updateWidget(
   widgetId: string,
   input: UpdateWidgetInput
 ): Promise<Widget> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const updateData: any = {}
   if (input.title !== undefined) updateData.title = input.title
@@ -110,7 +105,7 @@ export async function updateWidget(
   if (input.gridH !== undefined) updateData.grid_h = input.gridH
 
   const { data, error } = await client
-    .from('widgets')
+    .from('analytics_widgets')
     .update(updateData)
     .eq('id', widgetId)
     .select()
@@ -126,10 +121,10 @@ export async function updateWidget(
 // ===========================================
 
 export async function deleteWidget(widgetId: string): Promise<void> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { error } = await client
-    .from('widgets')
+    .from('analytics_widgets')
     .delete()
     .eq('id', widgetId)
 
@@ -189,10 +184,10 @@ async function getCachedMetric(
   key: string,
   filters: MetricFilters
 ): Promise<any | null> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data, error } = await client
-    .from('metrics_cache')
+    .from('analytics_metrics_cache')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('metric_source', source)
@@ -217,7 +212,7 @@ async function cacheMetric(
   filters: MetricFilters,
   data: any
 ): Promise<void> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   // Set cache expiration (1 hour for recent data, longer for historical)
   const now = new Date()
@@ -226,7 +221,7 @@ async function cacheMetric(
   const expiresAt = new Date(now.getTime() + (isRecent ? 60 : 1440) * 60 * 1000)
 
   await client
-    .from('metrics_cache')
+    .from('analytics_metrics_cache')
     .upsert({
       organization_id: organizationId,
       metric_source: source,

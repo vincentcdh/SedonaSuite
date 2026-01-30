@@ -13,10 +13,6 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getHrClient() {
-  return getSupabaseClient().schema('hr' as any) as any
-}
-
 // ===========================================
 // GET TIME ENTRIES
 // ===========================================
@@ -29,8 +25,8 @@ export async function getTimeEntries(
   const { page = 1, pageSize = 20, sortBy = 'date', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getHrClient()
-    .from('time_entries')
+  let query = getSupabaseClient()
+    .from('hr_time_entries')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
 
@@ -68,7 +64,7 @@ export async function getTimeEntries(
 
   const [employees, validators] = await Promise.all([
     employeeIds.length > 0
-      ? getHrClient().from('employees').select('id, first_name, last_name, photo_url').in('id', employeeIds)
+      ? getSupabaseClient().from('hr_employees').select('id, first_name, last_name, photo_url').in('id', employeeIds)
       : { data: [] },
     validatorIds.length > 0
       ? getSupabaseClient().from('users').select('id, email, full_name').in('id', validatorIds)
@@ -120,8 +116,8 @@ export async function getTimeEntriesByEmployee(
   dateFrom?: string,
   dateTo?: string
 ): Promise<TimeEntry[]> {
-  let query = getHrClient()
-    .from('time_entries')
+  let query = getSupabaseClient()
+    .from('hr_time_entries')
     .select('*')
     .eq('employee_id', employeeId)
 
@@ -144,8 +140,8 @@ export async function getTimeEntriesByEmployee(
 // ===========================================
 
 export async function getTimeEntryById(id: string): Promise<TimeEntryWithRelations | null> {
-  const { data, error } = await getHrClient()
-    .from('time_entries')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_time_entries')
     .select('*')
     .eq('id', id)
     .single()
@@ -158,8 +154,8 @@ export async function getTimeEntryById(id: string): Promise<TimeEntryWithRelatio
   const entry = mapTimeEntryFromDb(data)
 
   // Get employee data
-  const { data: employeeData } = await getHrClient()
-    .from('employees')
+  const { data: employeeData } = await getSupabaseClient()
+    .from('hr_employees')
     .select('id, first_name, last_name, photo_url')
     .eq('id', entry.employeeId)
     .single()
@@ -200,8 +196,8 @@ export async function getTimeEntryById(id: string): Promise<TimeEntryWithRelatio
 // ===========================================
 
 export async function getTimeEntryByDate(employeeId: string, date: string): Promise<TimeEntry | null> {
-  const { data, error } = await getHrClient()
-    .from('time_entries')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_time_entries')
     .select('*')
     .eq('employee_id', employeeId)
     .eq('date', date)
@@ -223,8 +219,8 @@ export async function createTimeEntry(
   organizationId: string,
   input: CreateTimeEntryInput
 ): Promise<TimeEntry> {
-  const { data, error } = await getHrClient()
-    .from('time_entries')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_time_entries')
     .insert({
       organization_id: organizationId,
       employee_id: input.employeeId,
@@ -259,8 +255,8 @@ export async function updateTimeEntry(input: UpdateTimeEntryInput): Promise<Time
   if (input.overtimeHours !== undefined) updateData.overtime_hours = input.overtimeHours
   if (input.notes !== undefined) updateData.notes = input.notes
 
-  const { data, error } = await getHrClient()
-    .from('time_entries')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_time_entries')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -276,8 +272,8 @@ export async function updateTimeEntry(input: UpdateTimeEntryInput): Promise<Time
 // ===========================================
 
 export async function validateTimeEntry(id: string, userId: string): Promise<TimeEntry> {
-  const { data, error } = await getHrClient()
-    .from('time_entries')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_time_entries')
     .update({
       validated_by: userId,
       validated_at: new Date().toISOString(),
@@ -296,8 +292,8 @@ export async function validateTimeEntry(id: string, userId: string): Promise<Tim
 // ===========================================
 
 export async function unvalidateTimeEntry(id: string): Promise<TimeEntry> {
-  const { data, error } = await getHrClient()
-    .from('time_entries')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_time_entries')
     .update({
       validated_by: null,
       validated_at: null,
@@ -316,8 +312,8 @@ export async function unvalidateTimeEntry(id: string): Promise<TimeEntry> {
 // ===========================================
 
 export async function deleteTimeEntry(id: string): Promise<void> {
-  const { error } = await getHrClient()
-    .from('time_entries')
+  const { error } = await getSupabaseClient()
+    .from('hr_time_entries')
     .delete()
     .eq('id', id)
 
@@ -342,8 +338,8 @@ export async function getWeeklySummary(
   const endDate = new Date(startDate)
   endDate.setDate(endDate.getDate() + 6)
 
-  const { data, error } = await getHrClient()
-    .from('time_entries')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_time_entries')
     .select('hours_worked, overtime_hours, validated_at')
     .eq('employee_id', employeeId)
     .gte('date', weekStartDate)
@@ -378,8 +374,8 @@ export async function getMonthlySummary(
   const startDate = new Date(year, month - 1, 1)
   const endDate = new Date(year, month, 0) // Last day of month
 
-  const { data, error } = await getHrClient()
-    .from('time_entries')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_time_entries')
     .select('hours_worked, overtime_hours, validated_at')
     .eq('employee_id', employeeId)
     .gte('date', startDate.toISOString().split('T')[0])

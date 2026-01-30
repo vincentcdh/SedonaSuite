@@ -11,10 +11,6 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getDocsClient() {
-  return getSupabaseClient().schema('docs' as any) as any
-}
-
 // ===========================================
 // GET FAVORITES
 // ===========================================
@@ -24,16 +20,16 @@ export async function getFavorites(
   pagination: PaginationParams = {}
 ): Promise<{ files: DocFile[]; folders: Folder[] }> {
   // Get favorite file IDs
-  const { data: fileFavorites } = await getDocsClient()
-    .from('favorites')
+  const { data: fileFavorites } = await getSupabaseClient()
+    .from('docs_favorites')
     .select('file_id')
     .eq('user_id', userId)
     .not('file_id', 'is', null)
     .order('created_at', { ascending: false })
 
   // Get favorite folder IDs
-  const { data: folderFavorites } = await getDocsClient()
-    .from('favorites')
+  const { data: folderFavorites } = await getSupabaseClient()
+    .from('docs_favorites')
     .select('folder_id')
     .eq('user_id', userId)
     .not('folder_id', 'is', null)
@@ -46,8 +42,8 @@ export async function getFavorites(
   let folders: Folder[] = []
 
   if (fileIds.length > 0) {
-    const { data: filesData } = await getDocsClient()
-      .from('files')
+    const { data: filesData } = await getSupabaseClient()
+      .from('docs_files')
       .select('*')
       .in('id', fileIds)
       .is('deleted_at', null)
@@ -56,8 +52,8 @@ export async function getFavorites(
   }
 
   if (folderIds.length > 0) {
-    const { data: foldersData } = await getDocsClient()
-      .from('folders')
+    const { data: foldersData } = await getSupabaseClient()
+      .from('docs_folders')
       .select('*')
       .in('id', folderIds)
       .is('deleted_at', null)
@@ -73,8 +69,8 @@ export async function getFavorites(
 // ===========================================
 
 export async function addFileToFavorites(userId: string, fileId: string): Promise<Favorite> {
-  const { data, error } = await getDocsClient()
-    .from('favorites')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_favorites')
     .insert({
       user_id: userId,
       file_id: fileId,
@@ -88,8 +84,8 @@ export async function addFileToFavorites(userId: string, fileId: string): Promis
 }
 
 export async function addFolderToFavorites(userId: string, folderId: string): Promise<Favorite> {
-  const { data, error } = await getDocsClient()
-    .from('favorites')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_favorites')
     .insert({
       user_id: userId,
       folder_id: folderId,
@@ -107,8 +103,8 @@ export async function addFolderToFavorites(userId: string, folderId: string): Pr
 // ===========================================
 
 export async function removeFileFromFavorites(userId: string, fileId: string): Promise<void> {
-  const { error } = await getDocsClient()
-    .from('favorites')
+  const { error } = await getSupabaseClient()
+    .from('docs_favorites')
     .delete()
     .eq('user_id', userId)
     .eq('file_id', fileId)
@@ -117,8 +113,8 @@ export async function removeFileFromFavorites(userId: string, fileId: string): P
 }
 
 export async function removeFolderFromFavorites(userId: string, folderId: string): Promise<void> {
-  const { error } = await getDocsClient()
-    .from('favorites')
+  const { error } = await getSupabaseClient()
+    .from('docs_favorites')
     .delete()
     .eq('user_id', userId)
     .eq('folder_id', folderId)
@@ -131,8 +127,8 @@ export async function removeFolderFromFavorites(userId: string, folderId: string
 // ===========================================
 
 export async function isFileFavorite(userId: string, fileId: string): Promise<boolean> {
-  const { count } = await getDocsClient()
-    .from('favorites')
+  const { count } = await getSupabaseClient()
+    .from('docs_favorites')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('file_id', fileId)
@@ -141,8 +137,8 @@ export async function isFileFavorite(userId: string, fileId: string): Promise<bo
 }
 
 export async function isFolderFavorite(userId: string, folderId: string): Promise<boolean> {
-  const { count } = await getDocsClient()
-    .from('favorites')
+  const { count } = await getSupabaseClient()
+    .from('docs_favorites')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('folder_id', folderId)

@@ -10,8 +10,8 @@ import type {
   CreateShareLinkInput,
 } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -19,8 +19,8 @@ function getProjectsClient() {
 // ===========================================
 
 export async function getClientAccess(projectId: string): Promise<ClientAccess[]> {
-  const { data, error } = await getProjectsClient()
-    .from('client_access')
+  const { data, error } = await getClient()
+    .from('projects_client_access')
     .select('*')
     .eq('project_id', projectId)
     .order('created_at', { ascending: false })
@@ -31,8 +31,8 @@ export async function getClientAccess(projectId: string): Promise<ClientAccess[]
 }
 
 export async function getClientAccessById(id: string): Promise<ClientAccess | null> {
-  const { data, error } = await getProjectsClient()
-    .from('client_access')
+  const { data, error } = await getClient()
+    .from('projects_client_access')
     .select('*')
     .eq('id', id)
     .single()
@@ -49,8 +49,8 @@ export async function inviteClient(input: InviteClientInput): Promise<ClientAcce
   const supabase = getSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data, error } = await getProjectsClient()
-    .from('client_access')
+  const { data, error } = await getClient()
+    .from('projects_client_access')
     .insert({
       project_id: input.projectId,
       access_type: 'account',
@@ -100,8 +100,8 @@ export async function createShareLink(input: CreateShareLinkInput): Promise<Clie
     insertData['link_password_hash'] = input.password // Should be hashed
   }
 
-  const { data, error } = await getProjectsClient()
-    .from('client_access')
+  const { data, error } = await getClient()
+    .from('projects_client_access')
     .insert(insertData)
     .select()
     .single()
@@ -125,8 +125,8 @@ export async function updateClientAccess(
   if (updates.isActive !== undefined) updateData['is_active'] = updates.isActive
   if (updates.expiresAt !== undefined) updateData['expires_at'] = updates.expiresAt
 
-  const { data, error } = await getProjectsClient()
-    .from('client_access')
+  const { data, error } = await getClient()
+    .from('projects_client_access')
     .update(updateData)
     .eq('id', id)
     .select()
@@ -138,8 +138,8 @@ export async function updateClientAccess(
 }
 
 export async function revokeClientAccess(id: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('client_access')
+  const { error } = await getClient()
+    .from('projects_client_access')
     .update({ is_active: false })
     .eq('id', id)
 
@@ -147,8 +147,8 @@ export async function revokeClientAccess(id: string): Promise<void> {
 }
 
 export async function deleteClientAccess(id: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('client_access')
+  const { error } = await getClient()
+    .from('projects_client_access')
     .delete()
     .eq('id', id)
 
@@ -166,8 +166,8 @@ export async function validateShareToken(token: string): Promise<{
   permissions: ClientPermissions
 } | null> {
   // Query the client_access directly with the token
-  const { data, error } = await getProjectsClient()
-    .from('client_access')
+  const { data, error } = await getClient()
+    .from('projects_client_access')
     .select(`
       id,
       project_id,
@@ -178,7 +178,7 @@ export async function validateShareToken(token: string): Promise<{
       can_see_team_members,
       is_active,
       expires_at,
-      projects!inner (
+      projects_projects!inner (
         id,
         name
       )
@@ -196,7 +196,7 @@ export async function validateShareToken(token: string): Promise<{
   return {
     clientAccessId: data.id,
     projectId: data.project_id,
-    projectName: data.projects?.name || '',
+    projectName: data.projects_projects?.name || '',
     permissions: {
       canComment: data.can_comment,
       canUploadFiles: data.can_upload_files,
@@ -209,16 +209,16 @@ export async function validateShareToken(token: string): Promise<{
 
 export async function recordClientAccess(clientAccessId: string): Promise<void> {
   // First get current access count
-  const { data: current } = await getProjectsClient()
-    .from('client_access')
+  const { data: current } = await getClient()
+    .from('projects_client_access')
     .select('access_count')
     .eq('id', clientAccessId)
     .single()
 
   const newCount = (current?.access_count || 0) + 1
 
-  const { error } = await getProjectsClient()
-    .from('client_access')
+  const { error } = await getClient()
+    .from('projects_client_access')
     .update({
       last_accessed_at: new Date().toISOString(),
       access_count: newCount,

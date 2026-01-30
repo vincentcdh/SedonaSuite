@@ -11,11 +11,6 @@ import type {
   UpdateDashboardInput,
 } from '../types'
 
-// Get Supabase client with analytics schema
-function getAnalyticsClient() {
-  return getSupabaseClient().schema('analytics' as any) as any
-}
-
 // ===========================================
 // GET DASHBOARDS
 // ===========================================
@@ -24,10 +19,10 @@ export async function getDashboards(
   organizationId: string,
   filters?: DashboardFilters
 ): Promise<Dashboard[]> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   let query = client
-    .from('dashboards')
+    .from('analytics_dashboards')
     .select('*')
     .eq('organization_id', organizationId)
     .order('is_default', { ascending: false })
@@ -59,10 +54,10 @@ export async function getDashboards(
 export async function getDashboardById(
   dashboardId: string
 ): Promise<DashboardWithWidgets | null> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data: dashboard, error: dashboardError } = await client
-    .from('dashboards')
+    .from('analytics_dashboards')
     .select('*')
     .eq('id', dashboardId)
     .single()
@@ -73,7 +68,7 @@ export async function getDashboardById(
   }
 
   const { data: widgets, error: widgetsError } = await client
-    .from('widgets')
+    .from('analytics_widgets')
     .select('*')
     .eq('dashboard_id', dashboardId)
     .order('grid_y', { ascending: true })
@@ -94,10 +89,10 @@ export async function getDashboardById(
 export async function getDefaultDashboard(
   organizationId: string
 ): Promise<DashboardWithWidgets | null> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data, error } = await client
-    .from('dashboards')
+    .from('analytics_dashboards')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('is_default', true)
@@ -120,10 +115,10 @@ export async function createDashboard(
   userId: string,
   input: CreateDashboardInput
 ): Promise<Dashboard> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data, error } = await client
-    .from('dashboards')
+    .from('analytics_dashboards')
     .insert({
       organization_id: organizationId,
       created_by: userId,
@@ -149,7 +144,7 @@ export async function updateDashboard(
   dashboardId: string,
   input: UpdateDashboardInput
 ): Promise<Dashboard> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const updateData: any = {}
   if (input.name !== undefined) updateData.name = input.name
@@ -158,7 +153,7 @@ export async function updateDashboard(
   if (input.isShared !== undefined) updateData.is_shared = input.isShared
 
   const { data, error } = await client
-    .from('dashboards')
+    .from('analytics_dashboards')
     .update(updateData)
     .eq('id', dashboardId)
     .select()
@@ -177,11 +172,11 @@ export async function updateDashboardLayout(
   dashboardId: string,
   layout: Array<{ widgetId: string; x: number; y: number; w: number; h: number }>
 ): Promise<Dashboard> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   // Update dashboard layout
   const { data, error } = await client
-    .from('dashboards')
+    .from('analytics_dashboards')
     .update({ layout })
     .eq('id', dashboardId)
     .select()
@@ -192,7 +187,7 @@ export async function updateDashboardLayout(
   // Also update individual widget positions
   for (const item of layout) {
     await client
-      .from('widgets')
+      .from('analytics_widgets')
       .update({
         grid_x: item.x,
         grid_y: item.y,
@@ -210,10 +205,10 @@ export async function updateDashboardLayout(
 // ===========================================
 
 export async function deleteDashboard(dashboardId: string): Promise<void> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { error } = await client
-    .from('dashboards')
+    .from('analytics_dashboards')
     .delete()
     .eq('id', dashboardId)
 
@@ -232,11 +227,11 @@ export async function duplicateDashboard(
   const original = await getDashboardById(dashboardId)
   if (!original) throw new Error('Dashboard not found')
 
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   // Create new dashboard
   const { data: newDashboard, error: dashboardError } = await client
-    .from('dashboards')
+    .from('analytics_dashboards')
     .insert({
       organization_id: original.organizationId,
       created_by: userId,
@@ -255,7 +250,7 @@ export async function duplicateDashboard(
   const widgetIdMap: Record<string, string> = {}
   for (const widget of original.widgets) {
     const { data: newWidget, error: widgetError } = await client
-      .from('widgets')
+      .from('analytics_widgets')
       .insert({
         dashboard_id: newDashboard.id,
         title: widget.title,
@@ -282,7 +277,7 @@ export async function duplicateDashboard(
   }))
 
   await client
-    .from('dashboards')
+    .from('analytics_dashboards')
     .update({ layout: newLayout })
     .eq('id', newDashboard.id)
 

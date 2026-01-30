@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Button, Card, Progress } from '@sedona/ui'
-import { Plus, Settings, MoreHorizontal, User, Building2, Calendar, Euro, Sparkles, AlertTriangle } from 'lucide-react'
+import { Plus, Settings, MoreHorizontal, User, Building2, Calendar, Euro, Sparkles, AlertTriangle, Loader2, Kanban } from 'lucide-react'
 import { useState } from 'react'
 import { usePlan } from '@/hooks/usePlan'
+import { useOrganization } from '@/lib/auth'
+import { useDefaultPipeline, usePipelineWithDeals, useMoveDeal } from '@sedona/crm'
 
 // Plan limits
 const FREE_PLAN_LIMITS = {
@@ -13,62 +15,25 @@ export const Route = createFileRoute('/_authenticated/crm/pipeline/')({
   component: PipelinePage,
 })
 
-// Mock data
-const mockPipeline = {
-  id: '1',
-  name: 'Pipeline de vente',
-  stages: [
-    {
-      id: '1',
-      name: 'Nouveau',
-      color: '#6b7280',
-      probability: 10,
-      deals: [
-        { id: '1', name: 'Projet Alpha', amount: 25000, contact: 'Marie Dupont', company: 'Acme Corp', expectedCloseDate: '2025-02-15' },
-        { id: '2', name: 'Contrat Beta', amount: 15000, contact: 'Jean Martin', company: 'Tech Solutions', expectedCloseDate: '2025-02-20' },
-      ],
-    },
-    {
-      id: '2',
-      name: 'Qualification',
-      color: '#3b82f6',
-      probability: 20,
-      deals: [
-        { id: '3', name: 'Partenariat Gamma', amount: 50000, contact: 'Sophie Bernard', company: 'Design Studio', expectedCloseDate: '2025-03-01' },
-      ],
-    },
-    {
-      id: '3',
-      name: 'Proposition',
-      color: '#8b5cf6',
-      probability: 40,
-      deals: [
-        { id: '4', name: 'Extension Delta', amount: 35000, contact: 'Pierre Durand', company: 'Finance Plus', expectedCloseDate: '2025-02-28' },
-        { id: '5', name: 'Service Epsilon', amount: 20000, contact: 'Claire Moreau', company: 'Marketing Pro', expectedCloseDate: '2025-03-10' },
-      ],
-    },
-    {
-      id: '4',
-      name: 'Negociation',
-      color: '#f59e0b',
-      probability: 60,
-      deals: [
-        { id: '6', name: 'Contrat annuel Zeta', amount: 75000, contact: 'Marie Dupont', company: 'Acme Corp', expectedCloseDate: '2025-02-10' },
-      ],
-    },
-    {
-      id: '5',
-      name: 'Cloture',
-      color: '#10b981',
-      probability: 80,
-      deals: [],
-    },
-  ],
-}
-
 function PipelinePage() {
   const [draggedDeal, setDraggedDeal] = useState<string | null>(null)
   const { isFree } = usePlan()
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
+
+  // Fetch default pipeline
+  const { data: defaultPipeline, isLoading: isLoadingDefault } = useDefaultPipeline(organizationId)
+  const pipelineId = defaultPipeline?.id || ''
+
+  // Fetch pipeline with deals
+  const { data: pipelineData, isLoading: isLoadingPipeline, error } = usePipelineWithDeals(pipelineId, {
+    enabled: !!pipelineId,
+  })
+
+  // Move deal mutation
+  const moveDealMutation = useMoveDeal()
+
+  const isLoading = isLoadingDefault || isLoadingPipeline
 
   const handleDragStart = (dealId: string) => {
     setDraggedDeal(dealId)
@@ -79,25 +44,71 @@ function PipelinePage() {
   }
 
   const handleDrop = (stageId: string) => {
-    // TODO: Integrate with API to move deal
-    console.log(`Move deal ${draggedDeal} to stage ${stageId}`)
+    if (draggedDeal && pipelineId) {
+      moveDealMutation.mutate({
+        id: draggedDeal,
+        stageId,
+      })
+    }
     setDraggedDeal(null)
   }
 
-  const getTotalValue = (deals: typeof mockPipeline.stages[0]['deals']) => {
-    return deals.reduce((sum, deal) => sum + deal.amount, 0)
+  type DealType = { amount?: number | null }
+
+  const getTotalValue = (deals: DealType[]) => {
+    return deals.reduce((sum, deal) => sum + (deal.amount || 0), 0)
   }
 
-  const getWeightedValue = (deals: typeof mockPipeline.stages[0]['deals'], probability: number) => {
+  const getWeightedValue = (deals: DealType[], probability: number) => {
     return Math.round(getTotalValue(deals) * (probability / 100))
   }
 
+  // Get stages from pipeline data
+  const stages = pipelineData?.stages || []
+
   // Usage tracking for FREE plan
-  const totalDeals = mockPipeline.stages.reduce((sum, stage) => sum + stage.deals.length, 0)
+  const totalDeals = stages.reduce((sum, stage) => sum + ((stage as any).deals?.length || 0), 0)
   const limit = FREE_PLAN_LIMITS.deals
   const usagePercent = (totalDeals / limit) * 100
   const isNearLimit = usagePercent >= 80
   const isAtLimit = totalDeals >= limit
+
+  if (error) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Card className="p-8 text-center max-w-md">
+          <p className="text-red-500">Erreur lors du chargement du pipeline</p>
+          <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+        </Card>
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!pipelineData || stages.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Card className="p-8 text-center max-w-md">
+          <Kanban className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h2 className="text-lg font-semibold mb-2">Aucun pipeline configure</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Creez votre premier pipeline pour commencer a gerer vos opportunites commerciales.
+          </p>
+          <Button size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Creer un pipeline
+          </Button>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -105,7 +116,7 @@ function PipelinePage() {
       <div className="flex items-center justify-between p-6 pb-0">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold font-heading">{mockPipeline.name}</h1>
+            <h1 className="text-2xl font-bold font-heading">{pipelineData.name}</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Gerez vos opportunites commerciales
             </p>
@@ -160,92 +171,101 @@ function PipelinePage() {
       {/* Kanban Board */}
       <div className="flex-1 overflow-x-auto p-6">
         <div className="flex gap-4 h-full min-w-max">
-          {mockPipeline.stages.map((stage) => (
-            <div
-              key={stage.id}
-              className="flex flex-col w-80 bg-muted/30 rounded-lg"
-              onDragOver={handleDragOver}
-              onDrop={() => handleDrop(stage.id)}
-            >
-              {/* Stage Header */}
-              <div className="p-4 border-b">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: stage.color }}
-                    />
-                    <h3 className="font-medium">{stage.name}</h3>
-                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                      {stage.deals.length}
+          {stages.map((stage) => {
+            const stageDeals = (stage as any).deals || []
+            return (
+              <div
+                key={stage.id}
+                className="flex flex-col w-80 bg-muted/30 rounded-lg"
+                onDragOver={handleDragOver}
+                onDrop={() => handleDrop(stage.id)}
+              >
+                {/* Stage Header */}
+                <div className="p-4 border-b">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: stage.color || '#6b7280' }}
+                      />
+                      <h3 className="font-medium">{stage.name}</h3>
+                      <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                        {stageDeals.length}
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{stage.probability || 0}%</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium">{getTotalValue(stageDeals).toLocaleString('fr-FR')} €</span>
+                    <span className="text-muted-foreground ml-2">
+                      ({getWeightedValue(stageDeals, stage.probability || 0).toLocaleString('fr-FR')} € pondere)
                     </span>
                   </div>
-                  <span className="text-xs text-muted-foreground">{stage.probability}%</span>
                 </div>
-                <div className="text-sm">
-                  <span className="font-medium">{getTotalValue(stage.deals).toLocaleString('fr-FR')} €</span>
-                  <span className="text-muted-foreground ml-2">
-                    ({getWeightedValue(stage.deals, stage.probability).toLocaleString('fr-FR')} € pondere)
-                  </span>
-                </div>
-              </div>
 
-              {/* Stage Deals */}
-              <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                {stage.deals.map((deal) => (
-                  <Card
-                    key={deal.id}
-                    className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
-                    draggable
-                    onDragStart={() => handleDragStart(deal.id)}
-                  >
-                    <div className="p-3">
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-medium text-sm">{deal.name}</h4>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-                        <Euro className="h-3 w-3" />
-                        <span className="font-medium text-foreground">
-                          {deal.amount.toLocaleString('fr-FR')} €
-                        </span>
-                      </div>
-                      <div className="space-y-1 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          {deal.contact}
+                {/* Stage Deals */}
+                <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                  {stageDeals.map((deal: any) => (
+                    <Card
+                      key={deal.id}
+                      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+                      draggable
+                      onDragStart={() => handleDragStart(deal.id)}
+                    >
+                      <div className="p-3">
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-medium text-sm">{deal.name}</h4>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Building2 className="h-3 w-3" />
-                          {deal.company}
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                          <Euro className="h-3 w-3" />
+                          <span className="font-medium text-foreground">
+                            {(deal.amount || 0).toLocaleString('fr-FR')} €
+                          </span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {new Date(deal.expectedCloseDate).toLocaleDateString('fr-FR')}
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          {deal.contact && (
+                            <div className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {deal.contact.firstName} {deal.contact.lastName}
+                            </div>
+                          )}
+                          {deal.company && (
+                            <div className="flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
+                              {deal.company.name}
+                            </div>
+                          )}
+                          {deal.expectedCloseDate && (
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(deal.expectedCloseDate).toLocaleDateString('fr-FR')}
+                            </div>
+                          )}
                         </div>
                       </div>
+                    </Card>
+                  ))}
+
+                  {stageDeals.length === 0 && (
+                    <div className="flex items-center justify-center h-24 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
+                      Deposez un deal ici
                     </div>
-                  </Card>
-                ))}
+                  )}
+                </div>
 
-                {stage.deals.length === 0 && (
-                  <div className="flex items-center justify-center h-24 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
-                    Deposez un deal ici
-                  </div>
-                )}
+                {/* Add Deal Button */}
+                <div className="p-2 border-t">
+                  <Button variant="ghost" size="sm" className="w-full justify-start">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Ajouter un deal
+                  </Button>
+                </div>
               </div>
-
-              {/* Add Deal Button */}
-              <div className="p-2 border-t">
-                <Button variant="ghost" size="sm" className="w-full justify-start">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Ajouter un deal
-                </Button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
@@ -256,19 +276,19 @@ function PipelinePage() {
             <div>
               <span className="text-muted-foreground">Total deals: </span>
               <span className="font-medium">
-                {mockPipeline.stages.reduce((sum, stage) => sum + stage.deals.length, 0)}
+                {totalDeals}
               </span>
             </div>
             <div>
               <span className="text-muted-foreground">Valeur totale: </span>
               <span className="font-medium">
-                {mockPipeline.stages.reduce((sum, stage) => sum + getTotalValue(stage.deals), 0).toLocaleString('fr-FR')} €
+                {stages.reduce((sum, stage) => sum + getTotalValue((stage as any).deals || []), 0).toLocaleString('fr-FR')} €
               </span>
             </div>
             <div>
               <span className="text-muted-foreground">Valeur ponderee: </span>
               <span className="font-medium">
-                {mockPipeline.stages.reduce((sum, stage) => sum + getWeightedValue(stage.deals, stage.probability), 0).toLocaleString('fr-FR')} €
+                {stages.reduce((sum, stage) => sum + getWeightedValue((stage as any).deals || [], stage.probability || 0), 0).toLocaleString('fr-FR')} €
               </span>
             </div>
           </div>

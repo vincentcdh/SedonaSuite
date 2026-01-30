@@ -13,9 +13,9 @@ import type {
 // DEALS SERVER FUNCTIONS
 // ===========================================
 
-// Helper to get CRM schema client
-function getCrmClient() {
-  return getSupabaseClient().schema('crm')
+// Helper to get Supabase client (public schema)
+function getClient() {
+  return getSupabaseClient()
 }
 
 /**
@@ -26,14 +26,14 @@ export async function getDeals(
   filters: DealFilters = {},
   pagination: PaginationParams = {}
 ): Promise<PaginatedResult<Deal>> {
-  const crm = getCrmClient()
+  const client = getClient()
   const { page = 1, pageSize = 25, sortBy = 'created_at', sortOrder = 'desc' } = pagination
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = crm
-    .from('deals')
+  let query = client
+    .from('crm_deals')
     .select(
-      '*, contact:contacts(id, first_name, last_name, email), company:companies(id, name), stage:pipeline_stages(id, name, color)',
+      '*, contact:crm_contacts(id, first_name, last_name, email), company:crm_companies(id, name), stage:crm_pipeline_stages(id, name, color)',
       { count: 'exact' }
     )
     .eq('organization_id', organizationId)
@@ -115,12 +115,12 @@ export async function getDeals(
  * Get a single deal by ID
  */
 export async function getDeal(dealId: string): Promise<Deal | null> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data, error } = await crm
-    .from('deals')
+  const { data, error } = await client
+    .from('crm_deals')
     .select(
-      '*, contact:contacts(id, first_name, last_name, email), company:companies(id, name), stage:pipeline_stages(id, name, color), pipeline:pipelines(id, name)'
+      '*, contact:crm_contacts(id, first_name, last_name, email), company:crm_companies(id, name), stage:crm_pipeline_stages(id, name, color), pipeline:crm_pipelines(id, name)'
     )
     .eq('id', dealId)
     .is('deleted_at', null)
@@ -141,10 +141,10 @@ export async function createDeal(
   organizationId: string,
   input: CreateDealInput
 ): Promise<Deal> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data, error } = await crm
-    .from('deals')
+  const { data, error } = await client
+    .from('crm_deals')
     .insert({
       organization_id: organizationId,
       pipeline_id: input.pipelineId,
@@ -161,7 +161,7 @@ export async function createDeal(
       status: 'open',
     })
     .select(
-      '*, contact:contacts(id, first_name, last_name, email), company:companies(id, name), stage:pipeline_stages(id, name, color)'
+      '*, contact:crm_contacts(id, first_name, last_name, email), company:crm_companies(id, name), stage:crm_pipeline_stages(id, name, color)'
     )
     .single()
 
@@ -176,7 +176,7 @@ export async function createDeal(
  * Update a deal
  */
 export async function updateDeal(input: UpdateDealInput): Promise<Deal> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: Record<string, any> = {}
@@ -213,12 +213,12 @@ export async function updateDeal(input: UpdateDealInput): Promise<Deal> {
     }
   }
 
-  const { data, error } = await crm
-    .from('deals')
+  const { data, error } = await client
+    .from('crm_deals')
     .update(updateData)
     .eq('id', input.id)
     .select(
-      '*, contact:contacts(id, first_name, last_name, email), company:companies(id, name), stage:pipeline_stages(id, name, color)'
+      '*, contact:crm_contacts(id, first_name, last_name, email), company:crm_companies(id, name), stage:crm_pipeline_stages(id, name, color)'
     )
     .single()
 
@@ -233,14 +233,14 @@ export async function updateDeal(input: UpdateDealInput): Promise<Deal> {
  * Move a deal to a different stage
  */
 export async function moveDeal(input: MoveDealInput): Promise<Deal> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { data, error } = await crm
-    .from('deals')
+  const { data, error } = await client
+    .from('crm_deals')
     .update({ stage_id: input.stageId })
     .eq('id', input.id)
     .select(
-      '*, contact:contacts(id, first_name, last_name, email), company:companies(id, name), stage:pipeline_stages(id, name, color)'
+      '*, contact:crm_contacts(id, first_name, last_name, email), company:crm_companies(id, name), stage:crm_pipeline_stages(id, name, color)'
     )
     .single()
 
@@ -276,10 +276,10 @@ export async function reopenDeal(dealId: string): Promise<Deal> {
  * Delete a deal (soft delete)
  */
 export async function deleteDeal(dealId: string): Promise<void> {
-  const crm = getCrmClient()
+  const client = getClient()
 
-  const { error } = await crm
-    .from('deals')
+  const { error } = await client
+    .from('crm_deals')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', dealId)
 
@@ -300,11 +300,11 @@ export async function getDealStats(organizationId: string, pipelineId?: string):
   averageDealSize: number
   conversionRate: number
 }> {
-  const crm = getCrmClient()
+  const client = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = crm
-    .from('deals')
+  let query = client
+    .from('crm_deals')
     .select('status, amount')
     .eq('organization_id', organizationId)
     .is('deleted_at', null) as any

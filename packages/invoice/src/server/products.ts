@@ -12,8 +12,9 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getInvoiceClient() {
-  return getSupabaseClient().schema('invoice' as any) as any
+// Helper to get Supabase client (public schema)
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -28,8 +29,8 @@ export async function getProducts(
   const { page = 1, pageSize = 50, sortBy = 'name', sortOrder = 'asc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getInvoiceClient()
-    .from('products')
+  let query = getClient()
+    .from('invoice_products')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -72,8 +73,8 @@ export async function getProducts(
 // ===========================================
 
 export async function getProductById(id: string): Promise<Product | null> {
-  const { data, error } = await getInvoiceClient()
-    .from('products')
+  const { data, error } = await getClient()
+    .from('invoice_products')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
@@ -95,8 +96,8 @@ export async function createProduct(
   organizationId: string,
   input: CreateProductInput
 ): Promise<Product> {
-  const { data, error } = await getInvoiceClient()
-    .from('products')
+  const { data, error } = await getClient()
+    .from('invoice_products')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -142,8 +143,8 @@ export async function updateProduct(input: UpdateProductInput): Promise<Product>
   if (input.isActive !== undefined) updateData.is_active = input.isActive
   if (input.customFields !== undefined) updateData.custom_fields = input.customFields
 
-  const { data, error } = await getInvoiceClient()
-    .from('products')
+  const { data, error } = await getClient()
+    .from('invoice_products')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -159,8 +160,8 @@ export async function updateProduct(input: UpdateProductInput): Promise<Product>
 // ===========================================
 
 export async function deleteProduct(id: string): Promise<void> {
-  const { error } = await getInvoiceClient()
-    .from('products')
+  const { error } = await getClient()
+    .from('invoice_products')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -172,8 +173,8 @@ export async function deleteProduct(id: string): Promise<void> {
 // ===========================================
 
 export async function getProductCategories(organizationId: string): Promise<string[]> {
-  const { data, error } = await getInvoiceClient()
-    .from('products')
+  const { data, error } = await getClient()
+    .from('invoice_products')
     .select('category')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)

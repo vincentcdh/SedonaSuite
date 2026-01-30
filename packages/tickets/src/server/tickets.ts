@@ -14,10 +14,6 @@ import type {
   TicketStats,
 } from '../types'
 
-function getTicketsClient() {
-  return getSupabaseClient().schema('tickets' as any) as any
-}
-
 // ===========================================
 // GET TICKETS
 // ===========================================
@@ -30,8 +26,8 @@ export async function getTickets(
   const { page = 1, pageSize = 20, sortBy = 'createdAt', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getTicketsClient()
-    .from('tickets')
+  let query = getSupabaseClient()
+    .from('tickets_tickets')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
 
@@ -94,7 +90,7 @@ export async function getTickets(
   const assigneeIds = [...new Set((data || []).filter((t: any) => t.assigned_to).map((t: any) => t.assigned_to))]
 
   const [categories, assignees] = await Promise.all([
-    categoryIds.length > 0 ? getTicketsClient().from('categories').select('*').in('id', categoryIds) : { data: [] },
+    categoryIds.length > 0 ? getSupabaseClient().from('tickets_categories').select('*').in('id', categoryIds) : { data: [] },
     assigneeIds.length > 0 ? getSupabaseClient().from('users').select('id, email, full_name, avatar_url').in('id', assigneeIds) : { data: [] },
   ])
 
@@ -127,8 +123,8 @@ export async function getTickets(
 // ===========================================
 
 export async function getTicketById(id: string): Promise<TicketWithRelations | null> {
-  const { data, error } = await getTicketsClient()
-    .from('tickets')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_tickets')
     .select('*')
     .eq('id', id)
     .single()
@@ -142,9 +138,9 @@ export async function getTicketById(id: string): Promise<TicketWithRelations | n
 
   // Get related data
   const [categoryResult, assigneeResult, messagesCount] = await Promise.all([
-    ticket.categoryId ? getTicketsClient().from('categories').select('*').eq('id', ticket.categoryId).single() : { data: null },
+    ticket.categoryId ? getSupabaseClient().from('tickets_categories').select('*').eq('id', ticket.categoryId).single() : { data: null },
     ticket.assignedTo ? getSupabaseClient().from('users').select('id, email, full_name, avatar_url').eq('id', ticket.assignedTo).single() : { data: null },
-    getTicketsClient().from('messages').select('id', { count: 'exact', head: true }).eq('ticket_id', id),
+    getSupabaseClient().from('tickets_messages').select('id', { count: 'exact', head: true }).eq('ticket_id', id),
   ]) as any[]
 
   return {
@@ -165,8 +161,8 @@ export async function getTicketById(id: string): Promise<TicketWithRelations | n
 // ===========================================
 
 export async function getTicketByNumber(ticketNumber: string): Promise<TicketWithRelations | null> {
-  const { data, error } = await getTicketsClient()
-    .from('tickets')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_tickets')
     .select('*')
     .eq('ticket_number', ticketNumber)
     .single()
@@ -188,8 +184,8 @@ export async function createTicket(
   input: CreateTicketInput,
   userId?: string
 ): Promise<Ticket> {
-  const { data, error } = await getTicketsClient()
-    .from('tickets')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_tickets')
     .insert({
       organization_id: organizationId,
       subject: input.subject,
@@ -213,8 +209,8 @@ export async function createTicket(
   if (error) throw error
 
   // Log activity
-  await getTicketsClient()
-    .from('activity_log')
+  await getSupabaseClient()
+    .from('tickets_activity_log')
     .insert({
       ticket_id: data.id,
       activity_type: 'created',
@@ -245,8 +241,8 @@ export async function updateTicket(input: UpdateTicketInput): Promise<Ticket> {
   if (input.tags !== undefined) updateData.tags = input.tags
   if (input.customFields !== undefined) updateData.custom_fields = input.customFields
 
-  const { data, error } = await getTicketsClient()
-    .from('tickets')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_tickets')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -262,8 +258,8 @@ export async function updateTicket(input: UpdateTicketInput): Promise<Ticket> {
 // ===========================================
 
 export async function deleteTicket(id: string): Promise<void> {
-  const { error } = await getTicketsClient()
-    .from('tickets')
+  const { error } = await getSupabaseClient()
+    .from('tickets_tickets')
     .delete()
     .eq('id', id)
 
@@ -291,45 +287,56 @@ export async function changeTicketStatus(ticketId: string, status: Ticket['statu
 // ===========================================
 
 export async function getTicketStats(organizationId: string): Promise<TicketStats> {
-  const { data, error } = await getTicketsClient()
-    .from('ticket_stats')
-    .select('*')
-    .eq('organization_id', organizationId)
-    .single()
+  const client = getSupabaseClient()
 
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return {
-        totalTickets: 0,
-        openTickets: 0,
-        inProgressTickets: 0,
-        waitingTickets: 0,
-        resolvedTickets: 0,
-        closedTickets: 0,
-        slaBreachedTickets: 0,
-        createdLast24h: 0,
-        resolvedLast24h: 0,
-        avgFirstResponseMinutes: null,
-        avgResolutionMinutes: null,
-        avgSatisfaction: null,
-      }
-    }
-    throw error
-  }
+  // Count tickets by status directly from the table
+  const [
+    { count: totalTickets },
+    { count: openTickets },
+    { count: inProgressTickets },
+    { count: waitingTickets },
+    { count: resolvedTickets },
+    { count: closedTickets },
+    { count: slaBreachedTickets },
+  ] = await Promise.all([
+    client.from('tickets_tickets').select('*', { count: 'exact', head: true }).eq('organization_id', organizationId).is('deleted_at', null),
+    client.from('tickets_tickets').select('*', { count: 'exact', head: true }).eq('organization_id', organizationId).eq('status', 'open').is('deleted_at', null),
+    client.from('tickets_tickets').select('*', { count: 'exact', head: true }).eq('organization_id', organizationId).eq('status', 'in_progress').is('deleted_at', null),
+    client.from('tickets_tickets').select('*', { count: 'exact', head: true }).eq('organization_id', organizationId).eq('status', 'waiting').is('deleted_at', null),
+    client.from('tickets_tickets').select('*', { count: 'exact', head: true }).eq('organization_id', organizationId).eq('status', 'resolved').is('deleted_at', null),
+    client.from('tickets_tickets').select('*', { count: 'exact', head: true }).eq('organization_id', organizationId).eq('status', 'closed').is('deleted_at', null),
+    client.from('tickets_tickets').select('*', { count: 'exact', head: true }).eq('organization_id', organizationId).or('sla_response_breached.eq.true,sla_resolution_breached.eq.true').is('deleted_at', null),
+  ])
+
+  // Count tickets created in last 24h
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const { count: createdLast24h } = await client
+    .from('tickets_tickets')
+    .select('*', { count: 'exact', head: true })
+    .eq('organization_id', organizationId)
+    .gte('created_at', twentyFourHoursAgo)
+    .is('deleted_at', null)
+
+  const { count: resolvedLast24h } = await client
+    .from('tickets_tickets')
+    .select('*', { count: 'exact', head: true })
+    .eq('organization_id', organizationId)
+    .gte('resolved_at', twentyFourHoursAgo)
+    .is('deleted_at', null)
 
   return {
-    totalTickets: data.total_tickets || 0,
-    openTickets: data.open_tickets || 0,
-    inProgressTickets: data.in_progress_tickets || 0,
-    waitingTickets: data.waiting_tickets || 0,
-    resolvedTickets: data.resolved_tickets || 0,
-    closedTickets: data.closed_tickets || 0,
-    slaBreachedTickets: data.sla_breached_tickets || 0,
-    createdLast24h: data.created_last_24h || 0,
-    resolvedLast24h: data.resolved_last_24h || 0,
-    avgFirstResponseMinutes: data.avg_first_response_minutes,
-    avgResolutionMinutes: data.avg_resolution_minutes,
-    avgSatisfaction: data.avg_satisfaction,
+    totalTickets: totalTickets || 0,
+    openTickets: openTickets || 0,
+    inProgressTickets: inProgressTickets || 0,
+    waitingTickets: waitingTickets || 0,
+    resolvedTickets: resolvedTickets || 0,
+    closedTickets: closedTickets || 0,
+    slaBreachedTickets: slaBreachedTickets || 0,
+    createdLast24h: createdLast24h || 0,
+    resolvedLast24h: resolvedLast24h || 0,
+    avgFirstResponseMinutes: null, // Could be computed with more complex query
+    avgResolutionMinutes: null,
+    avgSatisfaction: null,
   }
 }
 

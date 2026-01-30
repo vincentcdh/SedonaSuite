@@ -9,17 +9,13 @@ import type {
   UpdateCategoryInput,
 } from '../types'
 
-function getTicketsClient() {
-  return getSupabaseClient().schema('tickets' as any) as any
-}
-
 // ===========================================
 // GET ALL CATEGORIES
 // ===========================================
 
 export async function getCategories(organizationId: string): Promise<TicketCategory[]> {
-  const { data, error } = await getTicketsClient()
-    .from('categories')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_categories')
     .select('*')
     .eq('organization_id', organizationId)
     .order('position', { ascending: true })
@@ -34,8 +30,8 @@ export async function getCategories(organizationId: string): Promise<TicketCateg
 // ===========================================
 
 export async function getActiveCategories(organizationId: string): Promise<TicketCategory[]> {
-  const { data, error } = await getTicketsClient()
-    .from('categories')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_categories')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('is_active', true)
@@ -51,8 +47,8 @@ export async function getActiveCategories(organizationId: string): Promise<Ticke
 // ===========================================
 
 export async function getCategoryById(id: string): Promise<TicketCategory | null> {
-  const { data, error } = await getTicketsClient()
-    .from('categories')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_categories')
     .select('*')
     .eq('id', id)
     .single()
@@ -73,8 +69,8 @@ export async function createCategory(
   organizationId: string,
   input: CreateCategoryInput
 ): Promise<TicketCategory> {
-  const { data, error } = await getTicketsClient()
-    .from('categories')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_categories')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -108,8 +104,8 @@ export async function updateCategory(input: UpdateCategoryInput): Promise<Ticket
   if (input.isActive !== undefined) updateData.is_active = input.isActive
   if (input.position !== undefined) updateData.position = input.position
 
-  const { data, error } = await getTicketsClient()
-    .from('categories')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_categories')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -125,8 +121,8 @@ export async function updateCategory(input: UpdateCategoryInput): Promise<Ticket
 // ===========================================
 
 export async function deleteCategory(id: string): Promise<void> {
-  const { error } = await getTicketsClient()
-    .from('categories')
+  const { error } = await getSupabaseClient()
+    .from('tickets_categories')
     .delete()
     .eq('id', id)
 
@@ -143,8 +139,8 @@ export async function reorderCategories(
 ): Promise<void> {
   // Update positions in order
   for (let i = 0; i < orderedIds.length; i++) {
-    const { error } = await getTicketsClient()
-      .from('categories')
+    const { error } = await getSupabaseClient()
+      .from('tickets_categories')
       .update({ position: i })
       .eq('id', orderedIds[i])
       .eq('organization_id', organizationId)

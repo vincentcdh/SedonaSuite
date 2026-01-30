@@ -9,8 +9,8 @@ import type {
   UpdateLabelInput,
 } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -18,8 +18,8 @@ function getProjectsClient() {
 // ===========================================
 
 export async function getProjectLabels(projectId: string): Promise<Label[]> {
-  const { data, error } = await getProjectsClient()
-    .from('labels')
+  const { data, error } = await getClient()
+    .from('projects_labels')
     .select('*')
     .eq('project_id', projectId)
     .order('name', { ascending: true })
@@ -34,8 +34,8 @@ export async function getProjectLabels(projectId: string): Promise<Label[]> {
 // ===========================================
 
 export async function createLabel(input: CreateLabelInput): Promise<Label> {
-  const { data, error } = await getProjectsClient()
-    .from('labels')
+  const { data, error } = await getClient()
+    .from('projects_labels')
     .insert({
       project_id: input.projectId,
       name: input.name,
@@ -59,8 +59,8 @@ export async function updateLabel(input: UpdateLabelInput): Promise<Label> {
   if (input.name !== undefined) updateData.name = input.name
   if (input.color !== undefined) updateData.color = input.color
 
-  const { data, error } = await getProjectsClient()
-    .from('labels')
+  const { data, error } = await getClient()
+    .from('projects_labels')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -76,8 +76,8 @@ export async function updateLabel(input: UpdateLabelInput): Promise<Label> {
 // ===========================================
 
 export async function deleteLabel(id: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('labels')
+  const { error } = await getClient()
+    .from('projects_labels')
     .delete()
     .eq('id', id)
 
@@ -89,8 +89,8 @@ export async function deleteLabel(id: string): Promise<void> {
 // ===========================================
 
 export async function addLabelToTask(taskId: string, labelId: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('task_labels')
+  const { error } = await getClient()
+    .from('projects_task_labels')
     .insert({
       task_id: taskId,
       label_id: labelId,
@@ -104,8 +104,8 @@ export async function addLabelToTask(taskId: string, labelId: string): Promise<v
 // ===========================================
 
 export async function removeLabelFromTask(taskId: string, labelId: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('task_labels')
+  const { error } = await getClient()
+    .from('projects_task_labels')
     .delete()
     .eq('task_id', taskId)
     .eq('label_id', labelId)
@@ -118,8 +118,8 @@ export async function removeLabelFromTask(taskId: string, labelId: string): Prom
 // ===========================================
 
 export async function getTaskLabels(taskId: string): Promise<Label[]> {
-  const { data, error } = await getProjectsClient()
-    .from('task_labels')
+  const { data, error } = await getClient()
+    .from('projects_task_labels')
     .select('label_id')
     .eq('task_id', taskId)
 
@@ -128,8 +128,8 @@ export async function getTaskLabels(taskId: string): Promise<Label[]> {
   if (!data || data.length === 0) return []
 
   const labelIds = data.map((tl: any) => tl.label_id)
-  const { data: labels } = await getProjectsClient()
-    .from('labels')
+  const { data: labels } = await getClient()
+    .from('projects_labels')
     .select('*')
     .in('id', labelIds)
 

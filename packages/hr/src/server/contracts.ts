@@ -12,10 +12,6 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getHrClient() {
-  return getSupabaseClient().schema('hr' as any) as any
-}
-
 // ===========================================
 // GET CONTRACTS
 // ===========================================
@@ -27,8 +23,8 @@ export async function getContracts(
   const { page = 1, pageSize = 20, sortBy = 'startDate', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  const { data, error, count } = await getHrClient()
-    .from('contracts')
+  const { data, error, count } = await getSupabaseClient()
+    .from('hr_contracts')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -42,8 +38,8 @@ export async function getContracts(
 
   let employees: any[] = []
   if (employeeIds.length > 0) {
-    const { data: employeeData } = await getHrClient()
-      .from('employees')
+    const { data: employeeData } = await getSupabaseClient()
+      .from('hr_employees')
       .select('id, first_name, last_name, photo_url')
       .in('id', employeeIds)
     employees = employeeData || []
@@ -78,8 +74,8 @@ export async function getContracts(
 // ===========================================
 
 export async function getContractsByEmployee(employeeId: string): Promise<Contract[]> {
-  const { data, error } = await getHrClient()
-    .from('contracts')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_contracts')
     .select('*')
     .eq('employee_id', employeeId)
     .is('deleted_at', null)
@@ -95,8 +91,8 @@ export async function getContractsByEmployee(employeeId: string): Promise<Contra
 // ===========================================
 
 export async function getContractById(id: string): Promise<ContractWithEmployee | null> {
-  const { data, error } = await getHrClient()
-    .from('contracts')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_contracts')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
@@ -110,8 +106,8 @@ export async function getContractById(id: string): Promise<ContractWithEmployee 
   const contract = mapContractFromDb(data)
 
   // Get employee
-  const { data: employeeData } = await getHrClient()
-    .from('employees')
+  const { data: employeeData } = await getSupabaseClient()
+    .from('hr_employees')
     .select('id, first_name, last_name, photo_url')
     .eq('id', contract.employeeId)
     .single()
@@ -136,8 +132,8 @@ export async function getContractById(id: string): Promise<ContractWithEmployee 
 export async function getCurrentContract(employeeId: string): Promise<Contract | null> {
   const today = new Date().toISOString().split('T')[0]
 
-  const { data, error } = await getHrClient()
-    .from('contracts')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_contracts')
     .select('*')
     .eq('employee_id', employeeId)
     .is('deleted_at', null)
@@ -163,8 +159,8 @@ export async function createContract(
   organizationId: string,
   input: CreateContractInput
 ): Promise<Contract> {
-  const { data, error } = await getHrClient()
-    .from('contracts')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_contracts')
     .insert({
       organization_id: organizationId,
       employee_id: input.employeeId,
@@ -192,8 +188,8 @@ export async function createContract(
   if (error) throw error
 
   // Update employee's current contract info
-  await getHrClient()
-    .from('employees')
+  await getSupabaseClient()
+    .from('hr_employees')
     .update({
       contract_type: input.contractType,
       contract_start_date: input.startDate,
@@ -233,8 +229,8 @@ export async function updateContract(input: UpdateContractInput): Promise<Contra
   if (input.signedDocumentUrl !== undefined) updateData.signed_document_url = input.signedDocumentUrl
   if (input.notes !== undefined) updateData.notes = input.notes
 
-  const { data, error } = await getHrClient()
-    .from('contracts')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_contracts')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -250,8 +246,8 @@ export async function updateContract(input: UpdateContractInput): Promise<Contra
 // ===========================================
 
 export async function deleteContract(id: string): Promise<void> {
-  const { error } = await getHrClient()
-    .from('contracts')
+  const { error } = await getSupabaseClient()
+    .from('hr_contracts')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -269,8 +265,8 @@ export async function getExpiringContracts(
   const today = new Date()
   const futureDate = new Date(today.getTime() + daysAhead * 24 * 60 * 60 * 1000)
 
-  const { data, error } = await getHrClient()
-    .from('contracts')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_contracts')
     .select('*')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -286,8 +282,8 @@ export async function getExpiringContracts(
 
   let employees: any[] = []
   if (employeeIds.length > 0) {
-    const { data: employeeData } = await getHrClient()
-      .from('employees')
+    const { data: employeeData } = await getSupabaseClient()
+      .from('hr_employees')
       .select('id, first_name, last_name, photo_url')
       .in('id', employeeIds)
     employees = employeeData || []
@@ -322,8 +318,8 @@ export async function getTrialPeriodsEndingSoon(
   const today = new Date()
   const futureDate = new Date(today.getTime() + daysAhead * 24 * 60 * 60 * 1000)
 
-  const { data, error } = await getHrClient()
-    .from('contracts')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_contracts')
     .select('*')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -339,8 +335,8 @@ export async function getTrialPeriodsEndingSoon(
 
   let employees: any[] = []
   if (employeeIds.length > 0) {
-    const { data: employeeData } = await getHrClient()
-      .from('employees')
+    const { data: employeeData } = await getSupabaseClient()
+      .from('hr_employees')
       .select('id, first_name, last_name, photo_url')
       .in('id', employeeIds)
     employees = employeeData || []

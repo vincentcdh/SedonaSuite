@@ -11,8 +11,9 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getInvoiceClient() {
-  return getSupabaseClient().schema('invoice' as any) as any
+// Helper to get Supabase client (public schema)
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -20,8 +21,8 @@ function getInvoiceClient() {
 // ===========================================
 
 export async function getPaymentsByInvoice(invoiceId: string): Promise<Payment[]> {
-  const { data, error } = await getInvoiceClient()
-    .from('payments')
+  const { data, error } = await getClient()
+    .from('invoice_payments')
     .select('*')
     .eq('invoice_id', invoiceId)
     .order('payment_date', { ascending: false })
@@ -42,8 +43,8 @@ export async function getPayments(
   const { page = 1, pageSize = 50, sortBy = 'paymentDate', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  const { data, error, count } = await getInvoiceClient()
-    .from('payments')
+  const { data, error, count } = await getClient()
+    .from('invoice_payments')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .order(toSnakeCase(sortBy), { ascending: sortOrder === 'asc' })
@@ -65,8 +66,8 @@ export async function getPayments(
 // ===========================================
 
 export async function getPaymentById(id: string): Promise<Payment | null> {
-  const { data, error } = await getInvoiceClient()
-    .from('payments')
+  const { data, error } = await getClient()
+    .from('invoice_payments')
     .select('*')
     .eq('id', id)
     .single()
@@ -88,8 +89,8 @@ export async function createPayment(
   input: CreatePaymentInput,
   userId?: string
 ): Promise<Payment> {
-  const { data, error } = await getInvoiceClient()
-    .from('payments')
+  const { data, error } = await getClient()
+    .from('invoice_payments')
     .insert({
       organization_id: organizationId,
       invoice_id: input.invoiceId,
@@ -122,8 +123,8 @@ export async function updatePayment(input: UpdatePaymentInput): Promise<Payment>
   if (input.reference !== undefined) updateData.reference = input.reference
   if (input.notes !== undefined) updateData.notes = input.notes
 
-  const { data, error } = await getInvoiceClient()
-    .from('payments')
+  const { data, error } = await getClient()
+    .from('invoice_payments')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -139,8 +140,8 @@ export async function updatePayment(input: UpdatePaymentInput): Promise<Payment>
 // ===========================================
 
 export async function deletePayment(id: string): Promise<void> {
-  const { error } = await getInvoiceClient()
-    .from('payments')
+  const { error } = await getClient()
+    .from('invoice_payments')
     .delete()
     .eq('id', id)
 

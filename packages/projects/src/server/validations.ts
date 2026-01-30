@@ -9,8 +9,8 @@ import type {
   RespondToValidationInput,
 } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -18,8 +18,8 @@ function getProjectsClient() {
 // ===========================================
 
 export async function getClientValidations(projectId: string): Promise<ClientValidation[]> {
-  const { data, error } = await getProjectsClient()
-    .from('client_validations')
+  const { data, error } = await getClient()
+    .from('projects_client_validations')
     .select(`
       *,
       validated_by_client:validated_by_client_id (
@@ -37,8 +37,8 @@ export async function getClientValidations(projectId: string): Promise<ClientVal
 }
 
 export async function getClientValidationById(id: string): Promise<ClientValidation | null> {
-  const { data, error } = await getProjectsClient()
-    .from('client_validations')
+  const { data, error } = await getClient()
+    .from('projects_client_validations')
     .select(`
       *,
       validated_by_client:validated_by_client_id (
@@ -59,8 +59,8 @@ export async function getClientValidationById(id: string): Promise<ClientValidat
 }
 
 export async function getPendingValidations(projectId: string): Promise<ClientValidation[]> {
-  const { data, error } = await getProjectsClient()
-    .from('client_validations')
+  const { data, error } = await getClient()
+    .from('projects_client_validations')
     .select(`
       *,
       validated_by_client:validated_by_client_id (
@@ -82,8 +82,8 @@ export async function createClientValidation(input: CreateValidationInput): Prom
   const supabase = getSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data, error } = await getProjectsClient()
-    .from('client_validations')
+  const { data, error } = await getClient()
+    .from('projects_client_validations')
     .insert({
       project_id: input.projectId,
       title: input.title,
@@ -98,8 +98,8 @@ export async function createClientValidation(input: CreateValidationInput): Prom
   if (error) throw error
 
   // Log activity
-  await getProjectsClient()
-    .from('activity_log')
+  await getClient()
+    .from('projects_activity_log')
     .insert({
       project_id: input.projectId,
       action: 'validation_requested',
@@ -131,8 +131,8 @@ export async function respondToValidation(
     updateData['change_requests'] = input.changeRequests
   }
 
-  const { data, error } = await getProjectsClient()
-    .from('client_validations')
+  const { data, error } = await getClient()
+    .from('projects_client_validations')
     .update(updateData)
     .eq('id', input.id)
     .select(`
@@ -148,8 +148,8 @@ export async function respondToValidation(
   if (error) throw error
 
   // Log activity
-  await getProjectsClient()
-    .from('activity_log')
+  await getClient()
+    .from('projects_activity_log')
     .insert({
       project_id: data.project_id,
       action: `validation_${input.status}`,
@@ -164,8 +164,8 @@ export async function respondToValidation(
 }
 
 export async function deleteClientValidation(id: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('client_validations')
+  const { error } = await getClient()
+    .from('projects_client_validations')
     .delete()
     .eq('id', id)
 
@@ -173,8 +173,8 @@ export async function deleteClientValidation(id: string): Promise<void> {
 }
 
 export async function getPendingValidationsCount(projectId: string): Promise<number> {
-  const { count, error } = await getProjectsClient()
-    .from('client_validations')
+  const { count, error } = await getClient()
+    .from('projects_client_validations')
     .select('*', { count: 'exact', head: true })
     .eq('project_id', projectId)
     .eq('status', 'pending')

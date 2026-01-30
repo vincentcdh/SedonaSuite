@@ -7,6 +7,16 @@ import type {
   PaginationParams,
   PaginatedResult,
 } from '../types'
+import {
+  getContacts,
+  getContact as getContactById,
+  createContact,
+  updateContact,
+  deleteContact,
+  bulkDeleteContacts,
+  addContactTags,
+  getContactCount,
+} from '../server/contacts'
 
 // ===========================================
 // CONTACTS HOOKS
@@ -34,25 +44,7 @@ export function useContacts(
 ) {
   return useQuery({
     queryKey: contactKeys.list(organizationId, filters, pagination),
-    queryFn: async (): Promise<PaginatedResult<Contact>> => {
-      const params = new URLSearchParams()
-      params.set('organizationId', organizationId)
-
-      if (filters.search) params.set('search', filters.search)
-      if (filters.companyId) params.set('companyId', filters.companyId)
-      if (filters.tags?.length) params.set('tags', filters.tags.join(','))
-      if (filters.source) params.set('source', filters.source)
-      if (filters.ownerId) params.set('ownerId', filters.ownerId)
-
-      if (pagination.page) params.set('page', String(pagination.page))
-      if (pagination.pageSize) params.set('pageSize', String(pagination.pageSize))
-      if (pagination.sortBy) params.set('sortBy', pagination.sortBy)
-      if (pagination.sortOrder) params.set('sortOrder', pagination.sortOrder)
-
-      const response = await fetch(`/api/crm/contacts?${params}`)
-      if (!response.ok) throw new Error('Failed to fetch contacts')
-      return response.json()
-    },
+    queryFn: () => getContacts(organizationId, filters, pagination),
     enabled: options?.enabled !== false && !!organizationId,
   })
 }
@@ -63,11 +55,7 @@ export function useContacts(
 export function useContact(contactId: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: contactKeys.detail(contactId),
-    queryFn: async (): Promise<Contact> => {
-      const response = await fetch(`/api/crm/contacts/${contactId}`)
-      if (!response.ok) throw new Error('Failed to fetch contact')
-      return response.json()
-    },
+    queryFn: () => getContactById(contactId),
     enabled: options?.enabled !== false && !!contactId,
   })
 }
@@ -79,21 +67,13 @@ export function useCreateContact() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       organizationId,
       data,
     }: {
       organizationId: string
       data: CreateContactInput
-    }): Promise<Contact> => {
-      const response = await fetch('/api/crm/contacts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId, ...data }),
-      })
-      if (!response.ok) throw new Error('Failed to create contact')
-      return response.json()
-    },
+    }) => createContact(organizationId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contactKeys.lists() })
     },
@@ -107,18 +87,12 @@ export function useUpdateContact() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (data: UpdateContactInput): Promise<Contact> => {
-      const response = await fetch(`/api/crm/contacts/${data.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!response.ok) throw new Error('Failed to update contact')
-      return response.json()
-    },
+    mutationFn: (data: UpdateContactInput) => updateContact(data),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: contactKeys.lists() })
-      queryClient.invalidateQueries({ queryKey: contactKeys.detail(data.id) })
+      if (data) {
+        queryClient.invalidateQueries({ queryKey: contactKeys.detail(data.id) })
+      }
     },
   })
 }
@@ -130,12 +104,7 @@ export function useDeleteContact() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (contactId: string): Promise<void> => {
-      const response = await fetch(`/api/crm/contacts/${contactId}`, {
-        method: 'DELETE',
-      })
-      if (!response.ok) throw new Error('Failed to delete contact')
-    },
+    mutationFn: (contactId: string) => deleteContact(contactId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contactKeys.lists() })
     },
@@ -149,14 +118,7 @@ export function useBulkDeleteContacts() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (contactIds: string[]): Promise<void> => {
-      const response = await fetch('/api/crm/contacts/bulk-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: contactIds }),
-      })
-      if (!response.ok) throw new Error('Failed to delete contacts')
-    },
+    mutationFn: (contactIds: string[]) => bulkDeleteContacts(contactIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contactKeys.lists() })
     },
@@ -170,24 +132,18 @@ export function useAddContactTags() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       contactId,
       tags,
     }: {
       contactId: string
       tags: string[]
-    }): Promise<Contact> => {
-      const response = await fetch(`/api/crm/contacts/${contactId}/tags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags }),
-      })
-      if (!response.ok) throw new Error('Failed to add tags')
-      return response.json()
-    },
+    }) => addContactTags(contactId, tags),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: contactKeys.lists() })
-      queryClient.invalidateQueries({ queryKey: contactKeys.detail(data.id) })
+      if (data) {
+        queryClient.invalidateQueries({ queryKey: contactKeys.detail(data.id) })
+      }
     },
   })
 }
@@ -198,12 +154,7 @@ export function useAddContactTags() {
 export function useContactCount(organizationId: string) {
   return useQuery({
     queryKey: contactKeys.count(organizationId),
-    queryFn: async (): Promise<number> => {
-      const response = await fetch(`/api/crm/contacts/count?organizationId=${organizationId}`)
-      if (!response.ok) throw new Error('Failed to fetch contact count')
-      const data = await response.json()
-      return data.count
-    },
+    queryFn: () => getContactCount(organizationId),
     enabled: !!organizationId,
   })
 }

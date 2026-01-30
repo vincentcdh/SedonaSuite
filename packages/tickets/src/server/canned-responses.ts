@@ -9,10 +9,6 @@ import type {
   UpdateCannedResponseInput,
 } from '../types'
 
-function getTicketsClient() {
-  return getSupabaseClient().schema('tickets' as any) as any
-}
-
 // ===========================================
 // GET ALL CANNED RESPONSES
 // ===========================================
@@ -21,8 +17,8 @@ export async function getCannedResponses(
   organizationId: string,
   userId?: string
 ): Promise<CannedResponse[]> {
-  let query = getTicketsClient()
-    .from('canned_responses')
+  let query = getSupabaseClient()
+    .from('tickets_canned_responses')
     .select('*')
     .eq('organization_id', organizationId)
     .order('category', { ascending: true, nullsFirst: false })
@@ -52,8 +48,8 @@ export async function getCannedResponsesByCategory(
   category: string,
   userId?: string
 ): Promise<CannedResponse[]> {
-  let query = getTicketsClient()
-    .from('canned_responses')
+  let query = getSupabaseClient()
+    .from('tickets_canned_responses')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('category', category)
@@ -77,8 +73,8 @@ export async function getCannedResponsesByCategory(
 // ===========================================
 
 export async function getCannedResponseById(id: string): Promise<CannedResponse | null> {
-  const { data, error } = await getTicketsClient()
-    .from('canned_responses')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_canned_responses')
     .select('*')
     .eq('id', id)
     .single()
@@ -100,8 +96,8 @@ export async function getCannedResponseByShortcut(
   shortcut: string,
   userId?: string
 ): Promise<CannedResponse | null> {
-  let query = getTicketsClient()
-    .from('canned_responses')
+  let query = getSupabaseClient()
+    .from('tickets_canned_responses')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('shortcut', shortcut)
@@ -129,8 +125,8 @@ export async function searchCannedResponses(
   searchTerm: string,
   userId?: string
 ): Promise<CannedResponse[]> {
-  let query = getTicketsClient()
-    .from('canned_responses')
+  let query = getSupabaseClient()
+    .from('tickets_canned_responses')
     .select('*')
     .eq('organization_id', organizationId)
     .or(`name.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,shortcut.ilike.%${searchTerm}%`)
@@ -159,8 +155,8 @@ export async function createCannedResponse(
   input: CreateCannedResponseInput,
   userId?: string
 ): Promise<CannedResponse> {
-  const { data, error } = await getTicketsClient()
-    .from('canned_responses')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_canned_responses')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -193,8 +189,8 @@ export async function updateCannedResponse(
   if (input.isPersonal !== undefined) updateData.is_personal = input.isPersonal
   if (input.shortcut !== undefined) updateData.shortcut = input.shortcut
 
-  const { data, error } = await getTicketsClient()
-    .from('canned_responses')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_canned_responses')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -210,8 +206,8 @@ export async function updateCannedResponse(
 // ===========================================
 
 export async function deleteCannedResponse(id: string): Promise<void> {
-  const { error } = await getTicketsClient()
-    .from('canned_responses')
+  const { error } = await getSupabaseClient()
+    .from('tickets_canned_responses')
     .delete()
     .eq('id', id)
 
@@ -225,8 +221,8 @@ export async function deleteCannedResponse(id: string): Promise<void> {
 export async function getCannedResponseCategories(
   organizationId: string
 ): Promise<string[]> {
-  const { data, error } = await getTicketsClient()
-    .from('canned_responses')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_canned_responses')
     .select('category')
     .eq('organization_id', organizationId)
     .not('category', 'is', null)

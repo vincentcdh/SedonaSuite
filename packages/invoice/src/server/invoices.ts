@@ -14,8 +14,9 @@ import type {
   CreateLineItemInput,
 } from '../types'
 
-function getInvoiceClient() {
-  return getSupabaseClient().schema('invoice' as any) as any
+// Helper to get Supabase client (public schema)
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -30,11 +31,11 @@ export async function getInvoices(
   const { page = 1, pageSize = 20, sortBy = 'issueDate', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getInvoiceClient()
-    .from('invoices')
+  let query = getClient()
+    .from('invoice_invoices')
     .select(`
       *,
-      client:clients(*)
+      client:invoice_clients(*)
     `, { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -91,11 +92,11 @@ export async function getInvoices(
 // ===========================================
 
 export async function getInvoiceById(id: string): Promise<Invoice | null> {
-  const { data, error } = await getInvoiceClient()
-    .from('invoices')
+  const { data, error } = await getClient()
+    .from('invoice_invoices')
     .select(`
       *,
-      client:clients(*)
+      client:invoice_clients(*)
     `)
     .eq('id', id)
     .is('deleted_at', null)
@@ -107,8 +108,8 @@ export async function getInvoiceById(id: string): Promise<Invoice | null> {
   }
 
   // Get line items
-  const { data: lineItems } = await getInvoiceClient()
-    .from('line_items')
+  const { data: lineItems } = await getClient()
+    .from('invoice_line_items')
     .select('*')
     .eq('document_type', 'invoice')
     .eq('document_id', id)
@@ -129,14 +130,24 @@ export async function createInvoice(
   input: CreateInvoiceInput,
   userId?: string
 ): Promise<Invoice> {
-  // Generate invoice number
-  const { data: numberData } = await getSupabaseClient()
-    .rpc('invoice.get_next_number', {
-      p_organization_id: organizationId,
-      p_type: 'invoice'
-    })
+  // Generate invoice number (simple generation without RPC)
+  const { data: lastInvoice } = await getClient()
+    .from('invoice_invoices')
+    .select('invoice_number')
+    .eq('organization_id', organizationId)
+    .order('created_at', { ascending: false })
+    .limit(1)
 
-  const invoiceNumber = numberData || `FAC-${Date.now()}`
+  let nextNumber = 1
+  if (lastInvoice && lastInvoice.length > 0) {
+    const lastNum = lastInvoice[0].invoice_number
+    const match = lastNum?.match(/(\d+)$/)
+    if (match) {
+      nextNumber = parseInt(match[1], 10) + 1
+    }
+  }
+  const year = new Date().getFullYear()
+  const invoiceNumber = `FAC-${year}-${String(nextNumber).padStart(4, '0')}`
 
   // Calculate due date
   const issueDate = input.issueDate || new Date().toISOString().split('T')[0]
@@ -144,8 +155,8 @@ export async function createInvoice(
 
   if (!dueDate) {
     // Get client payment terms or default to 30 days
-    const { data: client } = await getInvoiceClient()
-      .from('clients')
+    const { data: client } = await getClient()
+      .from('invoice_clients')
       .select('payment_terms')
       .eq('id', input.clientId)
       .single()
@@ -156,8 +167,8 @@ export async function createInvoice(
     dueDate = dueDateObj.toISOString().split('T')[0]
   }
 
-  const { data, error } = await getInvoiceClient()
-    .from('invoices')
+  const { data, error } = await getClient()
+    .from('invoice_invoices')
     .insert({
       organization_id: organizationId,
       client_id: input.clientId,
@@ -180,7 +191,7 @@ export async function createInvoice(
     })
     .select(`
       *,
-      client:clients(*)
+      client:invoice_clients(*)
     `)
     .single()
 
@@ -224,8 +235,8 @@ export async function updateInvoice(input: UpdateInvoiceInput): Promise<Invoice>
     updateData.paid_at = new Date().toISOString()
   }
 
-  const { error } = await getInvoiceClient()
-    .from('invoices')
+  const { error } = await getClient()
+    .from('invoice_invoices')
     .update(updateData)
     .eq('id', input.id)
 
@@ -239,8 +250,8 @@ export async function updateInvoice(input: UpdateInvoiceInput): Promise<Invoice>
 // ===========================================
 
 export async function deleteInvoice(id: string): Promise<void> {
-  const { error } = await getInvoiceClient()
-    .from('invoices')
+  const { error } = await getClient()
+    .from('invoice_invoices')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -263,8 +274,8 @@ export async function markInvoiceAsPaid(id: string): Promise<Invoice> {
   const invoice = await getInvoiceById(id)
   if (!invoice) throw new Error('Invoice not found')
 
-  const { error } = await getInvoiceClient()
-    .from('invoices')
+  const { error } = await getClient()
+    .from('invoice_invoices')
     .update({
       status: 'paid',
       paid_at: new Date().toISOString(),
@@ -300,8 +311,8 @@ async function createLineItems(
     vat_rate: item.vatRate ?? 20,
   }))
 
-  const { error } = await getInvoiceClient()
-    .from('line_items')
+  const { error } = await getClient()
+    .from('invoice_line_items')
     .insert(lineItems)
 
   if (error) throw error
@@ -312,8 +323,8 @@ async function recalculateDocumentTotals(
   documentId: string
 ): Promise<void> {
   // Get all line items
-  const { data: lineItems } = await getInvoiceClient()
-    .from('line_items')
+  const { data: lineItems } = await getClient()
+    .from('invoice_line_items')
     .select('line_total, vat_amount')
     .eq('document_type', documentType)
     .eq('document_id', documentId)
@@ -324,8 +335,13 @@ async function recalculateDocumentTotals(
   const vatAmount = lineItems.reduce((sum, item) => sum + Number(item.vat_amount), 0)
 
   // Get current discount
-  const tableName = documentType === 'credit_note' ? 'credit_notes' : documentType + 's'
-  const { data: doc } = await getInvoiceClient()
+  const tableMap: Record<string, string> = {
+    invoice: 'invoice_invoices',
+    quote: 'invoice_quotes',
+    credit_note: 'invoice_credit_notes',
+  }
+  const tableName = tableMap[documentType]
+  const { data: doc } = await getClient()
     .from(tableName)
     .select('discount_amount')
     .eq('id', documentId)
@@ -334,7 +350,7 @@ async function recalculateDocumentTotals(
   const discountAmount = doc?.discount_amount || 0
   const total = subtotal + vatAmount - discountAmount
 
-  await getInvoiceClient()
+  await getClient()
     .from(tableName)
     .update({ subtotal, vat_amount: vatAmount, total })
     .eq('id', documentId)
@@ -349,8 +365,8 @@ export async function addInvoiceLineItem(
   input: CreateLineItemInput
 ): Promise<LineItem> {
   // Get current max position
-  const { data: existing } = await getInvoiceClient()
-    .from('line_items')
+  const { data: existing } = await getClient()
+    .from('invoice_line_items')
     .select('position')
     .eq('document_type', 'invoice')
     .eq('document_id', invoiceId)
@@ -359,8 +375,8 @@ export async function addInvoiceLineItem(
 
   const position = existing && existing.length > 0 ? (existing[0].position as number) + 1 : 0
 
-  const { data, error } = await getInvoiceClient()
-    .from('line_items')
+  const { data, error } = await getClient()
+    .from('invoice_line_items')
     .insert({
       document_type: 'invoice',
       document_id: invoiceId,
@@ -391,14 +407,14 @@ export async function addInvoiceLineItem(
 
 export async function deleteInvoiceLineItem(lineItemId: string): Promise<void> {
   // Get document info first
-  const { data: lineItem } = await getInvoiceClient()
-    .from('line_items')
+  const { data: lineItem } = await getClient()
+    .from('invoice_line_items')
     .select('document_id')
     .eq('id', lineItemId)
     .single()
 
-  const { error } = await getInvoiceClient()
-    .from('line_items')
+  const { error } = await getClient()
+    .from('invoice_line_items')
     .delete()
     .eq('id', lineItemId)
 

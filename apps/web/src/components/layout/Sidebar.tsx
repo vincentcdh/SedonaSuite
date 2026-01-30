@@ -1,4 +1,4 @@
-import { type FC } from 'react'
+import { type FC, useMemo } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
 import {
   LayoutDashboard,
@@ -18,6 +18,7 @@ import {
 import { Button, Separator, Badge } from '@sedona/ui'
 import { cn } from '@sedona/ui'
 import { useSession, useOrganization } from '@/lib/auth'
+import { useTicketStats } from '@sedona/tickets'
 
 interface NavItem {
   label: string
@@ -25,17 +26,6 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>
   badge?: string
 }
-
-const mainNavItems: NavItem[] = [
-  { label: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'CRM', href: '/crm', icon: Users },
-  { label: 'Facturation', href: '/invoices', icon: FileText },
-  { label: 'Projets', href: '/projects', icon: FolderKanban },
-  { label: 'Tickets', href: '/tickets', icon: Ticket, badge: '3' },
-  { label: 'RH', href: '/hr', icon: UserCircle },
-  { label: 'Documents', href: '/docs', icon: FileStack },
-  { label: 'Analytics', href: '/analytics', icon: BarChart3 },
-]
 
 const bottomNavItems: NavItem[] = [
   { label: 'Paramètres', href: '/settings', icon: Settings },
@@ -73,10 +63,28 @@ export const Sidebar: FC<SidebarProps> = ({ collapsed = false, onToggle }) => {
   const { data: session } = useSession()
   const { organization } = useOrganization()
 
+  // Fetch ticket stats for badge
+  const { data: ticketStats } = useTicketStats(organization?.id || '')
+
   const user = session?.user
   const plan = organization?.subscriptionPlan
   const planInfo = getPlanInfo(plan)
   const showUpgrade = !plan || plan === 'FREE'
+
+  // Build navigation items with dynamic badges
+  const mainNavItems: NavItem[] = useMemo(() => {
+    const openTickets = ticketStats?.openTickets || 0
+    return [
+      { label: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'CRM', href: '/crm', icon: Users },
+      { label: 'Facturation', href: '/invoices', icon: FileText },
+      { label: 'Projets', href: '/projects', icon: FolderKanban },
+      { label: 'Tickets', href: '/tickets', icon: Ticket, badge: openTickets > 0 ? String(openTickets) : undefined },
+      { label: 'RH', href: '/hr', icon: UserCircle },
+      { label: 'Documents', href: '/docs', icon: FileStack },
+      { label: 'Analytics', href: '/analytics', icon: BarChart3 },
+    ]
+  }, [ticketStats])
 
   return (
     <aside

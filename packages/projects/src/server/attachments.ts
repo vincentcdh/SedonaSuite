@@ -8,8 +8,8 @@ import type {
   CreateTaskAttachmentInput,
 } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -17,8 +17,8 @@ function getProjectsClient() {
 // ===========================================
 
 export async function getTaskAttachments(taskId: string): Promise<TaskAttachment[]> {
-  const { data, error } = await getProjectsClient()
-    .from('task_attachments')
+  const { data, error } = await getClient()
+    .from('projects_task_attachments')
     .select('*')
     .eq('task_id', taskId)
     .order('uploaded_at', { ascending: false })
@@ -36,8 +36,8 @@ export async function createTaskAttachment(
   input: CreateTaskAttachmentInput,
   userId?: string
 ): Promise<TaskAttachment> {
-  const { data, error } = await getProjectsClient()
-    .from('task_attachments')
+  const { data, error } = await getClient()
+    .from('projects_task_attachments')
     .insert({
       task_id: input.taskId,
       file_name: input.fileName,
@@ -60,8 +60,8 @@ export async function createTaskAttachment(
 
 export async function deleteTaskAttachment(id: string): Promise<void> {
   // Get attachment to delete from storage
-  const { data: attachment } = await getProjectsClient()
-    .from('task_attachments')
+  const { data: attachment } = await getClient()
+    .from('projects_task_attachments')
     .select('storage_path')
     .eq('id', id)
     .single()
@@ -74,8 +74,8 @@ export async function deleteTaskAttachment(id: string): Promise<void> {
       .remove([attachment.storage_path])
   }
 
-  const { error } = await getProjectsClient()
-    .from('task_attachments')
+  const { error } = await getClient()
+    .from('projects_task_attachments')
     .delete()
     .eq('id', id)
 

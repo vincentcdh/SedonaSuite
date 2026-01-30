@@ -9,8 +9,8 @@ import type {
   UpdateProjectMemberInput,
 } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -18,8 +18,8 @@ function getProjectsClient() {
 // ===========================================
 
 export async function getProjectMembers(projectId: string): Promise<ProjectMember[]> {
-  const { data, error } = await getProjectsClient()
-    .from('project_members')
+  const { data, error } = await getClient()
+    .from('projects_project_members')
     .select('*')
     .eq('project_id', projectId)
     .order('joined_at', { ascending: true })
@@ -57,8 +57,8 @@ export async function addProjectMember(
   input: AddProjectMemberInput,
   invitedBy?: string
 ): Promise<ProjectMember> {
-  const { data, error } = await getProjectsClient()
-    .from('project_members')
+  const { data, error } = await getClient()
+    .from('projects_project_members')
     .insert({
       project_id: input.projectId,
       user_id: input.userId,
@@ -88,8 +88,8 @@ export async function updateProjectMember(input: UpdateProjectMemberInput): Prom
   if (input.canManageMembers !== undefined) updateData.can_manage_members = input.canManageMembers
   if (input.canDeleteTasks !== undefined) updateData.can_delete_tasks = input.canDeleteTasks
 
-  const { data, error } = await getProjectsClient()
-    .from('project_members')
+  const { data, error } = await getClient()
+    .from('projects_project_members')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -105,8 +105,8 @@ export async function updateProjectMember(input: UpdateProjectMemberInput): Prom
 // ===========================================
 
 export async function removeProjectMember(memberId: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('project_members')
+  const { error } = await getClient()
+    .from('projects_project_members')
     .delete()
     .eq('id', memberId)
 
@@ -118,8 +118,8 @@ export async function removeProjectMember(memberId: string): Promise<void> {
 // ===========================================
 
 export async function isProjectMember(projectId: string, userId: string): Promise<boolean> {
-  const { data, error } = await getProjectsClient()
-    .from('project_members')
+  const { data, error } = await getClient()
+    .from('projects_project_members')
     .select('id')
     .eq('project_id', projectId)
     .eq('user_id', userId)

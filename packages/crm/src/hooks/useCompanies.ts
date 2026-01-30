@@ -1,12 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type {
-  Company,
   CreateCompanyInput,
   UpdateCompanyInput,
   CompanyFilters,
   PaginationParams,
-  PaginatedResult,
 } from '../types'
+import {
+  getCompanies,
+  getCompany as getCompanyById,
+  getCompanyContacts as fetchCompanyContacts,
+  createCompany,
+  updateCompany,
+  deleteCompany,
+} from '../server/companies'
 
 // ===========================================
 // COMPANIES HOOKS
@@ -34,24 +40,7 @@ export function useCompanies(
 ) {
   return useQuery({
     queryKey: companyKeys.list(organizationId, filters, pagination),
-    queryFn: async (): Promise<PaginatedResult<Company>> => {
-      const params = new URLSearchParams()
-      params.set('organizationId', organizationId)
-
-      if (filters.search) params.set('search', filters.search)
-      if (filters.industry) params.set('industry', filters.industry)
-      if (filters.size) params.set('size', filters.size)
-      if (filters.city) params.set('city', filters.city)
-
-      if (pagination.page) params.set('page', String(pagination.page))
-      if (pagination.pageSize) params.set('pageSize', String(pagination.pageSize))
-      if (pagination.sortBy) params.set('sortBy', pagination.sortBy)
-      if (pagination.sortOrder) params.set('sortOrder', pagination.sortOrder)
-
-      const response = await fetch(`/api/crm/companies?${params}`)
-      if (!response.ok) throw new Error('Failed to fetch companies')
-      return response.json()
-    },
+    queryFn: () => getCompanies(organizationId, filters, pagination),
     enabled: options?.enabled !== false && !!organizationId,
   })
 }
@@ -62,11 +51,7 @@ export function useCompanies(
 export function useCompany(companyId: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: companyKeys.detail(companyId),
-    queryFn: async (): Promise<Company> => {
-      const response = await fetch(`/api/crm/companies/${companyId}`)
-      if (!response.ok) throw new Error('Failed to fetch company')
-      return response.json()
-    },
+    queryFn: () => getCompanyById(companyId),
     enabled: options?.enabled !== false && !!companyId,
   })
 }
@@ -81,15 +66,7 @@ export function useCompanyContacts(
 ) {
   return useQuery({
     queryKey: companyKeys.contacts(companyId),
-    queryFn: async () => {
-      const params = new URLSearchParams()
-      if (pagination.page) params.set('page', String(pagination.page))
-      if (pagination.pageSize) params.set('pageSize', String(pagination.pageSize))
-
-      const response = await fetch(`/api/crm/companies/${companyId}/contacts?${params}`)
-      if (!response.ok) throw new Error('Failed to fetch company contacts')
-      return response.json()
-    },
+    queryFn: () => fetchCompanyContacts(companyId, pagination),
     enabled: options?.enabled !== false && !!companyId,
   })
 }
@@ -101,21 +78,13 @@ export function useCreateCompany() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       organizationId,
       data,
     }: {
       organizationId: string
       data: CreateCompanyInput
-    }): Promise<Company> => {
-      const response = await fetch('/api/crm/companies', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId, ...data }),
-      })
-      if (!response.ok) throw new Error('Failed to create company')
-      return response.json()
-    },
+    }) => createCompany(organizationId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: companyKeys.lists() })
     },
@@ -129,18 +98,12 @@ export function useUpdateCompany() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (data: UpdateCompanyInput): Promise<Company> => {
-      const response = await fetch(`/api/crm/companies/${data.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!response.ok) throw new Error('Failed to update company')
-      return response.json()
-    },
+    mutationFn: (data: UpdateCompanyInput) => updateCompany(data),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: companyKeys.lists() })
-      queryClient.invalidateQueries({ queryKey: companyKeys.detail(data.id) })
+      if (data) {
+        queryClient.invalidateQueries({ queryKey: companyKeys.detail(data.id) })
+      }
     },
   })
 }
@@ -152,12 +115,7 @@ export function useDeleteCompany() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (companyId: string): Promise<void> => {
-      const response = await fetch(`/api/crm/companies/${companyId}`, {
-        method: 'DELETE',
-      })
-      if (!response.ok) throw new Error('Failed to delete company')
-    },
+    mutationFn: (companyId: string) => deleteCompany(companyId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: companyKeys.lists() })
     },

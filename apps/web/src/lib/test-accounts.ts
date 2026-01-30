@@ -22,7 +22,7 @@ export interface TestAccount {
 // ===========================================
 
 const ORG_FREE: Organization = {
-    id: 'org-free-1',
+    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01',
     name: 'Startup Demo',
     slug: 'startup-demo',
     logo: null,
@@ -44,7 +44,7 @@ const ORG_FREE: Organization = {
 }
 
 const ORG_PRO: Organization = {
-    id: 'org-pro-1',
+    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02',
     name: 'Entreprise Pro',
     slug: 'entreprise-pro',
     logo: null,
@@ -66,7 +66,7 @@ const ORG_PRO: Organization = {
 }
 
 const ORG_ENTERPRISE: Organization = {
-    id: 'org-enterprise-1',
+    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03',
     name: 'Grande Entreprise',
     slug: 'grande-entreprise',
     logo: null,
@@ -99,7 +99,7 @@ export const TEST_ACCOUNTS: TestAccount[] = [
     email: 'owner.free@test.sedona.ai',
     password: 'Owner123!',
     user: {
-      id: 'user-owner-free',
+      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
       name: 'Marie Dupont',
       email: 'owner.free@test.sedona.ai',
       emailVerified: true,
@@ -118,7 +118,7 @@ export const TEST_ACCOUNTS: TestAccount[] = [
     email: 'owner.pro@test.sedona.ai',
     password: 'Owner123!',
     user: {
-      id: 'user-owner-pro',
+      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b02',
       name: 'Jean-Pierre Martin',
       email: 'owner.pro@test.sedona.ai',
       emailVerified: true,
@@ -137,7 +137,7 @@ export const TEST_ACCOUNTS: TestAccount[] = [
     email: 'owner.enterprise@test.sedona.ai',
     password: 'Owner123!',
     user: {
-      id: 'user-owner-enterprise',
+      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b03',
       name: 'Sophie Bernard',
       email: 'owner.enterprise@test.sedona.ai',
       emailVerified: true,
@@ -160,7 +160,7 @@ export const TEST_ACCOUNTS: TestAccount[] = [
     email: 'admin.free@test.sedona.ai',
     password: 'Admin123!',
     user: {
-      id: 'user-admin-free',
+      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b04',
       name: 'Pierre Lambert',
       email: 'admin.free@test.sedona.ai',
       emailVerified: true,
@@ -179,7 +179,7 @@ export const TEST_ACCOUNTS: TestAccount[] = [
     email: 'admin.pro@test.sedona.ai',
     password: 'Admin123!',
     user: {
-      id: 'user-admin-pro',
+      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b05',
       name: 'Claire Moreau',
       email: 'admin.pro@test.sedona.ai',
       emailVerified: true,
@@ -198,7 +198,7 @@ export const TEST_ACCOUNTS: TestAccount[] = [
     email: 'admin.enterprise@test.sedona.ai',
     password: 'Admin123!',
     user: {
-      id: 'user-admin-enterprise',
+      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b06',
       name: 'Thomas Durand',
       email: 'admin.enterprise@test.sedona.ai',
       emailVerified: true,
@@ -221,7 +221,7 @@ export const TEST_ACCOUNTS: TestAccount[] = [
     email: 'member.free@test.sedona.ai',
     password: 'Member123!',
     user: {
-      id: 'user-member-free',
+      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b07',
       name: 'Lucas Petit',
       email: 'member.free@test.sedona.ai',
       emailVerified: true,
@@ -240,7 +240,7 @@ export const TEST_ACCOUNTS: TestAccount[] = [
     email: 'member.pro@test.sedona.ai',
     password: 'Member123!',
     user: {
-      id: 'user-member-pro',
+      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b08',
       name: 'Emma Leroy',
       email: 'member.pro@test.sedona.ai',
       emailVerified: true,
@@ -259,7 +259,7 @@ export const TEST_ACCOUNTS: TestAccount[] = [
     email: 'member.enterprise@test.sedona.ai',
     password: 'Member123!',
     user: {
-      id: 'user-member-enterprise',
+      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b09',
       name: 'Hugo Girard',
       email: 'member.enterprise@test.sedona.ai',
       emailVerified: true,

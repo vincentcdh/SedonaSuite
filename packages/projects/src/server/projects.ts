@@ -13,8 +13,9 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+// Helper to get Supabase client (public schema)
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -29,8 +30,8 @@ export async function getProjects(
   const { page = 1, pageSize = 20, sortBy = 'name', sortOrder = 'asc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getProjectsClient()
-    .from('projects')
+  let query = getClient()
+    .from('projects_projects')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('archived_at', null)
@@ -85,13 +86,15 @@ export async function getProjects(
 async function getProjectsStats(projectIds: string[]) {
   if (projectIds.length === 0) return []
 
-  const { data: progressData } = await getProjectsClient()
-    .from('project_progress')
+  const client = getClient()
+
+  const { data: progressData } = await client
+    .from('projects_project_progress')
     .select('*')
     .in('project_id', projectIds)
 
-  const { data: membersData } = await getProjectsClient()
-    .from('project_members')
+  const { data: membersData } = await client
+    .from('projects_project_members')
     .select('project_id')
     .in('project_id', projectIds)
 
@@ -116,8 +119,8 @@ async function getProjectsStats(projectIds: string[]) {
 // ===========================================
 
 export async function getProjectById(id: string): Promise<ProjectWithStats | null> {
-  const { data, error } = await getProjectsClient()
-    .from('projects')
+  const { data, error } = await getClient()
+    .from('projects_projects')
     .select('*')
     .eq('id', id)
     .single()
@@ -150,8 +153,10 @@ export async function createProject(
   input: CreateProjectInput,
   userId: string
 ): Promise<Project> {
-  const { data, error } = await getProjectsClient()
-    .from('projects')
+  const client = getClient()
+
+  const { data, error } = await client
+    .from('projects_projects')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -176,8 +181,8 @@ export async function createProject(
   if (error) throw error
 
   // Add creator as owner
-  await getProjectsClient()
-    .from('project_members')
+  await client
+    .from('projects_project_members')
     .insert({
       project_id: data.id,
       user_id: userId,
@@ -213,8 +218,8 @@ export async function updateProject(input: UpdateProjectInput): Promise<Project>
   if (input.clientId !== undefined) updateData.client_id = input.clientId
   if (input.customFields !== undefined) updateData.custom_fields = input.customFields
 
-  const { data, error } = await getProjectsClient()
-    .from('projects')
+  const { data, error } = await getClient()
+    .from('projects_projects')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -230,8 +235,8 @@ export async function updateProject(input: UpdateProjectInput): Promise<Project>
 // ===========================================
 
 export async function deleteProject(id: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('projects')
+  const { error } = await getClient()
+    .from('projects_projects')
     .update({ archived_at: new Date().toISOString() })
     .eq('id', id)
 

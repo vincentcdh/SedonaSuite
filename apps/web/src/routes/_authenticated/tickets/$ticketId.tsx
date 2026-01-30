@@ -20,6 +20,7 @@ import {
   Circle,
   Lock,
   Eye,
+  Loader2,
 } from 'lucide-react'
 import {
   Button,
@@ -47,80 +48,21 @@ import {
   DropdownMenuTrigger,
   cn,
 } from '@sedona/ui'
-import type { TicketStatus, TicketPriority } from '@sedona/tickets'
+import {
+  useTicket,
+  useTicketMessages,
+  useCreateMessage,
+  useAddInternalNote,
+  useChangeTicketStatus,
+  useAssignTicket,
+  type TicketStatus,
+  type TicketPriority,
+} from '@sedona/tickets'
+import { useSession } from '@/lib/auth'
 
 export const Route = createFileRoute('/_authenticated/tickets/$ticketId')({
   component: TicketDetailPage,
 })
-
-// Mock ticket data
-const mockTicket = {
-  id: '1',
-  ticketNumber: 'TKT-001',
-  subject: 'Probleme de connexion a mon compte',
-  description: 'Je n\'arrive plus a me connecter a mon compte depuis ce matin. J\'ai essaye de reinitialiser mon mot de passe mais je ne recois pas l\'email.',
-  status: 'in_progress' as TicketStatus,
-  priority: 'high' as TicketPriority,
-  requesterName: 'Jean Dupont',
-  requesterEmail: 'jean.dupont@example.com',
-  requesterPhone: '+33 6 12 34 56 78',
-  assignee: { id: '1', fullName: 'Alice Martin', email: 'alice@example.com', avatarUrl: null },
-  category: { id: '1', name: 'Support Technique', color: '#3B82F6' },
-  tags: ['urgent', 'connexion'],
-  source: 'email' as const,
-  createdAt: '2024-02-14T10:30:00Z',
-  updatedAt: '2024-02-14T14:00:00Z',
-  slaFirstResponseDue: '2024-02-14T12:30:00Z',
-  slaFirstResponseAt: '2024-02-14T11:00:00Z',
-  slaResolutionDue: '2024-02-15T10:30:00Z',
-  slaBreached: false,
-}
-
-// Mock messages
-const mockMessages = [
-  {
-    id: '1',
-    authorType: 'customer' as const,
-    authorName: 'Jean Dupont',
-    authorEmail: 'jean.dupont@example.com',
-    content: 'Je n\'arrive plus a me connecter a mon compte depuis ce matin. J\'ai essaye de reinitialiser mon mot de passe mais je ne recois pas l\'email. Pouvez-vous m\'aider ?',
-    isInternal: false,
-    createdAt: '2024-02-14T10:30:00Z',
-  },
-  {
-    id: '2',
-    authorType: 'agent' as const,
-    authorName: 'Alice Martin',
-    content: 'Bonjour Jean,\n\nJe comprends votre frustration. Je vais verifier votre compte immediatement.\n\nPouvez-vous me confirmer l\'adresse email associee a votre compte ?\n\nCordialement,\nAlice',
-    isInternal: false,
-    createdAt: '2024-02-14T11:00:00Z',
-  },
-  {
-    id: '3',
-    authorType: 'agent' as const,
-    authorName: 'Alice Martin',
-    content: 'Note interne: Le compte semble bloque suite a plusieurs tentatives de connexion echouees. Verifier les logs.',
-    isInternal: true,
-    createdAt: '2024-02-14T11:05:00Z',
-  },
-  {
-    id: '4',
-    authorType: 'customer' as const,
-    authorName: 'Jean Dupont',
-    authorEmail: 'jean.dupont@example.com',
-    content: 'Oui c\'est bien jean.dupont@example.com. Merci pour votre aide !',
-    isInternal: false,
-    createdAt: '2024-02-14T13:30:00Z',
-  },
-]
-
-// Mock activity log
-const mockActivity = [
-  { id: '1', type: 'created', description: 'Ticket cree', actor: 'Systeme', createdAt: '2024-02-14T10:30:00Z' },
-  { id: '2', type: 'assigned', description: 'Assigne a Alice Martin', actor: 'Systeme', createdAt: '2024-02-14T10:31:00Z' },
-  { id: '3', type: 'status_changed', description: 'Statut change de "Ouvert" a "En cours"', actor: 'Alice Martin', createdAt: '2024-02-14T11:00:00Z' },
-  { id: '4', type: 'priority_changed', description: 'Priorite changee de "Normale" a "Haute"', actor: 'Alice Martin', createdAt: '2024-02-14T11:02:00Z' },
-]
 
 const statusConfig: Record<TicketStatus, { label: string; icon: typeof Circle; className: string }> = {
   open: { label: 'Ouvert', icon: Circle, className: 'text-blue-500' },
@@ -139,11 +81,47 @@ const priorityConfig: Record<TicketPriority, { label: string; className: string 
 
 function TicketDetailPage() {
   const { ticketId } = Route.useParams()
+  const { data: session } = useSession()
   const [replyContent, setReplyContent] = useState('')
   const [isInternalNote, setIsInternalNote] = useState(false)
   const [showInternalNotes, setShowInternalNotes] = useState(true)
 
-  const ticket = mockTicket
+  // Fetch ticket data from Supabase
+  const { data: ticket, isLoading: ticketLoading, error: ticketError } = useTicket(ticketId)
+  const { data: messagesData } = useTicketMessages(ticketId)
+
+  // Mutations
+  const createMessageMutation = useCreateMessage()
+  const addNoteMutation = useAddInternalNote()
+  const changeStatusMutation = useChangeTicketStatus()
+
+  const messages = messagesData || []
+
+  // Loading state
+  if (ticketLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // Error state
+  if (ticketError || !ticket) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 text-center">
+        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-lg font-semibold mb-2">Ticket introuvable</h2>
+        <p className="text-muted-foreground mb-4">
+          Le ticket demande n'existe pas ou a ete supprime.
+        </p>
+        <Link to="/tickets">
+          <Button>Retour aux tickets</Button>
+        </Link>
+      </div>
+    )
+  }
+
   const StatusIcon = statusConfig[ticket.status].icon
 
   const formatDate = (dateString: string) => {
@@ -157,8 +135,48 @@ function TicketDetailPage() {
   }
 
   const filteredMessages = showInternalNotes
-    ? mockMessages
-    : mockMessages.filter(m => !m.isInternal)
+    ? messages
+    : messages.filter(m => !m.isInternal)
+
+  const handleSendMessage = async () => {
+    if (!replyContent.trim() || !ticketId) return
+
+    const userId = session?.user?.id
+
+    try {
+      if (isInternalNote) {
+        await addNoteMutation.mutateAsync({
+          ticketId,
+          content: replyContent,
+          userId: userId || '',
+        })
+      } else {
+        await createMessageMutation.mutateAsync({
+          input: {
+            ticketId,
+            content: replyContent,
+            isInternal: false,
+          },
+          userId,
+          authorType: 'agent',
+        })
+      }
+      setReplyContent('')
+    } catch (error) {
+      console.error('Failed to send message:', error)
+    }
+  }
+
+  const handleStatusChange = async (newStatus: TicketStatus) => {
+    try {
+      await changeStatusMutation.mutateAsync({
+        ticketId: ticket.id,
+        status: newStatus,
+      })
+    } catch (error) {
+      console.error('Failed to change status:', error)
+    }
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -246,7 +264,7 @@ function TicketDetailPage() {
                         'text-xs',
                         message.authorType === 'customer' ? 'bg-blue-100 text-blue-700' : 'bg-primary/10 text-primary'
                       )}>
-                        {message.authorName.split(' ').map(n => n[0]).join('')}
+                        {(message.authorName || '?').split(' ').map(n => n[0]).join('')}
                       </AvatarFallback>
                     </Avatar>
                     <div
@@ -313,8 +331,15 @@ function TicketDetailPage() {
                       <Paperclip className="h-4 w-4 mr-2" />
                       Joindre un fichier
                     </Button>
-                    <Button disabled={!replyContent.trim()}>
-                      <Send className="h-4 w-4 mr-2" />
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!replyContent.trim() || createMessageMutation.isPending || addNoteMutation.isPending}
+                    >
+                      {(createMessageMutation.isPending || addNoteMutation.isPending) ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4 mr-2" />
+                      )}
                       {isInternalNote ? 'Ajouter la note' : 'Envoyer'}
                     </Button>
                   </div>
@@ -323,18 +348,9 @@ function TicketDetailPage() {
             </TabsContent>
 
             <TabsContent value="activity" className="flex-1 m-0 overflow-y-auto p-6">
-              <div className="space-y-4">
-                {mockActivity.map(activity => (
-                  <div key={activity.id} className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full bg-muted-foreground mt-2" />
-                    <div className="flex-1">
-                      <p className="text-sm">{activity.description}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {activity.actor} - {formatDate(activity.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex flex-col items-center justify-center h-48 text-center text-muted-foreground">
+                <History className="h-8 w-8 mb-2" />
+                <p>L'historique des activites sera bientot disponible.</p>
               </div>
             </TabsContent>
           </Tabs>
@@ -349,7 +365,11 @@ function TicketDetailPage() {
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">
                   Statut
                 </label>
-                <Select value={ticket.status}>
+                <Select
+                  value={ticket.status}
+                  onValueChange={(value) => handleStatusChange(value as TicketStatus)}
+                  disabled={changeStatusMutation.isPending}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -395,11 +415,11 @@ function TicketDetailPage() {
                 <div className="flex items-center gap-2">
                   <Avatar className="h-8 w-8">
                     <AvatarFallback className="text-xs">
-                      {ticket.assignee.fullName.split(' ').map(n => n[0]).join('')}
+                      {(ticket.assignee.fullName || ticket.assignee.email || '?').split(' ').map(n => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-sm font-medium">{ticket.assignee.fullName}</p>
+                    <p className="text-sm font-medium">{ticket.assignee.fullName || ticket.assignee.email}</p>
                     <p className="text-xs text-muted-foreground">{ticket.assignee.email}</p>
                   </div>
                 </div>
@@ -478,14 +498,16 @@ function TicketDetailPage() {
                     <span className={ticket.slaFirstResponseAt ? 'text-green-600' : 'text-muted-foreground'}>
                       {ticket.slaFirstResponseAt ? (
                         <CheckCircle2 className="h-4 w-4" />
-                      ) : (
+                      ) : ticket.slaFirstResponseDue ? (
                         formatDate(ticket.slaFirstResponseDue)
+                      ) : (
+                        '-'
                       )}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Resolution</span>
-                    <span>{formatDate(ticket.slaResolutionDue)}</span>
+                    <span>{ticket.slaResolutionDue ? formatDate(ticket.slaResolutionDue) : '-'}</span>
                   </div>
                 </CardContent>
               </Card>

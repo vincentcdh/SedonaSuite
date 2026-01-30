@@ -12,10 +12,6 @@ import type {
   PaginatedResult,
 } from '../types'
 
-function getTicketsClient() {
-  return getSupabaseClient().schema('tickets' as any) as any
-}
-
 // ===========================================
 // GET ALL ARTICLES
 // ===========================================
@@ -27,16 +23,16 @@ export async function getKbArticles(
   const { page = 1, pageSize = 20, sortBy = 'created_at', sortOrder = 'desc' } = pagination
 
   // Get total count
-  const { count, error: countError } = await getTicketsClient()
-    .from('kb_articles')
+  const { count, error: countError } = await getSupabaseClient()
+    .from('tickets_kb_articles')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
 
   if (countError) throw countError
 
   // Get paginated data
-  const { data, error } = await getTicketsClient()
-    .from('kb_articles')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_kb_articles')
     .select('*')
     .eq('organization_id', organizationId)
     .order(toSnakeCase(sortBy), { ascending: sortOrder === 'asc' })
@@ -64,8 +60,8 @@ export async function getPublishedKbArticles(
   const { page = 1, pageSize = 20, sortBy = 'published_at', sortOrder = 'desc' } = pagination
 
   // Get total count
-  const { count, error: countError } = await getTicketsClient()
-    .from('kb_articles')
+  const { count, error: countError } = await getSupabaseClient()
+    .from('tickets_kb_articles')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .eq('status', 'published')
@@ -73,8 +69,8 @@ export async function getPublishedKbArticles(
   if (countError) throw countError
 
   // Get paginated data
-  const { data, error } = await getTicketsClient()
-    .from('kb_articles')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_kb_articles')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('status', 'published')
@@ -101,8 +97,8 @@ export async function getKbArticlesByCategory(
   categoryId: string,
   publishedOnly: boolean = true
 ): Promise<KbArticle[]> {
-  let query = getTicketsClient()
-    .from('kb_articles')
+  let query = getSupabaseClient()
+    .from('tickets_kb_articles')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('category_id', categoryId)
@@ -124,8 +120,8 @@ export async function getKbArticlesByCategory(
 // ===========================================
 
 export async function getKbArticleById(id: string): Promise<KbArticle | null> {
-  const { data, error } = await getTicketsClient()
-    .from('kb_articles')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_kb_articles')
     .select('*')
     .eq('id', id)
     .single()
@@ -146,8 +142,8 @@ export async function getKbArticleBySlug(
   organizationId: string,
   slug: string
 ): Promise<KbArticle | null> {
-  const { data, error } = await getTicketsClient()
-    .from('kb_articles')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_kb_articles')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('slug', slug)
@@ -171,8 +167,8 @@ export async function searchKbArticles(
   publishedOnly: boolean = true,
   limit: number = 20
 ): Promise<KbArticle[]> {
-  let query = getTicketsClient()
-    .from('kb_articles')
+  let query = getSupabaseClient()
+    .from('tickets_kb_articles')
     .select('*')
     .eq('organization_id', organizationId)
     .or(`title.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,excerpt.ilike.%${searchTerm}%`)
@@ -198,8 +194,8 @@ export async function getPopularKbArticles(
   organizationId: string,
   limit: number = 10
 ): Promise<KbArticle[]> {
-  const { data, error } = await getTicketsClient()
-    .from('kb_articles')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_kb_articles')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('status', 'published')
@@ -223,8 +219,8 @@ export async function createKbArticle(
   // Generate slug if not provided
   const slug = input.slug || generateSlug(input.title)
 
-  const { data, error } = await getTicketsClient()
-    .from('kb_articles')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_kb_articles')
     .insert({
       organization_id: organizationId,
       title: input.title,
@@ -273,8 +269,8 @@ export async function updateKbArticle(input: UpdateKbArticleInput): Promise<KbAr
   if (input.metaDescription !== undefined) updateData.meta_description = input.metaDescription
   if (input.tags !== undefined) updateData.tags = input.tags
 
-  const { data, error } = await getTicketsClient()
-    .from('kb_articles')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_kb_articles')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -290,8 +286,8 @@ export async function updateKbArticle(input: UpdateKbArticleInput): Promise<KbAr
 // ===========================================
 
 export async function deleteKbArticle(id: string): Promise<void> {
-  const { error } = await getTicketsClient()
-    .from('kb_articles')
+  const { error } = await getSupabaseClient()
+    .from('tickets_kb_articles')
     .delete()
     .eq('id', id)
 
@@ -303,8 +299,8 @@ export async function deleteKbArticle(id: string): Promise<void> {
 // ===========================================
 
 export async function publishKbArticle(id: string): Promise<KbArticle> {
-  const { data, error } = await getTicketsClient()
-    .from('kb_articles')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_kb_articles')
     .update({
       status: 'published',
       published_at: new Date().toISOString(),
@@ -323,8 +319,8 @@ export async function publishKbArticle(id: string): Promise<KbArticle> {
 // ===========================================
 
 export async function archiveKbArticle(id: string): Promise<KbArticle> {
-  const { data, error } = await getTicketsClient()
-    .from('kb_articles')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_kb_articles')
     .update({ status: 'archived' })
     .eq('id', id)
     .select()
@@ -340,14 +336,14 @@ export async function archiveKbArticle(id: string): Promise<KbArticle> {
 // ===========================================
 
 export async function incrementKbArticleViewCount(id: string): Promise<void> {
-  const { error } = await getTicketsClient()
+  const { error } = await getSupabaseClient()
     .rpc('increment_kb_article_view_count', { article_id: id })
 
   // Fallback if RPC doesn't exist
   if (error) {
-    await getTicketsClient()
-      .from('kb_articles')
-      .update({ view_count: getTicketsClient().raw('view_count + 1') })
+    await getSupabaseClient()
+      .from('tickets_kb_articles')
+      .update({ view_count: getSupabaseClient().raw('view_count + 1') })
       .eq('id', id)
   }
 }
@@ -362,9 +358,9 @@ export async function recordKbArticleFeedback(
 ): Promise<void> {
   const updateField = isHelpful ? 'helpful_count' : 'not_helpful_count'
 
-  const { error } = await getTicketsClient()
-    .from('kb_articles')
-    .update({ [updateField]: getTicketsClient().raw(`${updateField} + 1`) })
+  const { error } = await getSupabaseClient()
+    .from('tickets_kb_articles')
+    .update({ [updateField]: getSupabaseClient().raw(`${updateField} + 1`) })
     .eq('id', id)
 
   if (error) throw error

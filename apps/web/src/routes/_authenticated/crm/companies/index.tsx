@@ -12,9 +12,12 @@ import {
   ChevronRight,
   Sparkles,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react'
 import { useState } from 'react'
 import { usePlan } from '@/hooks/usePlan'
+import { useOrganization } from '@/lib/auth'
+import { useCompanies } from '@sedona/crm'
 
 // Plan limits
 const FREE_PLAN_LIMITS = {
@@ -25,77 +28,38 @@ export const Route = createFileRoute('/_authenticated/crm/companies/')({
   component: CompaniesPage,
 })
 
-// Mock data
-const mockCompanies = [
-  {
-    id: '1',
-    name: 'Acme Corp',
-    industry: 'Technologie',
-    size: '51-200',
-    city: 'Paris',
-    website: 'www.acme.com',
-    contactsCount: 5,
-    dealsCount: 2,
-  },
-  {
-    id: '2',
-    name: 'Tech Solutions',
-    industry: 'Services IT',
-    size: '11-50',
-    city: 'Lyon',
-    website: 'www.techsolutions.fr',
-    contactsCount: 3,
-    dealsCount: 1,
-  },
-  {
-    id: '3',
-    name: 'Design Studio',
-    industry: 'Design',
-    size: '1-10',
-    city: 'Bordeaux',
-    website: 'www.designstudio.fr',
-    contactsCount: 2,
-    dealsCount: 0,
-  },
-  {
-    id: '4',
-    name: 'Finance Plus',
-    industry: 'Finance',
-    size: '201-500',
-    city: 'Paris',
-    website: 'www.financeplus.fr',
-    contactsCount: 8,
-    dealsCount: 3,
-  },
-  {
-    id: '5',
-    name: 'Marketing Pro',
-    industry: 'Marketing',
-    size: '11-50',
-    city: 'Marseille',
-    website: 'www.marketingpro.fr',
-    contactsCount: 4,
-    dealsCount: 1,
-  },
-]
-
 function CompaniesPage() {
   const [search, setSearch] = useState('')
   const { isFree } = usePlan()
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
 
-  const filteredCompanies = mockCompanies.filter(
-    (company) =>
-      company.name.toLowerCase().includes(search.toLowerCase()) ||
-      company.industry.toLowerCase().includes(search.toLowerCase()) ||
-      company.city.toLowerCase().includes(search.toLowerCase())
+  // Fetch companies from Supabase
+  const { data: companiesData, isLoading, error } = useCompanies(
+    organizationId,
+    { search: search || undefined },
+    { page: 1, pageSize: 25 }
   )
 
+  const companies = companiesData?.data || []
+
   // Usage tracking for FREE plan
-  const currentCount = mockCompanies.length
+  const currentCount = companiesData?.total || 0
   const limit = FREE_PLAN_LIMITS.companies
   const usagePercent = (currentCount / limit) * 100
   const isNearLimit = usagePercent >= 80
   const isAtLimit = currentCount >= limit
+
+  if (error) {
+    return (
+      <div className="page-container">
+        <Card className="p-8 text-center">
+          <p className="text-red-500">Erreur lors du chargement des entreprises</p>
+          <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="page-container">
@@ -173,51 +137,68 @@ function CompaniesPage() {
       </Card>
 
       {/* Companies Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredCompanies.map((company) => (
-          <Link
-            key={company.id}
-            to="/crm/companies/$companyId"
-            params={{ companyId: company.id }}
-          >
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                    <Building2 className="h-6 w-6" />
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={(e) => e.preventDefault()}>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </div>
-                <h3 className="font-semibold mb-1">{company.name}</h3>
-                <p className="text-sm text-muted-foreground mb-4">{company.industry}</p>
-
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Users className="h-4 w-4" />
-                    {company.contactsCount} contacts
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Globe className="h-4 w-4" />
-                    {company.city}
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-4 border-t flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{company.size} employes</span>
-                  <span>{company.dealsCount} deals en cours</span>
-                </div>
-              </CardContent>
-            </Card>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : companies.length === 0 ? (
+        <Card className="p-8 text-center">
+          <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">Aucune entreprise trouvee</p>
+          <Link to="/crm/companies/new" className="mt-4 inline-block">
+            <Button size="sm" variant="outline">
+              <Plus className="h-4 w-4 mr-2" />
+              Ajouter une entreprise
+            </Button>
           </Link>
-        ))}
-      </div>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {companies.map((company) => (
+            <Link
+              key={company.id}
+              to="/crm/companies/$companyId"
+              params={{ companyId: company.id }}
+            >
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                      <Building2 className="h-6 w-6" />
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={(e) => e.preventDefault()}>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <h3 className="font-semibold mb-1">{company.name}</h3>
+                  <p className="text-sm text-muted-foreground mb-4">{company.industry || '-'}</p>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Users className="h-4 w-4" />
+                      {(company as any).contactsCount || 0} contacts
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Globe className="h-4 w-4" />
+                      {company.city || '-'}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{company.size || '-'}</span>
+                    <span>{(company as any).dealsCount || 0} deals en cours</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Pagination */}
       <div className="flex items-center justify-between mt-6">
         <p className="text-sm text-muted-foreground">
-          Affichage de {filteredCompanies.length} entreprises
+          Affichage de {companies.length} sur {companiesData?.total || 0} entreprises
         </p>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" disabled>

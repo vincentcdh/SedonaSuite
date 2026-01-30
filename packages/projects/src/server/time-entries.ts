@@ -12,8 +12,8 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -28,8 +28,8 @@ export async function getTimeEntries(
   const { page = 1, pageSize = 50, sortBy = 'startTime', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getProjectsClient()
-    .from('time_entries')
+  let query = getClient()
+    .from('projects_time_entries')
     .select('*', { count: 'exact' })
     .eq('project_id', projectId)
 
@@ -72,8 +72,8 @@ export async function getTimeEntries(
 
   // Get task titles
   const taskIds = [...new Set((data || []).filter((e: any) => e.task_id).map((e: any) => e.task_id))]
-  const { data: tasks } = taskIds.length > 0 ? await getProjectsClient()
-    .from('tasks')
+  const { data: tasks } = taskIds.length > 0 ? await getClient()
+    .from('projects_tasks')
     .select('id, title')
     .in('id', taskIds) : { data: [] }
 
@@ -105,8 +105,8 @@ export async function getTimeEntries(
 // ===========================================
 
 export async function getTimeEntryById(id: string): Promise<TimeEntry | null> {
-  const { data, error } = await getProjectsClient()
-    .from('time_entries')
+  const { data, error } = await getClient()
+    .from('projects_time_entries')
     .select('*')
     .eq('id', id)
     .single()
@@ -127,8 +127,8 @@ export async function createTimeEntry(
   input: CreateTimeEntryInput,
   userId: string
 ): Promise<TimeEntry> {
-  const { data, error } = await getProjectsClient()
-    .from('time_entries')
+  const { data, error } = await getClient()
+    .from('projects_time_entries')
     .insert({
       project_id: input.projectId,
       task_id: input.taskId,
@@ -167,8 +167,8 @@ export async function updateTimeEntry(input: UpdateTimeEntryInput): Promise<Time
   if (input.isBillable !== undefined) updateData.is_billable = input.isBillable
   if (input.hourlyRate !== undefined) updateData.hourly_rate = input.hourlyRate
 
-  const { data, error } = await getProjectsClient()
-    .from('time_entries')
+  const { data, error } = await getClient()
+    .from('projects_time_entries')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -184,8 +184,8 @@ export async function updateTimeEntry(input: UpdateTimeEntryInput): Promise<Time
 // ===========================================
 
 export async function deleteTimeEntry(id: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('time_entries')
+  const { error } = await getClient()
+    .from('projects_time_entries')
     .delete()
     .eq('id', id)
 
@@ -220,8 +220,8 @@ export async function startTimer(
 export async function stopTimer(id: string): Promise<TimeEntry> {
   const endTime = new Date().toISOString()
 
-  const { data, error } = await getProjectsClient()
-    .from('time_entries')
+  const { data, error } = await getClient()
+    .from('projects_time_entries')
     .update({
       end_time: endTime,
       is_running: false,
@@ -240,8 +240,8 @@ export async function stopTimer(id: string): Promise<TimeEntry> {
 // ===========================================
 
 export async function getRunningTimer(userId: string): Promise<TimeEntry | null> {
-  const { data, error } = await getProjectsClient()
-    .from('time_entries')
+  const { data, error } = await getClient()
+    .from('projects_time_entries')
     .select('*')
     .eq('user_id', userId)
     .eq('is_running', true)
@@ -260,8 +260,8 @@ export async function getRunningTimer(userId: string): Promise<TimeEntry | null>
 // ===========================================
 
 async function stopRunningTimers(userId: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('time_entries')
+  const { error } = await getClient()
+    .from('projects_time_entries')
     .update({
       end_time: new Date().toISOString(),
       is_running: false,
@@ -283,8 +283,8 @@ export async function getProjectTimeSummary(projectId: string): Promise<{
   byUser: { userId: string; minutes: number }[]
   byTask: { taskId: string; minutes: number }[]
 }> {
-  const { data } = await getProjectsClient()
-    .from('time_entries')
+  const { data } = await getClient()
+    .from('projects_time_entries')
     .select('*')
     .eq('project_id', projectId)
 

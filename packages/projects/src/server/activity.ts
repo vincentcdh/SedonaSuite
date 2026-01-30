@@ -5,8 +5,8 @@
 import { getSupabaseClient } from '@sedona/database'
 import type { ActivityLogEntry } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -20,8 +20,8 @@ export async function getProjectActivity(
     visibleToClientOnly?: boolean
   }
 ): Promise<ActivityLogEntry[]> {
-  let query = getProjectsClient()
-    .from('activity_log')
+  let query = getClient()
+    .from('projects_activity_log')
     .select(`
       *,
       user:user_id (
@@ -68,8 +68,8 @@ export async function logActivity(
   const supabase = getSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data, error } = await getProjectsClient()
-    .from('activity_log')
+  const { data, error } = await getClient()
+    .from('projects_activity_log')
     .insert({
       project_id: projectId,
       action,
@@ -106,8 +106,8 @@ export async function logClientActivity(
     details?: Record<string, unknown>
   }
 ): Promise<ActivityLogEntry> {
-  const { data, error } = await getProjectsClient()
-    .from('activity_log')
+  const { data, error } = await getClient()
+    .from('projects_activity_log')
     .insert({
       project_id: projectId,
       action,

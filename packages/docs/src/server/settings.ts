@@ -5,17 +5,13 @@
 import { getSupabaseClient } from '@sedona/database'
 import type { DocsSettings } from '../types'
 
-function getDocsClient() {
-  return getSupabaseClient().schema('docs' as any) as any
-}
-
 // ===========================================
 // GET SETTINGS
 // ===========================================
 
 export async function getDocsSettings(organizationId: string): Promise<DocsSettings | null> {
-  const { data, error } = await getDocsClient()
-    .from('settings')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_settings')
     .select('*')
     .eq('organization_id', organizationId)
     .single()
@@ -33,8 +29,8 @@ export async function getDocsSettings(organizationId: string): Promise<DocsSetti
 // ===========================================
 
 export async function createDocsSettings(organizationId: string): Promise<DocsSettings> {
-  const { data, error } = await getDocsClient()
-    .from('settings')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_settings')
     .insert({
       organization_id: organizationId,
     })
@@ -76,8 +72,8 @@ export async function updateDocsSettings(
   if (input.autoOcrEnabled !== undefined) updateData.auto_ocr_enabled = input.autoOcrEnabled
   if (input.versionRetentionDays !== undefined) updateData.version_retention_days = input.versionRetentionDays
 
-  const { data, error } = await getDocsClient()
-    .from('settings')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_settings')
     .update(updateData)
     .eq('organization_id', organizationId)
     .select()

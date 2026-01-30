@@ -9,17 +9,13 @@ import type {
   UpdateTagInput,
 } from '../types'
 
-function getTicketsClient() {
-  return getSupabaseClient().schema('tickets' as any) as any
-}
-
 // ===========================================
 // GET ALL TAGS
 // ===========================================
 
 export async function getTags(organizationId: string): Promise<TicketTag[]> {
-  const { data, error } = await getTicketsClient()
-    .from('tags')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_tags')
     .select('*')
     .eq('organization_id', organizationId)
     .order('name', { ascending: true })
@@ -34,8 +30,8 @@ export async function getTags(organizationId: string): Promise<TicketTag[]> {
 // ===========================================
 
 export async function getTagById(id: string): Promise<TicketTag | null> {
-  const { data, error } = await getTicketsClient()
-    .from('tags')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_tags')
     .select('*')
     .eq('id', id)
     .single()
@@ -56,8 +52,8 @@ export async function getTagByName(
   organizationId: string,
   name: string
 ): Promise<TicketTag | null> {
-  const { data, error } = await getTicketsClient()
-    .from('tags')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_tags')
     .select('*')
     .eq('organization_id', organizationId)
     .ilike('name', name)
@@ -79,8 +75,8 @@ export async function createTag(
   organizationId: string,
   input: CreateTagInput
 ): Promise<TicketTag> {
-  const { data, error } = await getTicketsClient()
-    .from('tags')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_tags')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -104,8 +100,8 @@ export async function updateTag(input: UpdateTagInput): Promise<TicketTag> {
   if (input.name !== undefined) updateData.name = input.name
   if (input.color !== undefined) updateData.color = input.color
 
-  const { data, error } = await getTicketsClient()
-    .from('tags')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_tags')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -121,8 +117,8 @@ export async function updateTag(input: UpdateTagInput): Promise<TicketTag> {
 // ===========================================
 
 export async function deleteTag(id: string): Promise<void> {
-  const { error } = await getTicketsClient()
-    .from('tags')
+  const { error } = await getSupabaseClient()
+    .from('tickets_tags')
     .delete()
     .eq('id', id)
 
@@ -157,8 +153,8 @@ export async function getTagsWithUsageCount(
   const tags = await getTags(organizationId)
 
   // Get all tickets with tags
-  const { data: tickets, error } = await getTicketsClient()
-    .from('tickets')
+  const { data: tickets, error } = await getSupabaseClient()
+    .from('tickets_tickets')
     .select('tags')
     .eq('organization_id', organizationId)
 

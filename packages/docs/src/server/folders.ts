@@ -13,10 +13,6 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getDocsClient() {
-  return getSupabaseClient().schema('docs' as any) as any
-}
-
 // ===========================================
 // GET FOLDERS
 // ===========================================
@@ -29,8 +25,8 @@ export async function getFolders(
   const { page = 1, pageSize = 50, sortBy = 'name', sortOrder = 'asc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getDocsClient()
-    .from('folders')
+  let query = getSupabaseClient()
+    .from('docs_folders')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -63,8 +59,8 @@ export async function getFolders(
 // ===========================================
 
 export async function getFolderTree(organizationId: string): Promise<FolderWithChildren[]> {
-  const { data, error } = await getDocsClient()
-    .from('folders')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_folders')
     .select('*')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -106,8 +102,8 @@ function buildFolderTree(folders: Folder[]): FolderWithChildren[] {
 // ===========================================
 
 export async function getFolderById(id: string): Promise<Folder | null> {
-  const { data, error } = await getDocsClient()
-    .from('folders')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_folders')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
@@ -132,8 +128,8 @@ export async function getFolderBreadcrumbs(folderId: string): Promise<FolderBrea
   const pathIds = folder.path.split('/').filter(Boolean)
   if (pathIds.length === 0) return []
 
-  const { data, error } = await getDocsClient()
-    .from('folders')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_folders')
     .select('id, name')
     .in('id', pathIds)
 
@@ -156,8 +152,8 @@ export async function createFolder(
   input: CreateFolderInput,
   userId?: string
 ): Promise<Folder> {
-  const { data, error } = await getDocsClient()
-    .from('folders')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_folders')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -186,8 +182,8 @@ export async function updateFolder(input: UpdateFolderInput): Promise<Folder> {
   if (input.color !== undefined) updateData.color = input.color
   if (input.icon !== undefined) updateData.icon = input.icon
 
-  const { data, error } = await getDocsClient()
-    .from('folders')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_folders')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -203,8 +199,8 @@ export async function updateFolder(input: UpdateFolderInput): Promise<Folder> {
 // ===========================================
 
 export async function deleteFolder(id: string): Promise<void> {
-  const { error } = await getDocsClient()
-    .from('folders')
+  const { error } = await getSupabaseClient()
+    .from('docs_folders')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -216,8 +212,8 @@ export async function deleteFolder(id: string): Promise<void> {
 // ===========================================
 
 export async function restoreFolder(id: string): Promise<Folder> {
-  const { data, error } = await getDocsClient()
-    .from('folders')
+  const { data, error } = await getSupabaseClient()
+    .from('docs_folders')
     .update({ deleted_at: null })
     .eq('id', id)
     .select()
@@ -233,8 +229,8 @@ export async function restoreFolder(id: string): Promise<Folder> {
 // ===========================================
 
 export async function deleteFolderPermanently(id: string): Promise<void> {
-  const { error } = await getDocsClient()
-    .from('folders')
+  const { error } = await getSupabaseClient()
+    .from('docs_folders')
     .delete()
     .eq('id', id)
 
@@ -252,8 +248,8 @@ export async function getDeletedFolders(
   const { page = 1, pageSize = 20, sortBy = 'deletedAt', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  const { data, error, count } = await getDocsClient()
-    .from('folders')
+  const { data, error, count } = await getSupabaseClient()
+    .from('docs_folders')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .not('deleted_at', 'is', null)
@@ -276,8 +272,8 @@ export async function getDeletedFolders(
 // ===========================================
 
 export async function getFolderCount(organizationId: string): Promise<number> {
-  const { count, error } = await getDocsClient()
-    .from('folders')
+  const { count, error } = await getSupabaseClient()
+    .from('docs_folders')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)

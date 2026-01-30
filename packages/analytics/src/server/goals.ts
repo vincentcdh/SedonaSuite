@@ -12,11 +12,6 @@ import type {
   UpdateGoalInput,
 } from '../types'
 
-// Get Supabase client with analytics schema
-function getAnalyticsClient() {
-  return getSupabaseClient().schema('analytics' as any) as any
-}
-
 // ===========================================
 // GET GOALS
 // ===========================================
@@ -25,10 +20,10 @@ export async function getGoals(
   organizationId: string,
   filters?: GoalFilters
 ): Promise<Goal[]> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   let query = client
-    .from('goals')
+    .from('analytics_goals')
     .select('*')
     .eq('organization_id', organizationId)
     .order('created_at', { ascending: false })
@@ -61,10 +56,10 @@ export async function getGoals(
 // ===========================================
 
 export async function getGoalById(goalId: string): Promise<GoalWithProgress | null> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data: goal, error: goalError } = await client
-    .from('goals')
+    .from('analytics_goals')
     .select('*')
     .eq('id', goalId)
     .single()
@@ -75,7 +70,7 @@ export async function getGoalById(goalId: string): Promise<GoalWithProgress | nu
   }
 
   const { data: progress, error: progressError } = await client
-    .from('goal_progress')
+    .from('analytics_goal_progress')
     .select('*')
     .eq('goal_id', goalId)
     .order('recorded_at', { ascending: true })
@@ -92,10 +87,10 @@ export async function getGoalById(goalId: string): Promise<GoalWithProgress | nu
 export async function getActiveGoalsWithProgress(
   organizationId: string
 ): Promise<GoalWithProgress[]> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data: goals, error: goalsError } = await client
-    .from('goals')
+    .from('analytics_goals')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('is_active', true)
@@ -107,7 +102,7 @@ export async function getActiveGoalsWithProgress(
 
   for (const goal of goals || []) {
     const { data: progress } = await client
-      .from('goal_progress')
+      .from('analytics_goal_progress')
       .select('*')
       .eq('goal_id', goal.id)
       .order('recorded_at', { ascending: true })
@@ -129,10 +124,10 @@ export async function createGoal(
   userId: string,
   input: CreateGoalInput
 ): Promise<Goal> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data, error } = await client
-    .from('goals')
+    .from('analytics_goals')
     .insert({
       organization_id: organizationId,
       created_by: userId,
@@ -164,7 +159,7 @@ export async function updateGoal(
   goalId: string,
   input: UpdateGoalInput
 ): Promise<Goal> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const updateData: any = {}
   if (input.name !== undefined) updateData.name = input.name
@@ -178,7 +173,7 @@ export async function updateGoal(
   if (input.endDate !== undefined) updateData.end_date = input.endDate
 
   const { data, error } = await client
-    .from('goals')
+    .from('analytics_goals')
     .update(updateData)
     .eq('id', goalId)
     .select()
@@ -197,11 +192,11 @@ export async function updateGoalCurrentValue(
   goalId: string,
   currentValue: number
 ): Promise<Goal> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   // Update goal current value
   const { data, error } = await client
-    .from('goals')
+    .from('analytics_goals')
     .update({ current_value: currentValue })
     .eq('id', goalId)
     .select()
@@ -211,7 +206,7 @@ export async function updateGoalCurrentValue(
 
   // Record progress
   await client
-    .from('goal_progress')
+    .from('analytics_goal_progress')
     .upsert({
       goal_id: goalId,
       recorded_at: new Date().toISOString().split('T')[0],
@@ -231,10 +226,10 @@ export async function toggleGoalActive(
   goalId: string,
   isActive: boolean
 ): Promise<Goal> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data, error } = await client
-    .from('goals')
+    .from('analytics_goals')
     .update({ is_active: isActive })
     .eq('id', goalId)
     .select()
@@ -250,10 +245,10 @@ export async function toggleGoalActive(
 // ===========================================
 
 export async function deleteGoal(goalId: string): Promise<void> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { error } = await client
-    .from('goals')
+    .from('analytics_goals')
     .delete()
     .eq('id', goalId)
 

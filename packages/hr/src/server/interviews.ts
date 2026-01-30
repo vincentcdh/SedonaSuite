@@ -13,10 +13,6 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getHrClient() {
-  return getSupabaseClient().schema('hr' as any) as any
-}
-
 // ===========================================
 // GET INTERVIEWS
 // ===========================================
@@ -29,8 +25,8 @@ export async function getInterviews(
   const { page = 1, pageSize = 20, sortBy = 'scheduledDate', sortOrder = 'asc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getHrClient()
-    .from('interviews')
+  let query = getSupabaseClient()
+    .from('hr_interviews')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -77,8 +73,8 @@ export async function getInterviews(
 
   let employees: any[] = []
   if (allEmployeeIds.length > 0) {
-    const { data: employeeData } = await getHrClient()
-      .from('employees')
+    const { data: employeeData } = await getSupabaseClient()
+      .from('hr_employees')
       .select('id, first_name, last_name, photo_url, job_title')
       .in('id', allEmployeeIds)
     employees = employeeData || []
@@ -122,8 +118,8 @@ export async function getInterviews(
 // ===========================================
 
 export async function getInterviewsByEmployee(employeeId: string): Promise<InterviewWithRelations[]> {
-  const { data, error } = await getHrClient()
-    .from('interviews')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_interviews')
     .select('*')
     .eq('employee_id', employeeId)
     .is('deleted_at', null)
@@ -136,8 +132,8 @@ export async function getInterviewsByEmployee(employeeId: string): Promise<Inter
 
   let interviewers: any[] = []
   if (interviewerIds.length > 0) {
-    const { data: interviewerData } = await getHrClient()
-      .from('employees')
+    const { data: interviewerData } = await getSupabaseClient()
+      .from('hr_employees')
       .select('id, first_name, last_name, photo_url')
       .in('id', interviewerIds)
     interviewers = interviewerData || []
@@ -166,8 +162,8 @@ export async function getInterviewsByEmployee(employeeId: string): Promise<Inter
 // ===========================================
 
 export async function getInterviewById(id: string): Promise<InterviewWithRelations | null> {
-  const { data, error } = await getHrClient()
-    .from('interviews')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_interviews')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
@@ -186,8 +182,8 @@ export async function getInterviewById(id: string): Promise<InterviewWithRelatio
     employeeIds.push(interview.interviewerId)
   }
 
-  const { data: employees } = await getHrClient()
-    .from('employees')
+  const { data: employees } = await getSupabaseClient()
+    .from('hr_employees')
     .select('id, first_name, last_name, photo_url, job_title')
     .in('id', employeeIds)
 
@@ -227,8 +223,8 @@ export async function createInterview(
   input: CreateInterviewInput,
   userId?: string
 ): Promise<Interview> {
-  const { data, error } = await getHrClient()
-    .from('interviews')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_interviews')
     .insert({
       organization_id: organizationId,
       employee_id: input.employeeId,
@@ -266,8 +262,8 @@ export async function updateInterview(input: UpdateInterviewInput): Promise<Inte
   if (input.documentUrl !== undefined) updateData.document_url = input.documentUrl
   if (input.status !== undefined) updateData.status = input.status
 
-  const { data, error } = await getHrClient()
-    .from('interviews')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_interviews')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -292,8 +288,8 @@ export async function completeInterview(
     documentUrl?: string
   }
 ): Promise<Interview> {
-  const { data, error } = await getHrClient()
-    .from('interviews')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_interviews')
     .update({
       status: 'completed',
       completed_date: new Date().toISOString(),
@@ -317,8 +313,8 @@ export async function completeInterview(
 // ===========================================
 
 export async function cancelInterview(id: string): Promise<Interview> {
-  const { data, error } = await getHrClient()
-    .from('interviews')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_interviews')
     .update({
       status: 'canceled',
     })
@@ -336,8 +332,8 @@ export async function cancelInterview(id: string): Promise<Interview> {
 // ===========================================
 
 export async function deleteInterview(id: string): Promise<void> {
-  const { error } = await getHrClient()
-    .from('interviews')
+  const { error } = await getSupabaseClient()
+    .from('hr_interviews')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -355,8 +351,8 @@ export async function getUpcomingInterviews(
   const today = new Date()
   const futureDate = new Date(today.getTime() + daysAhead * 24 * 60 * 60 * 1000)
 
-  const { data, error } = await getHrClient()
-    .from('interviews')
+  const { data, error } = await getSupabaseClient()
+    .from('hr_interviews')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('status', 'scheduled')
@@ -374,8 +370,8 @@ export async function getUpcomingInterviews(
 
   let employees: any[] = []
   if (allEmployeeIds.length > 0) {
-    const { data: employeeData } = await getHrClient()
-      .from('employees')
+    const { data: employeeData } = await getSupabaseClient()
+      .from('hr_employees')
       .select('id, first_name, last_name, photo_url, job_title')
       .in('id', allEmployeeIds)
     employees = employeeData || []
@@ -416,8 +412,8 @@ export async function getEmployeesNeedingProfessionalInterview(
   organizationId: string
 ): Promise<{ employeeId: string; lastInterviewDate: string | null; monthsSinceLastInterview: number }[]> {
   // Get all active employees
-  const { data: employees } = await getHrClient()
-    .from('employees')
+  const { data: employees } = await getSupabaseClient()
+    .from('hr_employees')
     .select('id')
     .eq('organization_id', organizationId)
     .eq('status', 'active')
@@ -433,8 +429,8 @@ export async function getEmployeesNeedingProfessionalInterview(
   const results: { employeeId: string; lastInterviewDate: string | null; monthsSinceLastInterview: number }[] = []
 
   for (const employeeId of employeeIds) {
-    const { data: lastInterview } = await getHrClient()
-      .from('interviews')
+    const { data: lastInterview } = await getSupabaseClient()
+      .from('hr_interviews')
       .select('completed_date')
       .eq('employee_id', employeeId)
       .eq('type', 'professional')

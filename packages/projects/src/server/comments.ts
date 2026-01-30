@@ -9,8 +9,8 @@ import type {
   UpdateTaskCommentInput,
 } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -18,8 +18,8 @@ function getProjectsClient() {
 // ===========================================
 
 export async function getTaskComments(taskId: string): Promise<TaskComment[]> {
-  const { data, error } = await getProjectsClient()
-    .from('task_comments')
+  const { data, error } = await getClient()
+    .from('projects_task_comments')
     .select('*')
     .eq('task_id', taskId)
     .is('parent_comment_id', null) // Top-level comments only
@@ -39,8 +39,8 @@ export async function getTaskComments(taskId: string): Promise<TaskComment[]> {
 
   // Get replies
   const commentIds = (data || []).map((c: any) => c.id)
-  const { data: replies } = await getProjectsClient()
-    .from('task_comments')
+  const { data: replies } = await getClient()
+    .from('projects_task_comments')
     .select('*')
     .in('parent_comment_id', commentIds)
     .order('created_at', { ascending: true })
@@ -77,8 +77,8 @@ export async function createTaskComment(
   input: CreateTaskCommentInput,
   userId: string
 ): Promise<TaskComment> {
-  const { data, error } = await getProjectsClient()
-    .from('task_comments')
+  const { data, error } = await getClient()
+    .from('projects_task_comments')
     .insert({
       task_id: input.taskId,
       user_id: userId,
@@ -108,8 +108,8 @@ export async function createTaskComment(
 // ===========================================
 
 export async function updateTaskComment(input: UpdateTaskCommentInput): Promise<TaskComment> {
-  const { data, error } = await getProjectsClient()
-    .from('task_comments')
+  const { data, error } = await getClient()
+    .from('projects_task_comments')
     .update({
       content: input.content,
       edited_at: new Date().toISOString(),
@@ -138,8 +138,8 @@ export async function updateTaskComment(input: UpdateTaskCommentInput): Promise<
 // ===========================================
 
 export async function deleteTaskComment(id: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('task_comments')
+  const { error } = await getClient()
+    .from('projects_task_comments')
     .delete()
     .eq('id', id)
 

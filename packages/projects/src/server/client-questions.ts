@@ -9,8 +9,8 @@ import type {
   AnswerClientQuestionInput,
 } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -18,8 +18,8 @@ function getProjectsClient() {
 // ===========================================
 
 export async function getClientQuestions(projectId: string): Promise<ClientQuestion[]> {
-  const { data, error } = await getProjectsClient()
-    .from('client_questions')
+  const { data, error } = await getClient()
+    .from('projects_client_questions')
     .select(`
       *,
       client_access:client_access_id (
@@ -42,8 +42,8 @@ export async function getClientQuestions(projectId: string): Promise<ClientQuest
 }
 
 export async function getClientQuestionById(id: string): Promise<ClientQuestion | null> {
-  const { data, error } = await getProjectsClient()
-    .from('client_questions')
+  const { data, error } = await getClient()
+    .from('projects_client_questions')
     .select(`
       *,
       client_access:client_access_id (
@@ -72,8 +72,8 @@ export async function createClientQuestion(
   input: CreateClientQuestionInput,
   clientAccessId: string
 ): Promise<ClientQuestion> {
-  const { data, error } = await getProjectsClient()
-    .from('client_questions')
+  const { data, error } = await getClient()
+    .from('projects_client_questions')
     .insert({
       project_id: input.projectId,
       client_access_id: clientAccessId,
@@ -102,8 +102,8 @@ export async function answerClientQuestion(input: AnswerClientQuestionInput): Pr
   const supabase = getSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data, error } = await getProjectsClient()
-    .from('client_questions')
+  const { data, error } = await getClient()
+    .from('projects_client_questions')
     .update({
       answer: input.answer,
       answered_by: user?.id,
@@ -134,8 +134,8 @@ export async function answerClientQuestion(input: AnswerClientQuestionInput): Pr
 }
 
 export async function closeClientQuestion(id: string): Promise<ClientQuestion> {
-  const { data, error } = await getProjectsClient()
-    .from('client_questions')
+  const { data, error } = await getClient()
+    .from('projects_client_questions')
     .update({ status: 'closed' })
     .eq('id', id)
     .select(`
@@ -159,8 +159,8 @@ export async function closeClientQuestion(id: string): Promise<ClientQuestion> {
 }
 
 export async function reopenClientQuestion(id: string): Promise<ClientQuestion> {
-  const { data, error } = await getProjectsClient()
-    .from('client_questions')
+  const { data, error } = await getClient()
+    .from('projects_client_questions')
     .update({ status: 'open' })
     .eq('id', id)
     .select(`
@@ -184,8 +184,8 @@ export async function reopenClientQuestion(id: string): Promise<ClientQuestion> 
 }
 
 export async function getOpenQuestionsCount(projectId: string): Promise<number> {
-  const { count, error } = await getProjectsClient()
-    .from('client_questions')
+  const { count, error } = await getClient()
+    .from('projects_client_questions')
     .select('*', { count: 'exact', head: true })
     .eq('project_id', projectId)
     .eq('status', 'open')

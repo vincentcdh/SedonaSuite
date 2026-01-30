@@ -8,8 +8,8 @@ import type {
   CreateTaskDependencyInput,
 } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -17,8 +17,8 @@ function getProjectsClient() {
 // ===========================================
 
 export async function getTaskDependencies(taskId: string): Promise<TaskDependency[]> {
-  const { data, error } = await getProjectsClient()
-    .from('task_dependencies')
+  const { data, error } = await getClient()
+    .from('projects_task_dependencies')
     .select('*')
     .eq('task_id', taskId)
 
@@ -32,8 +32,8 @@ export async function getTaskDependencies(taskId: string): Promise<TaskDependenc
 // ===========================================
 
 export async function getTaskDependents(taskId: string): Promise<TaskDependency[]> {
-  const { data, error } = await getProjectsClient()
-    .from('task_dependencies')
+  const { data, error } = await getClient()
+    .from('projects_task_dependencies')
     .select('*')
     .eq('depends_on_task_id', taskId)
 
@@ -47,8 +47,8 @@ export async function getTaskDependents(taskId: string): Promise<TaskDependency[
 // ===========================================
 
 export async function createTaskDependency(input: CreateTaskDependencyInput): Promise<TaskDependency> {
-  const { data, error } = await getProjectsClient()
-    .from('task_dependencies')
+  const { data, error } = await getClient()
+    .from('projects_task_dependencies')
     .insert({
       task_id: input.taskId,
       depends_on_task_id: input.dependsOnTaskId,
@@ -67,8 +67,8 @@ export async function createTaskDependency(input: CreateTaskDependencyInput): Pr
 // ===========================================
 
 export async function deleteTaskDependency(id: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('task_dependencies')
+  const { error } = await getClient()
+    .from('projects_task_dependencies')
     .delete()
     .eq('id', id)
 
@@ -80,8 +80,8 @@ export async function deleteTaskDependency(id: string): Promise<void> {
 // ===========================================
 
 export async function removeDependency(taskId: string, dependsOnTaskId: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('task_dependencies')
+  const { error } = await getClient()
+    .from('projects_task_dependencies')
     .delete()
     .eq('task_id', taskId)
     .eq('depends_on_task_id', dependsOnTaskId)
@@ -94,8 +94,8 @@ export async function removeDependency(taskId: string, dependsOnTaskId: string):
 // ===========================================
 
 export async function getProjectDependencies(projectId: string): Promise<TaskDependency[]> {
-  const { data: tasks } = await getProjectsClient()
-    .from('tasks')
+  const { data: tasks } = await getClient()
+    .from('projects_tasks')
     .select('id')
     .eq('project_id', projectId)
 
@@ -103,8 +103,8 @@ export async function getProjectDependencies(projectId: string): Promise<TaskDep
 
   const taskIds = tasks.map((t: any) => t.id)
 
-  const { data, error } = await getProjectsClient()
-    .from('task_dependencies')
+  const { data, error } = await getClient()
+    .from('projects_task_dependencies')
     .select('*')
     .in('task_id', taskIds)
 

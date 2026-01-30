@@ -1,12 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type {
-  Activity,
   CreateActivityInput,
   UpdateActivityInput,
   ActivityFilters,
   PaginationParams,
-  PaginatedResult,
 } from '../types'
+import {
+  getActivities,
+  getContactActivities,
+  getDealActivities,
+  getOverdueTasks as fetchOverdueTasks,
+  getUpcomingTasks as fetchUpcomingTasks,
+  getActivity as getActivityById,
+  createActivity,
+  updateActivity,
+  completeActivity,
+  uncompleteActivity,
+  deleteActivity,
+} from '../server/activities'
 
 // ===========================================
 // ACTIVITIES HOOKS
@@ -37,26 +48,7 @@ export function useActivities(
 ) {
   return useQuery({
     queryKey: activityKeys.list(organizationId, filters, pagination),
-    queryFn: async (): Promise<PaginatedResult<Activity>> => {
-      const params = new URLSearchParams()
-      params.set('organizationId', organizationId)
-
-      if (filters.type) params.set('type', filters.type)
-      if (filters.contactId) params.set('contactId', filters.contactId)
-      if (filters.companyId) params.set('companyId', filters.companyId)
-      if (filters.dealId) params.set('dealId', filters.dealId)
-      if (filters.createdBy) params.set('createdBy', filters.createdBy)
-      if (filters.completed !== undefined) params.set('completed', String(filters.completed))
-
-      if (pagination.page) params.set('page', String(pagination.page))
-      if (pagination.pageSize) params.set('pageSize', String(pagination.pageSize))
-      if (pagination.sortBy) params.set('sortBy', pagination.sortBy)
-      if (pagination.sortOrder) params.set('sortOrder', pagination.sortOrder)
-
-      const response = await fetch(`/api/crm/activities?${params}`)
-      if (!response.ok) throw new Error('Failed to fetch activities')
-      return response.json()
-    },
+    queryFn: () => getActivities(organizationId, filters, pagination),
     enabled: options?.enabled !== false && !!organizationId,
   })
 }
@@ -71,15 +63,7 @@ export function useContactActivities(
 ) {
   return useQuery({
     queryKey: activityKeys.contact(contactId),
-    queryFn: async (): Promise<PaginatedResult<Activity>> => {
-      const params = new URLSearchParams()
-      if (pagination.page) params.set('page', String(pagination.page))
-      if (pagination.pageSize) params.set('pageSize', String(pagination.pageSize))
-
-      const response = await fetch(`/api/crm/contacts/${contactId}/activities?${params}`)
-      if (!response.ok) throw new Error('Failed to fetch contact activities')
-      return response.json()
-    },
+    queryFn: () => getContactActivities(contactId, pagination),
     enabled: options?.enabled !== false && !!contactId,
   })
 }
@@ -94,15 +78,7 @@ export function useDealActivities(
 ) {
   return useQuery({
     queryKey: activityKeys.deal(dealId),
-    queryFn: async (): Promise<PaginatedResult<Activity>> => {
-      const params = new URLSearchParams()
-      if (pagination.page) params.set('page', String(pagination.page))
-      if (pagination.pageSize) params.set('pageSize', String(pagination.pageSize))
-
-      const response = await fetch(`/api/crm/deals/${dealId}/activities?${params}`)
-      if (!response.ok) throw new Error('Failed to fetch deal activities')
-      return response.json()
-    },
+    queryFn: () => getDealActivities(dealId, pagination),
     enabled: options?.enabled !== false && !!dealId,
   })
 }
@@ -113,11 +89,7 @@ export function useDealActivities(
 export function useOverdueTasks(organizationId: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: activityKeys.overdue(organizationId),
-    queryFn: async (): Promise<Activity[]> => {
-      const response = await fetch(`/api/crm/activities/overdue?organizationId=${organizationId}`)
-      if (!response.ok) throw new Error('Failed to fetch overdue tasks')
-      return response.json()
-    },
+    queryFn: () => fetchOverdueTasks(organizationId),
     enabled: options?.enabled !== false && !!organizationId,
   })
 }
@@ -132,13 +104,7 @@ export function useUpcomingTasks(
 ) {
   return useQuery({
     queryKey: activityKeys.upcoming(organizationId),
-    queryFn: async (): Promise<Activity[]> => {
-      const response = await fetch(
-        `/api/crm/activities/upcoming?organizationId=${organizationId}&days=${days}`
-      )
-      if (!response.ok) throw new Error('Failed to fetch upcoming tasks')
-      return response.json()
-    },
+    queryFn: () => fetchUpcomingTasks(organizationId, days),
     enabled: options?.enabled !== false && !!organizationId,
   })
 }
@@ -149,11 +115,7 @@ export function useUpcomingTasks(
 export function useActivity(activityId: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: activityKeys.detail(activityId),
-    queryFn: async (): Promise<Activity> => {
-      const response = await fetch(`/api/crm/activities/${activityId}`)
-      if (!response.ok) throw new Error('Failed to fetch activity')
-      return response.json()
-    },
+    queryFn: () => getActivityById(activityId),
     enabled: options?.enabled !== false && !!activityId,
   })
 }
@@ -165,27 +127,21 @@ export function useCreateActivity() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       organizationId,
+      userId,
       data,
     }: {
       organizationId: string
+      userId: string
       data: CreateActivityInput
-    }): Promise<Activity> => {
-      const response = await fetch('/api/crm/activities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId, ...data }),
-      })
-      if (!response.ok) throw new Error('Failed to create activity')
-      return response.json()
-    },
+    }) => createActivity(organizationId, userId, data),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: activityKeys.lists() })
-      if (data.contactId) {
+      if (data?.contactId) {
         queryClient.invalidateQueries({ queryKey: activityKeys.contact(data.contactId) })
       }
-      if (data.dealId) {
+      if (data?.dealId) {
         queryClient.invalidateQueries({ queryKey: activityKeys.deal(data.dealId) })
       }
     },
@@ -199,23 +155,17 @@ export function useUpdateActivity() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (data: UpdateActivityInput): Promise<Activity> => {
-      const response = await fetch(`/api/crm/activities/${data.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!response.ok) throw new Error('Failed to update activity')
-      return response.json()
-    },
+    mutationFn: (data: UpdateActivityInput) => updateActivity(data),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: activityKeys.lists() })
-      queryClient.invalidateQueries({ queryKey: activityKeys.detail(data.id) })
-      if (data.contactId) {
-        queryClient.invalidateQueries({ queryKey: activityKeys.contact(data.contactId) })
-      }
-      if (data.dealId) {
-        queryClient.invalidateQueries({ queryKey: activityKeys.deal(data.dealId) })
+      if (data) {
+        queryClient.invalidateQueries({ queryKey: activityKeys.detail(data.id) })
+        if (data.contactId) {
+          queryClient.invalidateQueries({ queryKey: activityKeys.contact(data.contactId) })
+        }
+        if (data.dealId) {
+          queryClient.invalidateQueries({ queryKey: activityKeys.deal(data.dealId) })
+        }
       }
     },
   })
@@ -228,14 +178,8 @@ export function useCompleteActivity() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (activityId: string): Promise<Activity> => {
-      const response = await fetch(`/api/crm/activities/${activityId}/complete`, {
-        method: 'POST',
-      })
-      if (!response.ok) throw new Error('Failed to complete activity')
-      return response.json()
-    },
-    onSuccess: (data) => {
+    mutationFn: (activityId: string) => completeActivity(activityId),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: activityKeys.all })
     },
   })
@@ -248,13 +192,7 @@ export function useUncompleteActivity() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (activityId: string): Promise<Activity> => {
-      const response = await fetch(`/api/crm/activities/${activityId}/uncomplete`, {
-        method: 'POST',
-      })
-      if (!response.ok) throw new Error('Failed to uncomplete activity')
-      return response.json()
-    },
+    mutationFn: (activityId: string) => uncompleteActivity(activityId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: activityKeys.all })
     },
@@ -268,12 +206,7 @@ export function useDeleteActivity() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (activityId: string): Promise<void> => {
-      const response = await fetch(`/api/crm/activities/${activityId}`, {
-        method: 'DELETE',
-      })
-      if (!response.ok) throw new Error('Failed to delete activity')
-    },
+    mutationFn: (activityId: string) => deleteActivity(activityId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: activityKeys.all })
     },

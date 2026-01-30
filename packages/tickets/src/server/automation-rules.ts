@@ -12,17 +12,13 @@ import type {
   Ticket,
 } from '../types'
 
-function getTicketsClient() {
-  return getSupabaseClient().schema('tickets' as any) as any
-}
-
 // ===========================================
 // GET ALL AUTOMATION RULES
 // ===========================================
 
 export async function getAutomationRules(organizationId: string): Promise<AutomationRule[]> {
-  const { data, error } = await getTicketsClient()
-    .from('automation_rules')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_automation_rules')
     .select('*')
     .eq('organization_id', organizationId)
     .order('priority', { ascending: true })
@@ -38,8 +34,8 @@ export async function getAutomationRules(organizationId: string): Promise<Automa
 // ===========================================
 
 export async function getActiveAutomationRules(organizationId: string): Promise<AutomationRule[]> {
-  const { data, error } = await getTicketsClient()
-    .from('automation_rules')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_automation_rules')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('is_active', true)
@@ -58,8 +54,8 @@ export async function getAutomationRulesByTrigger(
   organizationId: string,
   triggerType: AutomationRule['triggerType']
 ): Promise<AutomationRule[]> {
-  const { data, error } = await getTicketsClient()
-    .from('automation_rules')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_automation_rules')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('is_active', true)
@@ -76,8 +72,8 @@ export async function getAutomationRulesByTrigger(
 // ===========================================
 
 export async function getAutomationRuleById(id: string): Promise<AutomationRule | null> {
-  const { data, error } = await getTicketsClient()
-    .from('automation_rules')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_automation_rules')
     .select('*')
     .eq('id', id)
     .single()
@@ -99,8 +95,8 @@ export async function createAutomationRule(
   input: CreateAutomationRuleInput,
   userId?: string
 ): Promise<AutomationRule> {
-  const { data, error } = await getTicketsClient()
-    .from('automation_rules')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_automation_rules')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -137,8 +133,8 @@ export async function updateAutomationRule(
   if (input.isActive !== undefined) updateData.is_active = input.isActive
   if (input.priority !== undefined) updateData.priority = input.priority
 
-  const { data, error } = await getTicketsClient()
-    .from('automation_rules')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_automation_rules')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -154,8 +150,8 @@ export async function updateAutomationRule(
 // ===========================================
 
 export async function deleteAutomationRule(id: string): Promise<void> {
-  const { error } = await getTicketsClient()
-    .from('automation_rules')
+  const { error } = await getSupabaseClient()
+    .from('tickets_automation_rules')
     .delete()
     .eq('id', id)
 
@@ -170,8 +166,8 @@ export async function toggleAutomationRule(
   id: string,
   isActive: boolean
 ): Promise<AutomationRule> {
-  const { data, error } = await getTicketsClient()
-    .from('automation_rules')
+  const { data, error } = await getSupabaseClient()
+    .from('tickets_automation_rules')
     .update({ is_active: isActive })
     .eq('id', id)
     .select()
@@ -187,10 +183,10 @@ export async function toggleAutomationRule(
 // ===========================================
 
 export async function recordRuleTrigger(id: string): Promise<void> {
-  const { error } = await getTicketsClient()
-    .from('automation_rules')
+  const { error } = await getSupabaseClient()
+    .from('tickets_automation_rules')
     .update({
-      times_triggered: getTicketsClient().raw('times_triggered + 1'),
+      times_triggered: getSupabaseClient().raw('times_triggered + 1'),
       last_triggered_at: new Date().toISOString(),
     })
     .eq('id', id)

@@ -10,11 +10,6 @@ import type {
   UpdateScheduledReportInput,
 } from '../types'
 
-// Get Supabase client with analytics schema
-function getAnalyticsClient() {
-  return getSupabaseClient().schema('analytics' as any) as any
-}
-
 // ===========================================
 // GET SCHEDULED REPORTS
 // ===========================================
@@ -22,10 +17,10 @@ function getAnalyticsClient() {
 export async function getScheduledReports(
   organizationId: string
 ): Promise<ScheduledReport[]> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data, error } = await client
-    .from('scheduled_reports')
+    .from('analytics_scheduled_reports')
     .select('*')
     .eq('organization_id', organizationId)
     .order('created_at', { ascending: false })
@@ -42,10 +37,10 @@ export async function getScheduledReports(
 export async function getScheduledReportById(
   reportId: string
 ): Promise<ScheduledReport | null> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data, error } = await client
-    .from('scheduled_reports')
+    .from('analytics_scheduled_reports')
     .select('*')
     .eq('id', reportId)
     .single()
@@ -67,7 +62,7 @@ export async function createScheduledReport(
   userId: string,
   input: CreateScheduledReportInput
 ): Promise<ScheduledReport> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   // Calculate next run time
   const nextRunAt = calculateNextRun(
@@ -79,7 +74,7 @@ export async function createScheduledReport(
   )
 
   const { data, error } = await client
-    .from('scheduled_reports')
+    .from('analytics_scheduled_reports')
     .insert({
       organization_id: organizationId,
       created_by: userId,
@@ -114,7 +109,7 @@ export async function updateScheduledReport(
   reportId: string,
   input: UpdateScheduledReportInput
 ): Promise<ScheduledReport> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   // Get current report to calculate next run if schedule changed
   const current = await getScheduledReportById(reportId)
@@ -146,7 +141,7 @@ export async function updateScheduledReport(
   }
 
   const { data, error } = await client
-    .from('scheduled_reports')
+    .from('analytics_scheduled_reports')
     .update(updateData)
     .eq('id', reportId)
     .select()
@@ -165,7 +160,7 @@ export async function toggleScheduledReportActive(
   reportId: string,
   isActive: boolean
 ): Promise<ScheduledReport> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const updateData: any = { is_active: isActive }
 
@@ -184,7 +179,7 @@ export async function toggleScheduledReportActive(
   }
 
   const { data, error } = await client
-    .from('scheduled_reports')
+    .from('analytics_scheduled_reports')
     .update(updateData)
     .eq('id', reportId)
     .select()
@@ -200,10 +195,10 @@ export async function toggleScheduledReportActive(
 // ===========================================
 
 export async function deleteScheduledReport(reportId: string): Promise<void> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { error } = await client
-    .from('scheduled_reports')
+    .from('analytics_scheduled_reports')
     .delete()
     .eq('id', reportId)
 
@@ -218,10 +213,10 @@ export async function getReportHistory(
   reportId: string,
   limit = 20
 ): Promise<ReportHistory[]> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   const { data, error } = await client
-    .from('report_history')
+    .from('analytics_report_history')
     .select('*')
     .eq('scheduled_report_id', reportId)
     .order('generated_at', { ascending: false })
@@ -239,11 +234,11 @@ export async function getReportHistory(
 export async function triggerReportManually(
   reportId: string
 ): Promise<ReportHistory> {
-  const client = getAnalyticsClient()
+  const client = getSupabaseClient()
 
   // Create a pending report history entry
   const { data, error } = await client
-    .from('report_history')
+    .from('analytics_report_history')
     .insert({
       scheduled_report_id: reportId,
       status: 'pending',

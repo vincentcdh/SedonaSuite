@@ -2,6 +2,8 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Button, Input, Card, CardContent, CardHeader, CardTitle, Label } from '@sedona/ui'
 import { ArrowLeft, Save } from 'lucide-react'
 import { useState } from 'react'
+import { useOrganization } from '@/lib/auth'
+import { useCreateCompany } from '@sedona/crm'
 
 export const Route = createFileRoute('/_authenticated/crm/companies/new')({
   component: NewCompanyPage,
@@ -9,17 +11,43 @@ export const Route = createFileRoute('/_authenticated/crm/companies/new')({
 
 function NewCompanyPage() {
   const navigate = useNavigate()
-  const [isLoading, setIsLoading] = useState(false)
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
+  const createCompanyMutation = useCreateCompany()
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setIsLoading(true)
+    setError(null)
 
-    // TODO: Integrate with API
-    setTimeout(() => {
-      setIsLoading(false)
+    const formData = new FormData(e.currentTarget)
+    const data = {
+      name: formData.get('name') as string,
+      siret: formData.get('siret') as string || undefined,
+      website: formData.get('website') as string || undefined,
+      industry: formData.get('industry') as string || undefined,
+      size: formData.get('size') as string || undefined,
+      phone: formData.get('phone') as string || undefined,
+      email: formData.get('email') as string || undefined,
+      addressLine1: formData.get('addressLine1') as string || undefined,
+      postalCode: formData.get('postalCode') as string || undefined,
+      city: formData.get('city') as string || undefined,
+    }
+
+    if (!data.name) {
+      setError('Le nom de l\'entreprise est requis')
+      return
+    }
+
+    try {
+      await createCompanyMutation.mutateAsync({
+        organizationId,
+        data,
+      })
       navigate({ to: '/crm/companies' })
-    }, 1000)
+    } catch (err: any) {
+      setError(err.message || 'Erreur lors de la creation de l\'entreprise')
+    }
   }
 
   return (
@@ -36,6 +64,12 @@ function NewCompanyPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                {error}
+              </div>
+            )}
+
             {/* Basic Info */}
             <div>
               <h3 className="text-sm font-medium mb-4">Informations generales</h3>
@@ -117,9 +151,9 @@ function NewCompanyPage() {
                   Annuler
                 </Button>
               </Link>
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={createCompanyMutation.isPending}>
                 <Save className="h-4 w-4 mr-2" />
-                {isLoading ? 'Enregistrement...' : 'Enregistrer'}
+                {createCompanyMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
               </Button>
             </div>
           </form>

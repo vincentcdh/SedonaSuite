@@ -16,8 +16,8 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -32,8 +32,8 @@ export async function getTasks(
   const { page = 1, pageSize = 50, sortBy = 'position', sortOrder = 'asc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getProjectsClient()
-    .from('tasks')
+  let query = getClient()
+    .from('projects_tasks')
     .select('*', { count: 'exact' })
     .eq('project_id', projectId)
     .is('parent_task_id', null) // Only top-level tasks
@@ -108,8 +108,8 @@ export async function getTasks(
 // ===========================================
 
 export async function getTasksByStatus(projectId: string): Promise<Record<string, TaskWithRelations[]>> {
-  const { data: tasks, error } = await getProjectsClient()
-    .from('tasks')
+  const { data: tasks, error } = await getClient()
+    .from('projects_tasks')
     .select('*')
     .eq('project_id', projectId)
     .is('parent_task_id', null)
@@ -147,8 +147,8 @@ export async function getTasksByStatus(projectId: string): Promise<Record<string
 // ===========================================
 
 export async function getTaskById(id: string): Promise<TaskWithRelations | null> {
-  const { data, error } = await getProjectsClient()
-    .from('tasks')
+  const { data, error } = await getClient()
+    .from('projects_tasks')
     .select('*')
     .eq('id', id)
     .single()
@@ -172,8 +172,8 @@ export async function getTaskById(id: string): Promise<TaskWithRelations | null>
 
   // Get comments and attachments count
   const [{ count: commentsCount }, { count: attachmentsCount }] = await Promise.all([
-    getProjectsClient().from('task_comments').select('id', { count: 'exact', head: true }).eq('task_id', id),
-    getProjectsClient().from('task_attachments').select('id', { count: 'exact', head: true }).eq('task_id', id),
+    getClient().from('projects_task_comments').select('id', { count: 'exact', head: true }).eq('task_id', id),
+    getClient().from('projects_task_attachments').select('id', { count: 'exact', head: true }).eq('task_id', id),
   ])
 
   return {
@@ -192,8 +192,8 @@ export async function getTaskById(id: string): Promise<TaskWithRelations | null>
 // ===========================================
 
 export async function getSubtasks(parentTaskId: string): Promise<Task[]> {
-  const { data, error } = await getProjectsClient()
-    .from('tasks')
+  const { data, error } = await getClient()
+    .from('projects_tasks')
     .select('*')
     .eq('parent_task_id', parentTaskId)
     .order('position', { ascending: true })
@@ -211,8 +211,8 @@ export async function createTask(input: CreateTaskInput, userId?: string): Promi
   // Get default status if not provided
   let statusId = input.statusId
   if (!statusId) {
-    const { data: defaultStatus } = await getProjectsClient()
-      .from('task_statuses')
+    const { data: defaultStatus } = await getClient()
+      .from('projects_task_statuses')
       .select('id')
       .eq('project_id', input.projectId)
       .eq('is_default', true)
@@ -221,8 +221,8 @@ export async function createTask(input: CreateTaskInput, userId?: string): Promi
   }
 
   // Get next position
-  const { data: maxPosition } = await getProjectsClient()
-    .from('tasks')
+  const { data: maxPosition } = await getClient()
+    .from('projects_tasks')
     .select('position')
     .eq('project_id', input.projectId)
     .eq('status_id', statusId)
@@ -233,8 +233,8 @@ export async function createTask(input: CreateTaskInput, userId?: string): Promi
 
   const position = input.position ?? ((maxPosition?.position || 0) + 1)
 
-  const { data, error } = await getProjectsClient()
-    .from('tasks')
+  const { data, error } = await getClient()
+    .from('projects_tasks')
     .insert({
       project_id: input.projectId,
       parent_task_id: input.parentTaskId,
@@ -275,8 +275,8 @@ export async function updateTask(input: UpdateTaskInput): Promise<Task> {
   if (input.position !== undefined) updateData.position = input.position
   if (input.customFields !== undefined) updateData.custom_fields = input.customFields
 
-  const { data, error } = await getProjectsClient()
-    .from('tasks')
+  const { data, error } = await getClient()
+    .from('projects_tasks')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -292,8 +292,8 @@ export async function updateTask(input: UpdateTaskInput): Promise<Task> {
 // ===========================================
 
 export async function deleteTask(id: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('tasks')
+  const { error } = await getClient()
+    .from('projects_tasks')
     .delete()
     .eq('id', id)
 
@@ -309,8 +309,8 @@ export async function moveTask(
   newStatusId: string,
   newPosition: number
 ): Promise<Task> {
-  const { data, error } = await getProjectsClient()
-    .from('tasks')
+  const { data, error } = await getClient()
+    .from('projects_tasks')
     .update({
       status_id: newStatusId,
       position: newPosition,
@@ -329,8 +329,8 @@ export async function moveTask(
 // ===========================================
 
 export async function getTaskStatuses(projectId: string): Promise<TaskStatus[]> {
-  const { data, error } = await getProjectsClient()
-    .from('task_statuses')
+  const { data, error } = await getClient()
+    .from('projects_task_statuses')
     .select('*')
     .eq('project_id', projectId)
     .order('position', { ascending: true })
@@ -341,8 +341,8 @@ export async function getTaskStatuses(projectId: string): Promise<TaskStatus[]> 
 }
 
 export async function createTaskStatus(input: CreateTaskStatusInput): Promise<TaskStatus> {
-  const { data, error } = await getProjectsClient()
-    .from('task_statuses')
+  const { data, error } = await getClient()
+    .from('projects_task_statuses')
     .insert({
       project_id: input.projectId,
       name: input.name,
@@ -368,8 +368,8 @@ export async function updateTaskStatus(input: UpdateTaskStatusInput): Promise<Ta
   if (input.isDefault !== undefined) updateData.is_default = input.isDefault
   if (input.isCompleted !== undefined) updateData.is_completed = input.isCompleted
 
-  const { data, error } = await getProjectsClient()
-    .from('task_statuses')
+  const { data, error } = await getClient()
+    .from('projects_task_statuses')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -381,8 +381,8 @@ export async function updateTaskStatus(input: UpdateTaskStatusInput): Promise<Ta
 }
 
 export async function deleteTaskStatus(id: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('task_statuses')
+  const { error } = await getClient()
+    .from('projects_task_statuses')
     .delete()
     .eq('id', id)
 
@@ -396,8 +396,8 @@ export async function deleteTaskStatus(id: string): Promise<void> {
 async function getTaskAssigneesForTasks(taskIds: string[]) {
   if (taskIds.length === 0) return []
 
-  const { data, error } = await getProjectsClient()
-    .from('task_assignees')
+  const { data, error } = await getClient()
+    .from('projects_task_assignees')
     .select('*')
     .in('task_id', taskIds)
 
@@ -431,8 +431,8 @@ async function getTaskAssigneesForTasks(taskIds: string[]) {
 async function getChecklistItemsForTasks(taskIds: string[]) {
   if (taskIds.length === 0) return []
 
-  const { data, error } = await getProjectsClient()
-    .from('task_checklist_items')
+  const { data, error } = await getClient()
+    .from('projects_task_checklist_items')
     .select('*')
     .in('task_id', taskIds)
     .order('position', { ascending: true })

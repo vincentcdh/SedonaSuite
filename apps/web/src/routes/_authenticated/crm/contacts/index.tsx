@@ -14,9 +14,12 @@ import {
   ChevronRight,
   Sparkles,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react'
 import { useState } from 'react'
 import { usePlan } from '@/hooks/usePlan'
+import { useOrganization } from '@/lib/auth'
+import { useContacts, useContactCount } from '@sedona/crm'
 
 // Plan limits
 const FREE_PLAN_LIMITS = {
@@ -27,78 +30,41 @@ export const Route = createFileRoute('/_authenticated/crm/contacts/')({
   component: ContactsPage,
 })
 
-// Mock data for demonstration
-const mockContacts = [
-  {
-    id: '1',
-    firstName: 'Marie',
-    lastName: 'Dupont',
-    email: 'marie.dupont@example.com',
-    phone: '+33 6 12 34 56 78',
-    company: 'Acme Corp',
-    jobTitle: 'Directrice Marketing',
-    tags: ['client', 'vip'],
-  },
-  {
-    id: '2',
-    firstName: 'Jean',
-    lastName: 'Martin',
-    email: 'jean.martin@example.com',
-    phone: '+33 6 98 76 54 32',
-    company: 'Tech Solutions',
-    jobTitle: 'CTO',
-    tags: ['prospect'],
-  },
-  {
-    id: '3',
-    firstName: 'Sophie',
-    lastName: 'Bernard',
-    email: 'sophie.bernard@example.com',
-    phone: '+33 6 55 44 33 22',
-    company: 'Design Studio',
-    jobTitle: 'Designer',
-    tags: ['client'],
-  },
-  {
-    id: '4',
-    firstName: 'Pierre',
-    lastName: 'Durand',
-    email: 'pierre.durand@example.com',
-    phone: '+33 6 11 22 33 44',
-    company: 'Finance Plus',
-    jobTitle: 'DAF',
-    tags: ['prospect', 'chaud'],
-  },
-  {
-    id: '5',
-    firstName: 'Claire',
-    lastName: 'Moreau',
-    email: 'claire.moreau@example.com',
-    phone: '+33 6 77 88 99 00',
-    company: 'Marketing Pro',
-    jobTitle: 'CEO',
-    tags: ['client', 'partenaire'],
-  },
-]
-
 function ContactsPage() {
   const [search, setSearch] = useState('')
   const { isFree } = usePlan()
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
 
-  const filteredContacts = mockContacts.filter(
-    (contact) =>
-      contact.firstName.toLowerCase().includes(search.toLowerCase()) ||
-      contact.lastName.toLowerCase().includes(search.toLowerCase()) ||
-      contact.email.toLowerCase().includes(search.toLowerCase()) ||
-      contact.company.toLowerCase().includes(search.toLowerCase())
+  // Fetch contacts from Supabase
+  const { data: contactsData, isLoading, error } = useContacts(
+    organizationId,
+    { search: search || undefined },
+    { page: 1, pageSize: 25 }
   )
 
+  // Fetch total contact count for usage tracking
+  const { data: totalCount = 0 } = useContactCount(organizationId)
+
+  const contacts = contactsData?.data || []
+
   // Usage tracking for FREE plan
-  const currentCount = mockContacts.length
+  const currentCount = totalCount
   const limit = FREE_PLAN_LIMITS.contacts
   const usagePercent = (currentCount / limit) * 100
   const isNearLimit = usagePercent >= 80
   const isAtLimit = currentCount >= limit
+
+  if (error) {
+    return (
+      <div className="page-container">
+        <Card className="p-8 text-center">
+          <p className="text-red-500">Erreur lors du chargement des contacts</p>
+          <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="page-container">
@@ -212,74 +178,103 @@ function ContactsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredContacts.map((contact) => (
-                <tr
-                  key={contact.id}
-                  className="border-b last:border-0 hover:bg-muted/30 transition-colors"
-                >
-                  <td className="p-4">
-                    <Link
-                      to="/crm/contacts/$contactId"
-                      params={{ contactId: contact.id }}
-                      className="flex items-center gap-3 group"
-                    >
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                        {contact.firstName[0]}
-                        {contact.lastName[0]}
-                      </div>
-                      <div>
-                        <p className="font-medium group-hover:text-primary transition-colors">
-                          {contact.firstName} {contact.lastName}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {contact.jobTitle}
-                        </p>
-                      </div>
-                    </Link>
-                  </td>
-                  <td className="p-4">
-                    <a
-                      href={`mailto:${contact.email}`}
-                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-                    >
-                      <Mail className="h-4 w-4" />
-                      {contact.email}
-                    </a>
-                  </td>
-                  <td className="p-4">
-                    <a
-                      href={`tel:${contact.phone}`}
-                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-                    >
-                      <Phone className="h-4 w-4" />
-                      {contact.phone}
-                    </a>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      {contact.company}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {contact.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="p-4 text-right">
-                    <Button variant="ghost" size="sm">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground mt-2">Chargement...</p>
                   </td>
                 </tr>
-              ))}
+              ) : contacts.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center">
+                    <p className="text-muted-foreground">Aucun contact trouve</p>
+                    <Link to="/crm/contacts/new" className="mt-2 inline-block">
+                      <Button size="sm" variant="outline">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Ajouter un contact
+                      </Button>
+                    </Link>
+                  </td>
+                </tr>
+              ) : (
+                contacts.map((contact) => (
+                  <tr
+                    key={contact.id}
+                    className="border-b last:border-0 hover:bg-muted/30 transition-colors"
+                  >
+                    <td className="p-4">
+                      <Link
+                        to="/crm/contacts/$contactId"
+                        params={{ contactId: contact.id }}
+                        className="flex items-center gap-3 group"
+                      >
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
+                          {(contact.firstName?.[0] || '').toUpperCase()}
+                          {(contact.lastName?.[0] || '').toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-medium group-hover:text-primary transition-colors">
+                            {contact.firstName} {contact.lastName}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {contact.jobTitle || '-'}
+                          </p>
+                        </div>
+                      </Link>
+                    </td>
+                    <td className="p-4">
+                      {contact.email ? (
+                        <a
+                          href={`mailto:${contact.email}`}
+                          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                        >
+                          <Mail className="h-4 w-4" />
+                          {contact.email}
+                        </a>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      {contact.phone ? (
+                        <a
+                          href={`tel:${contact.phone}`}
+                          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                        >
+                          <Phone className="h-4 w-4" />
+                          {contact.phone}
+                        </a>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        {contact.company?.name || '-'}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {(contact.tags || []).map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="p-4 text-right">
+                      <Button variant="ghost" size="sm">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -287,7 +282,7 @@ function ContactsPage() {
         {/* Pagination */}
         <div className="flex items-center justify-between p-4 border-t">
           <p className="text-sm text-muted-foreground">
-            Affichage de 1 a {filteredContacts.length} sur {mockContacts.length}{' '}
+            Affichage de 1 a {contacts.length} sur {contactsData?.total || 0}{' '}
             contacts
           </p>
           <div className="flex items-center gap-2">

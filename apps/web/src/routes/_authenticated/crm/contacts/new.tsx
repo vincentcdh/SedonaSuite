@@ -2,6 +2,8 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Button, Input, Card, CardContent, CardHeader, CardTitle, Label } from '@sedona/ui'
 import { ArrowLeft, Save } from 'lucide-react'
 import { useState } from 'react'
+import { useOrganization } from '@/lib/auth'
+import { useCreateContact } from '@sedona/crm'
 
 export const Route = createFileRoute('/_authenticated/crm/contacts/new')({
   component: NewContactPage,
@@ -9,17 +11,42 @@ export const Route = createFileRoute('/_authenticated/crm/contacts/new')({
 
 function NewContactPage() {
   const navigate = useNavigate()
-  const [isLoading, setIsLoading] = useState(false)
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
+  const createContactMutation = useCreateContact()
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setIsLoading(true)
+    setError(null)
 
-    // TODO: Integrate with API
-    setTimeout(() => {
-      setIsLoading(false)
+    const formData = new FormData(e.currentTarget)
+    const data = {
+      firstName: formData.get('firstName') as string,
+      lastName: formData.get('lastName') as string,
+      email: formData.get('email') as string || undefined,
+      phone: formData.get('phone') as string || undefined,
+      jobTitle: formData.get('jobTitle') as string || undefined,
+      addressLine1: formData.get('addressLine1') as string || undefined,
+      postalCode: formData.get('postalCode') as string || undefined,
+      city: formData.get('city') as string || undefined,
+      source: formData.get('source') as string || undefined,
+    }
+
+    if (!data.firstName || !data.lastName) {
+      setError('Le prenom et le nom sont requis')
+      return
+    }
+
+    try {
+      await createContactMutation.mutateAsync({
+        organizationId,
+        data,
+      })
       navigate({ to: '/crm/contacts' })
-    }, 1000)
+    } catch (err: any) {
+      setError(err.message || 'Erreur lors de la creation du contact')
+    }
   }
 
   return (
@@ -36,17 +63,23 @@ function NewContactPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                {error}
+              </div>
+            )}
+
             {/* Personal Info */}
             <div>
               <h3 className="text-sm font-medium mb-4">Informations personnelles</h3>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">Prenom</Label>
-                  <Input id="firstName" name="firstName" placeholder="Marie" />
+                  <Label htmlFor="firstName">Prenom *</Label>
+                  <Input id="firstName" name="firstName" placeholder="Marie" required />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Nom</Label>
-                  <Input id="lastName" name="lastName" placeholder="Dupont" />
+                  <Label htmlFor="lastName">Nom *</Label>
+                  <Input id="lastName" name="lastName" placeholder="Dupont" required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -126,9 +159,9 @@ function NewContactPage() {
                   Annuler
                 </Button>
               </Link>
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={createContactMutation.isPending}>
                 <Save className="h-4 w-4 mr-2" />
-                {isLoading ? 'Enregistrement...' : 'Enregistrer'}
+                {createContactMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
               </Button>
             </div>
           </form>

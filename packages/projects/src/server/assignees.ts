@@ -5,8 +5,8 @@
 import { getSupabaseClient } from '@sedona/database'
 import type { TaskAssignee } from '../types'
 
-function getProjectsClient() {
-  return getSupabaseClient().schema('projects' as any) as any
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -14,8 +14,8 @@ function getProjectsClient() {
 // ===========================================
 
 export async function getTaskAssignees(taskId: string): Promise<TaskAssignee[]> {
-  const { data, error } = await getProjectsClient()
-    .from('task_assignees')
+  const { data, error } = await getClient()
+    .from('projects_task_assignees')
     .select('*')
     .eq('task_id', taskId)
 
@@ -57,8 +57,8 @@ export async function assignUserToTask(
   userId: string,
   assignedBy?: string
 ): Promise<TaskAssignee> {
-  const { data, error } = await getProjectsClient()
-    .from('task_assignees')
+  const { data, error } = await getClient()
+    .from('projects_task_assignees')
     .insert({
       task_id: taskId,
       user_id: userId,
@@ -96,8 +96,8 @@ export async function assignUserToTask(
 // ===========================================
 
 export async function unassignUserFromTask(taskId: string, userId: string): Promise<void> {
-  const { error } = await getProjectsClient()
-    .from('task_assignees')
+  const { error } = await getClient()
+    .from('projects_task_assignees')
     .delete()
     .eq('task_id', taskId)
     .eq('user_id', userId)
@@ -115,16 +115,16 @@ export async function setTaskAssignees(
   assignedBy?: string
 ): Promise<TaskAssignee[]> {
   // Remove existing assignees
-  await getProjectsClient()
-    .from('task_assignees')
+  await getClient()
+    .from('projects_task_assignees')
     .delete()
     .eq('task_id', taskId)
 
   if (userIds.length === 0) return []
 
   // Add new assignees
-  const { data, error } = await getProjectsClient()
-    .from('task_assignees')
+  const { data, error } = await getClient()
+    .from('projects_task_assignees')
     .insert(
       userIds.map(userId => ({
         task_id: taskId,

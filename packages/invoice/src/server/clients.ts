@@ -12,9 +12,9 @@ import type {
   PaginationParams,
 } from '../types'
 
-function getInvoiceClient() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return getSupabaseClient().schema('invoice' as any) as any
+// Helper to get Supabase client (public schema)
+function getClient() {
+  return getSupabaseClient()
 }
 
 // ===========================================
@@ -29,8 +29,8 @@ export async function getClients(
   const { page = 1, pageSize = 20, sortBy = 'name', sortOrder = 'asc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getInvoiceClient()
-    .from('clients')
+  let query = getClient()
+    .from('invoice_clients')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -64,8 +64,8 @@ export async function getClients(
 // ===========================================
 
 export async function getClientById(id: string): Promise<InvoiceClient | null> {
-  const { data, error } = await getInvoiceClient()
-    .from('clients')
+  const { data, error } = await getClient()
+    .from('invoice_clients')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
@@ -87,8 +87,8 @@ export async function createClient(
   organizationId: string,
   input: CreateClientInput
 ): Promise<InvoiceClient> {
-  const { data, error } = await getInvoiceClient()
-    .from('clients')
+  const { data, error } = await getClient()
+    .from('invoice_clients')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -148,8 +148,8 @@ export async function updateClient(input: UpdateClientInput): Promise<InvoiceCli
   if (input.notes !== undefined) updateData.notes = input.notes
   if (input.customFields !== undefined) updateData.custom_fields = input.customFields
 
-  const { data, error } = await getInvoiceClient()
-    .from('clients')
+  const { data, error } = await getClient()
+    .from('invoice_clients')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -165,8 +165,8 @@ export async function updateClient(input: UpdateClientInput): Promise<InvoiceCli
 // ===========================================
 
 export async function deleteClient(id: string): Promise<void> {
-  const { error } = await getInvoiceClient()
-    .from('clients')
+  const { error } = await getClient()
+    .from('invoice_clients')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
