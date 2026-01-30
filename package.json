@@ -1,0 +1,49 @@
+{
+  "name": "sedona",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Sedona.AI - Suite SaaS B2B pour TPE françaises",
+  "keywords": ["crm", "saas", "b2b", "tpe", "france"],
+  "author": "Sedona.AI",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "lint:fix": "turbo lint:fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "test:watch": "turbo test:watch",
+    "test:coverage": "turbo test:coverage",
+    "clean": "turbo clean && rm -rf node_modules",
+    "db:migrate": "pnpm --filter @sedona/database exec supabase db push",
+    "db:reset": "pnpm --filter @sedona/database exec supabase db reset",
+    "db:types": "pnpm --filter @sedona/database exec supabase gen types typescript --local > packages/database/src/types/database.ts",
+    "db:studio": "pnpm --filter @sedona/database exec supabase studio",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.10",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

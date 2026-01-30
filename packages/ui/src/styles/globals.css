@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Couleur principale Sedona */
+    --primary: 203 90% 45%; /* #0c82d6 */
+    --primary-foreground: 0 0% 100%;
+
+    /* Sémantiques */
+    --success: 160 84% 39%; /* #10b981 */
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%; /* #f59e0b */
+    --warning-foreground: 0 0% 0%;
+    --error: 6 63% 46%; /* #c0392b */
+    --error-foreground: 0 0% 100%;
+    --info: 217 91% 60%; /* #3b82f6 */
+    --info-foreground: 0 0% 100%;
+
+    /* Mode Light */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 6 63% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 203 90% 45%;
+    --radius: 0.5rem;
+
+    /* Chart colors */
+    --chart-1: 203 90% 45%;
+    --chart-2: 160 84% 39%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 217 91% 60%;
+    --chart-5: 280 65% 60%;
+  }
+
+  .dark {
+    /* Mode Dark */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 100%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 23%;
+    --muted-foreground: 0 0% 54%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 6 63% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 29%;
+    --input: 0 0% 29%;
+    --ring: 203 90% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
+  }
+}
+
+/* Fonts */
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Poppins', system-ui, sans-serif;
+  }
+
+  code,
+  pre,
+  kbd {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Custom Sedona utilities */
+@layer utilities {
+  .glass {
+    @apply bg-background/80 backdrop-blur-md;
+  }
+
+  .glass-card {
+    @apply glass rounded-lg border border-border/50 shadow-lg;
+  }
+}

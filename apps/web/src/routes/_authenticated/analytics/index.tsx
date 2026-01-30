@@ -1,0 +1,368 @@
+// ===========================================
+// ANALYTICS DASHBOARD INDEX PAGE
+// ===========================================
+
+import { useState } from 'react'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import {
+  BarChart3,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Target,
+  Users,
+  FileBarChart,
+  Euro,
+  Ticket,
+  Briefcase,
+  Clock,
+  ArrowRight,
+  Plus,
+  Lock,
+} from 'lucide-react'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  Badge,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Progress,
+} from '@sedona/ui'
+import { formatCurrency, formatNumber, formatPercentage } from '@sedona/analytics/utils'
+import { getPeriodTypeOptions } from '@sedona/analytics/utils'
+import type { PeriodType } from '@sedona/analytics'
+
+export const Route = createFileRoute('/_authenticated/analytics/')({
+  component: AnalyticsIndexPage,
+})
+
+// Simulated PRO status
+const isPro = false
+
+// Mock KPI data
+const mockKPIs = [
+  {
+    id: '1',
+    title: 'Contacts',
+    value: 1247,
+    previousValue: 1180,
+    format: 'number' as const,
+    icon: Users,
+    color: '#3b82f6',
+  },
+  {
+    id: '2',
+    title: 'Chiffre d\'affaires',
+    value: 45680,
+    previousValue: 42350,
+    format: 'currency' as const,
+    icon: Euro,
+    color: '#10b981',
+  },
+  {
+    id: '3',
+    title: 'Tickets ouverts',
+    value: 23,
+    previousValue: 31,
+    format: 'number' as const,
+    icon: Ticket,
+    color: '#f59e0b',
+  },
+  {
+    id: '4',
+    title: 'Projets actifs',
+    value: 8,
+    previousValue: 7,
+    format: 'number' as const,
+    icon: Briefcase,
+    color: '#8b5cf6',
+  },
+]
+
+// Mock goals
+const mockGoals = [
+  {
+    id: '1',
+    name: 'CA mensuel',
+    current: 45680,
+    target: 60000,
+    unit: 'EUR',
+    daysRemaining: 12,
+  },
+  {
+    id: '2',
+    name: 'Nouveaux contacts',
+    current: 67,
+    target: 100,
+    unit: '',
+    daysRemaining: 12,
+  },
+  {
+    id: '3',
+    name: 'Taux de conversion',
+    current: 24,
+    target: 30,
+    unit: '%',
+    daysRemaining: 12,
+  },
+]
+
+// Mock recent activity for chart
+const mockChartData = [
+  { label: 'Lun', value: 12 },
+  { label: 'Mar', value: 19 },
+  { label: 'Mer', value: 15 },
+  { label: 'Jeu', value: 22 },
+  { label: 'Ven', value: 28 },
+  { label: 'Sam', value: 8 },
+  { label: 'Dim', value: 5 },
+]
+
+function formatValue(value: number, format: 'number' | 'currency' | 'percentage'): string {
+  switch (format) {
+    case 'currency':
+      return formatCurrency(value)
+    case 'percentage':
+      return formatPercentage(value)
+    default:
+      return formatNumber(value)
+  }
+}
+
+function getTrend(current: number, previous: number): { icon: typeof TrendingUp; color: string; percent: number } {
+  const percent = ((current - previous) / previous) * 100
+
+  if (percent > 1) {
+    return { icon: TrendingUp, color: 'text-green-600', percent }
+  } else if (percent < -1) {
+    return { icon: TrendingDown, color: 'text-red-600', percent }
+  }
+  return { icon: Minus, color: 'text-gray-500', percent: 0 }
+}
+
+function AnalyticsIndexPage() {
+  const [period, setPeriod] = useState<PeriodType>('month')
+  const periodOptions = getPeriodTypeOptions()
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <BarChart3 className="h-6 w-6" />
+            Tableau de bord
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Vue d'ensemble de vos indicateurs cles
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Select value={period} onValueChange={(v) => setPeriod(v as PeriodType)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {periodOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button asChild>
+            <Link to="/analytics/dashboards">
+              <Plus className="h-4 w-4 mr-2" />
+              Nouveau dashboard
+            </Link>
+          </Button>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {mockKPIs.map((kpi) => {
+          const Icon = kpi.icon
+          const trend = getTrend(kpi.value, kpi.previousValue)
+          const TrendIcon = trend.icon
+
+          return (
+            <Card key={kpi.id}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div
+                    className="p-2 rounded-lg"
+                    style={{ backgroundColor: `${kpi.color}20` }}
+                  >
+                    <Icon className="h-5 w-5" style={{ color: kpi.color }} />
+                  </div>
+                  <div className={`flex items-center gap-1 text-sm ${trend.color}`}>
+                    <TrendIcon className="h-4 w-4" />
+                    <span>{trend.percent > 0 ? '+' : ''}{trend.percent.toFixed(1)}%</span>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <p className="text-2xl font-bold">{formatValue(kpi.value, kpi.format)}</p>
+                  <p className="text-sm text-muted-foreground">{kpi.title}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Mini Chart */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Activite de la semaine</CardTitle>
+            <CardDescription>Nombre d'actions par jour</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-48 flex items-end gap-2">
+              {mockChartData.map((item, index) => {
+                const maxValue = Math.max(...mockChartData.map((d) => d.value))
+                const height = (item.value / maxValue) * 100
+
+                return (
+                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
+                    <div
+                      className="w-full bg-primary/80 rounded-t transition-all hover:bg-primary"
+                      style={{ height: `${height}%` }}
+                    />
+                    <span className="text-xs text-muted-foreground">{item.label}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Goals Widget */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Objectifs
+            </CardTitle>
+            <Link
+              to="/analytics/goals"
+              className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1"
+            >
+              Voir tout
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {mockGoals.map((goal) => {
+              const percent = Math.min(100, (goal.current / goal.target) * 100)
+              const isOnTrack = percent >= ((30 - goal.daysRemaining) / 30) * 100
+
+              return (
+                <div key={goal.id} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{goal.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {goal.daysRemaining}j restants
+                    </span>
+                  </div>
+                  <Progress value={percent} className="h-2" />
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      {goal.current}{goal.unit} / {goal.target}{goal.unit}
+                    </span>
+                    <Badge variant={isOnTrack ? 'default' : 'destructive'} className="text-xs">
+                      {isOnTrack ? 'En bonne voie' : 'En retard'}
+                    </Badge>
+                  </div>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* PRO Features Teaser */}
+      {!isPro && (
+        <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-full bg-primary/10">
+                  <Lock className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Debloquez les fonctionnalites avancees</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Dashboards illimites, rapports automatiques, export Excel et plus encore
+                  </p>
+                </div>
+              </div>
+              <Button>Passer a PRO</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Quick Links */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link to="/analytics/dashboards">
+          <Card className="hover:border-primary transition-colors cursor-pointer">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-2 rounded-lg bg-blue-100">
+                <BarChart3 className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="font-medium">Mes dashboards</p>
+                <p className="text-sm text-muted-foreground">Creer et gerer vos tableaux de bord</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/analytics/goals">
+          <Card className="hover:border-primary transition-colors cursor-pointer">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-2 rounded-lg bg-green-100">
+                <Target className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="font-medium">Objectifs</p>
+                <p className="text-sm text-muted-foreground">Suivre vos objectifs business</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/analytics/reports">
+          <Card className="hover:border-primary transition-colors cursor-pointer">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-2 rounded-lg bg-purple-100">
+                <FileBarChart className="h-5 w-5 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium flex items-center gap-2">
+                  Rapports
+                  {!isPro && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      <Lock className="h-3 w-3" />
+                      PRO
+                    </Badge>
+                  )}
+                </p>
+                <p className="text-sm text-muted-foreground">Rapports automatises</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+    </div>
+  )
+}
