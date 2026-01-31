@@ -28,6 +28,7 @@ import {
   Edit,
   Move,
   Lock,
+  Loader2,
 } from 'lucide-react'
 import {
   Button,
@@ -49,6 +50,8 @@ import {
   Progress,
 } from '@sedona/ui'
 import { formatFileSize, fileTypeColors, PLAN_LIMITS } from '@sedona/docs/utils'
+import { useFolders, useFiles, useStorageUsage, useCreateFolder } from '@sedona/docs'
+import { useOrganization, useAuth } from '@/lib/auth'
 
 export const Route = createFileRoute('/_authenticated/docs/')({
   component: DocsIndexPage,
@@ -56,68 +59,6 @@ export const Route = createFileRoute('/_authenticated/docs/')({
 
 // Simulated PRO status
 const isPro = false
-
-// Mock data
-const mockFolders = [
-  { id: '1', name: 'Contrats', color: '#3b82f6', fileCount: 12 },
-  { id: '2', name: 'Factures', color: '#10b981', fileCount: 45 },
-  { id: '3', name: 'Marketing', color: '#f59e0b', fileCount: 8 },
-  { id: '4', name: 'RH', color: '#8b5cf6', fileCount: 23 },
-]
-
-const mockFiles = [
-  {
-    id: '1',
-    name: 'Contrat_Client_ABC.pdf',
-    fileType: 'pdf',
-    sizeBytes: 2456789,
-    createdAt: '2024-01-15T10:30:00Z',
-    uploadedBy: 'Jean Dupont',
-    isFavorite: true,
-  },
-  {
-    id: '2',
-    name: 'Logo_Entreprise.png',
-    fileType: 'image',
-    sizeBytes: 156789,
-    createdAt: '2024-01-14T14:20:00Z',
-    uploadedBy: 'Marie Martin',
-    isFavorite: false,
-  },
-  {
-    id: '3',
-    name: 'Budget_2024.xlsx',
-    fileType: 'spreadsheet',
-    sizeBytes: 89456,
-    createdAt: '2024-01-13T09:15:00Z',
-    uploadedBy: 'Pierre Durand',
-    isFavorite: false,
-  },
-  {
-    id: '4',
-    name: 'Presentation_Produit.pptx',
-    fileType: 'presentation',
-    sizeBytes: 5678912,
-    createdAt: '2024-01-12T16:45:00Z',
-    uploadedBy: 'Sophie Bernard',
-    isFavorite: true,
-  },
-  {
-    id: '5',
-    name: 'Video_Formation.mp4',
-    fileType: 'video',
-    sizeBytes: 125678901,
-    createdAt: '2024-01-11T11:00:00Z',
-    uploadedBy: 'Jean Dupont',
-    isFavorite: false,
-  },
-]
-
-// Storage usage mock
-const storageUsage = {
-  usedBytes: 750 * 1024 * 1024, // 750 MB
-  limitBytes: PLAN_LIMITS.FREE.maxStorageBytes,
-}
 
 function getFileIcon(fileType: string) {
   switch (fileType) {
@@ -150,14 +91,62 @@ function formatDate(dateString: string) {
 }
 
 function DocsIndexPage() {
+  const { organization } = useOrganization()
+  const { user } = useAuth()
+  const organizationId = organization?.id || ''
+  const userId = user?.id
+
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [searchQuery, setSearchQuery] = useState('')
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
 
+  // Fetch folders from Supabase (root level, parentId = null) - returns PaginatedResult
+  const { data: foldersResult, isLoading: foldersLoading } = useFolders(organizationId, null)
+  const folders = foldersResult?.data || []
+
+  // Fetch files from Supabase (root level, folderId = null) - returns PaginatedResult
+  const { data: filesResult, isLoading: filesLoading } = useFiles(organizationId, { folderId: null })
+  const files = filesResult?.data || []
+
+  // Fetch storage usage
+  const { data: storageData } = useStorageUsage(organizationId)
+  const storageUsage = {
+    usedBytes: storageData?.usedBytes || 0,
+    limitBytes: storageData?.limitBytes || PLAN_LIMITS.FREE.maxStorageBytes,
+  }
+
+  // Create folder mutation
+  const createFolderMutation = useCreateFolder(organizationId, userId)
+
+  const isLoading = foldersLoading || filesLoading
+
   const storagePercentage = Math.round(
     (storageUsage.usedBytes / storageUsage.limitBytes) * 100
   )
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return
+    try {
+      await createFolderMutation.mutateAsync({
+        name: newFolderName.trim(),
+        parentId: null,
+      })
+      setNewFolderName('')
+      setShowNewFolderDialog(false)
+    } catch (error) {
+      console.error('Failed to create folder:', error)
+    }
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -247,33 +236,33 @@ function DocsIndexPage() {
       <div>
         <h2 className="text-sm font-medium text-muted-foreground mb-3">Dossiers</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {mockFolders.map((folder) => (
-            <Link
-              key={folder.id}
-              to="/docs/folder/$folderId"
-              params={{ folderId: folder.id }}
-              className="group"
-            >
-              <Card className="hover:border-primary transition-colors cursor-pointer">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="p-2 rounded-lg"
-                      style={{ backgroundColor: `${folder.color}20` }}
-                    >
-                      <Folder className="h-5 w-5" style={{ color: folder.color }} />
+          {folders.map((folder) => {
+            const folderColor = folder.color || '#3b82f6'
+            return (
+              <Link
+                key={folder.id}
+                to="/docs/folder/$folderId"
+                params={{ folderId: folder.id }}
+                className="group"
+              >
+                <Card className="hover:border-primary transition-colors cursor-pointer">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="p-2 rounded-lg"
+                        style={{ backgroundColor: `${folderColor}20` }}
+                      >
+                        <Folder className="h-5 w-5" style={{ color: folderColor }} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{folder.name}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">{folder.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {folder.fileCount} fichiers
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                  </CardContent>
+                </Card>
+              </Link>
+            )
+          })}
         </div>
       </div>
 
@@ -283,7 +272,7 @@ function DocsIndexPage() {
 
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {mockFiles.map((file) => {
+            {files.map((file) => {
               const FileIcon = getFileIcon(file.fileType)
               const color = fileTypeColors[file.fileType as keyof typeof fileTypeColors] || fileTypeColors.other
 
@@ -320,7 +309,7 @@ function DocsIndexPage() {
         ) : (
           <Card>
             <div className="divide-y">
-              {mockFiles.map((file) => {
+              {files.map((file) => {
                 const FileIcon = getFileIcon(file.fileType)
                 const color = fileTypeColors[file.fileType as keyof typeof fileTypeColors] || fileTypeColors.other
 
@@ -412,7 +401,13 @@ function DocsIndexPage() {
             <Button variant="outline" onClick={() => setShowNewFolderDialog(false)}>
               Annuler
             </Button>
-            <Button onClick={() => setShowNewFolderDialog(false)}>
+            <Button
+              onClick={handleCreateFolder}
+              disabled={createFolderMutation.isPending || !newFolderName.trim()}
+            >
+              {createFolderMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
               Creer
             </Button>
           </DialogFooter>

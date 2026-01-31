@@ -112,14 +112,16 @@ export async function getContractById(id: string): Promise<ContractWithEmployee 
     .eq('id', contract.employeeId)
     .single()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const emp = employeeData as any
   return {
     ...contract,
-    employee: employeeData
+    employee: emp
       ? {
-          id: employeeData.id,
-          firstName: employeeData.first_name,
-          lastName: employeeData.last_name,
-          photoUrl: employeeData.photo_url,
+          id: emp.id,
+          firstName: emp.first_name,
+          lastName: emp.last_name,
+          photoUrl: emp.photo_url,
         }
       : undefined,
   }
@@ -159,8 +161,9 @@ export async function createContract(
   organizationId: string,
   input: CreateContractInput
 ): Promise<Contract> {
-  const { data, error } = await getSupabaseClient()
-    .from('hr_contracts')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (getSupabaseClient()
+    .from('hr_contracts') as any)
     .insert({
       organization_id: organizationId,
       employee_id: input.employeeId,
@@ -188,8 +191,9 @@ export async function createContract(
   if (error) throw error
 
   // Update employee's current contract info
-  await getSupabaseClient()
-    .from('hr_employees')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (getSupabaseClient()
+    .from('hr_employees') as any)
     .update({
       contract_type: input.contractType,
       contract_start_date: input.startDate,
@@ -229,8 +233,9 @@ export async function updateContract(input: UpdateContractInput): Promise<Contra
   if (input.signedDocumentUrl !== undefined) updateData.signed_document_url = input.signedDocumentUrl
   if (input.notes !== undefined) updateData.notes = input.notes
 
-  const { data, error } = await getSupabaseClient()
-    .from('hr_contracts')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (getSupabaseClient()
+    .from('hr_contracts') as any)
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -246,8 +251,9 @@ export async function updateContract(input: UpdateContractInput): Promise<Contra
 // ===========================================
 
 export async function deleteContract(id: string): Promise<void> {
-  const { error } = await getSupabaseClient()
-    .from('hr_contracts')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (getSupabaseClient()
+    .from('hr_contracts') as any)
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 

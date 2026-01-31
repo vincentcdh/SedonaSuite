@@ -13,70 +13,15 @@ import {
   Eye,
   Download,
   Mail,
+  Loader2,
 } from 'lucide-react'
 import { useState } from 'react'
+import { useOrganization } from '@/lib/auth'
+import { useQuotes, type QuoteStatus } from '@sedona/invoice'
 
 export const Route = createFileRoute('/_authenticated/invoices/quotes/')({
   component: QuotesPage,
 })
-
-// Mock data
-const mockQuotes = [
-  {
-    id: '1',
-    quoteNumber: 'DEV-2025-0015',
-    clientName: 'Acme Corp',
-    issueDate: '2025-01-20',
-    validUntil: '2025-02-20',
-    total: 6500.00,
-    status: 'sent',
-  },
-  {
-    id: '2',
-    quoteNumber: 'DEV-2025-0014',
-    clientName: 'Tech Solutions',
-    issueDate: '2025-01-18',
-    validUntil: '2025-02-18',
-    total: 3200.00,
-    status: 'accepted',
-  },
-  {
-    id: '3',
-    quoteNumber: 'DEV-2025-0013',
-    clientName: 'Design Studio',
-    issueDate: '2025-01-15',
-    validUntil: '2025-01-25',
-    total: 1800.00,
-    status: 'expired',
-  },
-  {
-    id: '4',
-    quoteNumber: 'DEV-2025-0012',
-    clientName: 'Marketing Pro',
-    issueDate: '2025-01-12',
-    validUntil: '2025-02-12',
-    total: 4200.00,
-    status: 'rejected',
-  },
-  {
-    id: '5',
-    quoteNumber: 'DEV-2025-0011',
-    clientName: 'Finance Plus',
-    issueDate: '2025-01-10',
-    validUntil: '2025-02-10',
-    total: 7800.00,
-    status: 'draft',
-  },
-  {
-    id: '6',
-    quoteNumber: 'DEV-2025-0010',
-    clientName: 'Startup Inc',
-    issueDate: '2025-01-08',
-    validUntil: '2025-02-08',
-    total: 2500.00,
-    status: 'converted',
-  },
-]
 
 const statusConfig = {
   draft: { label: 'Brouillon', color: 'bg-muted text-muted-foreground', icon: FileCheck },
@@ -90,20 +35,39 @@ const statusConfig = {
 function QuotesPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
 
-  const filteredQuotes = mockQuotes.filter((quote) => {
-    if (statusFilter !== 'all' && quote.status !== statusFilter) return false
-    if (search && !quote.quoteNumber.toLowerCase().includes(search.toLowerCase()) &&
-        !quote.clientName.toLowerCase().includes(search.toLowerCase())) return false
-    return true
-  })
+  // Fetch quotes from Supabase
+  const { data: quotesData, isLoading, error } = useQuotes(
+    organizationId,
+    {
+      search: search || undefined,
+      status: statusFilter !== 'all' ? statusFilter as QuoteStatus : undefined,
+    },
+    { page: 1, pageSize: 50 }
+  )
 
-  // Stats
-  const totalValue = mockQuotes.filter(q => q.status === 'sent').reduce((sum, q) => sum + q.total, 0)
-  const acceptedValue = mockQuotes.filter(q => ['accepted', 'converted'].includes(q.status)).reduce((sum, q) => sum + q.total, 0)
-  const acceptanceRate = mockQuotes.length > 0
-    ? Math.round((mockQuotes.filter(q => ['accepted', 'converted'].includes(q.status)).length / mockQuotes.filter(q => q.status !== 'draft').length) * 100)
+  const quotes = quotesData?.data || []
+
+  // Stats from fetched data
+  const totalValue = quotes.filter(q => q.status === 'sent').reduce((sum, q) => sum + (q.total || 0), 0)
+  const acceptedValue = quotes.filter(q => ['accepted', 'converted'].includes(q.status)).reduce((sum, q) => sum + (q.total || 0), 0)
+  const nonDraftQuotes = quotes.filter(q => q.status !== 'draft')
+  const acceptanceRate = nonDraftQuotes.length > 0
+    ? Math.round((quotes.filter(q => ['accepted', 'converted'].includes(q.status)).length / nonDraftQuotes.length) * 100)
     : 0
+
+  if (error) {
+    return (
+      <div className="page-container">
+        <Card className="p-8 text-center">
+          <p className="text-red-500">Erreur lors du chargement des devis</p>
+          <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="page-container">
@@ -216,64 +180,14 @@ function QuotesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {filteredQuotes.map((quote) => {
-                  const status = statusConfig[quote.status as keyof typeof statusConfig]
-                  const StatusIcon = status.icon
-                  return (
-                    <tr key={quote.id} className="hover:bg-muted/50 transition-colors">
-                      <td className="p-4">
-                        <Link
-                          to="/invoices/quotes/$quoteId"
-                          params={{ quoteId: quote.id }}
-                          className="font-medium text-primary hover:underline"
-                        >
-                          {quote.quoteNumber}
-                        </Link>
-                      </td>
-                      <td className="p-4">{quote.clientName}</td>
-                      <td className="p-4 text-muted-foreground">
-                        {new Date(quote.issueDate).toLocaleDateString('fr-FR')}
-                      </td>
-                      <td className="p-4 text-muted-foreground">
-                        {new Date(quote.validUntil).toLocaleDateString('fr-FR')}
-                      </td>
-                      <td className="p-4 text-right font-medium">
-                        {quote.total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                      </td>
-                      <td className="p-4">
-                        <Badge className={`${status.color} gap-1`}>
-                          <StatusIcon className="h-3 w-3" />
-                          {status.label}
-                        </Badge>
-                      </td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" title="Voir">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" title="Telecharger PDF">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          {quote.status === 'draft' && (
-                            <Button variant="ghost" size="icon" title="Envoyer">
-                              <Mail className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {quote.status === 'accepted' && (
-                            <Button variant="ghost" size="icon" title="Convertir en facture">
-                              <ArrowRight className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-
-                {filteredQuotes.length === 0 && (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground mt-2">Chargement...</p>
+                    </td>
+                  </tr>
+                ) : quotes.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-8 text-center">
                       <FileCheck className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
@@ -283,6 +197,63 @@ function QuotesPage() {
                       </p>
                     </td>
                   </tr>
+                ) : (
+                  quotes.map((quote) => {
+                    const status = statusConfig[quote.status as keyof typeof statusConfig]
+                    const StatusIcon = status?.icon || FileCheck
+                    return (
+                      <tr key={quote.id} className="hover:bg-muted/50 transition-colors">
+                        <td className="p-4">
+                          <Link
+                            to="/invoices/quotes/$quoteId"
+                            params={{ quoteId: quote.id }}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {quote.quoteNumber}
+                          </Link>
+                        </td>
+                        <td className="p-4">{quote.client?.name || '-'}</td>
+                        <td className="p-4 text-muted-foreground">
+                          {new Date(quote.issueDate).toLocaleDateString('fr-FR')}
+                        </td>
+                        <td className="p-4 text-muted-foreground">
+                          {quote.validUntil ? new Date(quote.validUntil).toLocaleDateString('fr-FR') : '-'}
+                        </td>
+                        <td className="p-4 text-right font-medium">
+                          {(quote.total || 0).toLocaleString('fr-FR', { style: 'currency', currency: quote.currency || 'EUR' })}
+                        </td>
+                        <td className="p-4">
+                          <Badge className={`${status?.color || 'bg-muted'} gap-1`}>
+                            <StatusIcon className="h-3 w-3" />
+                            {status?.label || quote.status}
+                          </Badge>
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" title="Voir">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" title="Telecharger PDF">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            {quote.status === 'draft' && (
+                              <Button variant="ghost" size="icon" title="Envoyer">
+                                <Mail className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {quote.status === 'accepted' && (
+                              <Button variant="ghost" size="icon" title="Convertir en facture">
+                                <ArrowRight className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>

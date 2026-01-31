@@ -127,8 +127,9 @@ export async function createContact(
 ): Promise<Contact> {
   const client = getClient()
 
-  const { data, error } = await client
-    .from('crm_contacts')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client
+    .from('crm_contacts') as any)
     .insert({
       organization_id: organizationId,
       first_name: input.firstName,
@@ -186,8 +187,9 @@ export async function updateContact(input: UpdateContactInput): Promise<Contact>
   if (input.tags !== undefined) updateData['tags'] = input.tags
   if (input.ownerId !== undefined) updateData['owner_id'] = input.ownerId
 
-  const { data, error } = await client
-    .from('crm_contacts')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client
+    .from('crm_contacts') as any)
     .update(updateData)
     .eq('id', input.id)
     .select('*, company:crm_companies(*)')
@@ -206,8 +208,9 @@ export async function updateContact(input: UpdateContactInput): Promise<Contact>
 export async function deleteContact(contactId: string): Promise<void> {
   const client = getClient()
 
-  const { error } = await client
-    .from('crm_contacts')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (client
+    .from('crm_contacts') as any)
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', contactId)
 
@@ -222,8 +225,9 @@ export async function deleteContact(contactId: string): Promise<void> {
 export async function bulkDeleteContacts(contactIds: string[]): Promise<void> {
   const client = getClient()
 
-  const { error } = await client
-    .from('crm_contacts')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (client
+    .from('crm_contacts') as any)
     .update({ deleted_at: new Date().toISOString() })
     .in('id', contactIds)
 
@@ -249,8 +253,9 @@ export async function addContactTags(contactId: string, tags: string[]): Promise
   const currentTags = ((contact as any)?.tags as string[]) || []
   const newTags = [...new Set([...currentTags, ...tags])]
 
-  const { data, error } = await client
-    .from('crm_contacts')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client
+    .from('crm_contacts') as any)
     .update({ tags: newTags })
     .eq('id', contactId)
     .select('*, company:crm_companies(*)')
@@ -280,8 +285,9 @@ export async function removeContactTags(contactId: string, tags: string[]): Prom
   const currentTags = ((contact as any)?.tags as string[]) || []
   const newTags = currentTags.filter((t) => !tags.includes(t))
 
-  const { data, error } = await client
-    .from('crm_contacts')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client
+    .from('crm_contacts') as any)
     .update({ tags: newTags })
     .eq('id', contactId)
     .select('*, company:crm_companies(*)')

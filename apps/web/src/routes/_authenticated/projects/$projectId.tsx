@@ -14,8 +14,8 @@ import {
   MoreHorizontal,
   CheckCircle2,
   Circle,
-  AlertCircle,
   GripVertical,
+  Loader2,
 } from 'lucide-react'
 import {
   Button,
@@ -36,50 +36,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@sedona/ui'
+import { useProject, useTasks, useProjectMembers, useTaskStatuses } from '@sedona/projects'
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId')({
   component: ProjectDetailPage,
 })
-
-// Mock data
-const mockProject = {
-  id: '1',
-  name: 'Refonte Site Web Client A',
-  description: 'Refonte complete du site web avec nouvelle charte graphique et optimisation SEO',
-  color: '#3B82F6',
-  status: 'active' as const,
-  startDate: '2024-01-15',
-  endDate: '2024-03-30',
-  budgetAmount: 25000,
-  totalTasks: 24,
-  completedTasks: 16,
-  progressPercentage: 66.7,
-  totalTimeMinutes: 4500,
-  totalEstimatedMinutes: 6000,
-}
-
-const mockMembers = [
-  { id: '1', name: 'Alice Martin', role: 'owner', avatar: null },
-  { id: '2', name: 'Bob Dupont', role: 'manager', avatar: null },
-  { id: '3', name: 'Claire Bernard', role: 'member', avatar: null },
-  { id: '4', name: 'David Leroy', role: 'member', avatar: null },
-]
-
-const mockStatuses = [
-  { id: '1', name: 'A faire', color: '#6B7280', tasks: 4 },
-  { id: '2', name: 'En cours', color: '#3B82F6', tasks: 3 },
-  { id: '3', name: 'En revue', color: '#F59E0B', tasks: 1 },
-  { id: '4', name: 'Termine', color: '#10B981', tasks: 16 },
-]
-
-const mockTasks = [
-  { id: '1', title: 'Design maquettes pages principales', statusId: '4', priority: 'high', dueDate: '2024-02-01', assignee: 'Alice' },
-  { id: '2', title: 'Integration header/footer', statusId: '4', priority: 'medium', dueDate: '2024-02-10', assignee: 'Bob' },
-  { id: '3', title: 'Page produits - liste', statusId: '2', priority: 'high', dueDate: '2024-02-15', assignee: 'Claire' },
-  { id: '4', title: 'Page produits - detail', statusId: '2', priority: 'medium', dueDate: '2024-02-18', assignee: 'David' },
-  { id: '5', title: 'Formulaire contact', statusId: '1', priority: 'low', dueDate: '2024-02-25', assignee: null },
-  { id: '6', title: 'Integration CMS', statusId: '3', priority: 'high', dueDate: '2024-02-20', assignee: 'Alice' },
-]
 
 const priorityConfig = {
   low: { label: 'Basse', color: 'bg-gray-100 text-gray-700' },
@@ -98,6 +59,49 @@ function ProjectDetailPage() {
   const { projectId } = Route.useParams()
   const [activeTab, setActiveTab] = useState('tasks')
 
+  // Fetch project details from Supabase
+  const { data: project, isLoading: isLoadingProject, error: projectError } = useProject(projectId)
+
+  // Fetch tasks
+  const { data: tasksData, isLoading: isLoadingTasks } = useTasks(projectId, {}, { page: 1, pageSize: 100 })
+  const tasks = tasksData?.data || []
+
+  // Fetch members
+  const { data: members = [], isLoading: isLoadingMembers } = useProjectMembers(projectId)
+
+  // Fetch task statuses/columns
+  const { data: statuses = [] } = useTaskStatuses(projectId)
+
+  const isLoading = isLoadingProject
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (projectError || !project) {
+    return (
+      <div className="p-6">
+        <Card className="p-8 text-center">
+          <p className="text-red-500">Erreur lors du chargement du projet</p>
+          <p className="text-sm text-muted-foreground mt-2">{projectError?.message || 'Projet non trouvé'}</p>
+          <Link to="/projects" className="mt-4 inline-block">
+            <Button variant="outline">Retour aux projets</Button>
+          </Link>
+        </Card>
+      </div>
+    )
+  }
+
+  // Calculate status counts from tasks
+  const statusCounts = statuses.map(status => ({
+    ...status,
+    tasks: tasks.filter(t => t.statusId === status.id).length,
+  }))
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -110,13 +114,13 @@ function ProjectDetailPage() {
           </Link>
           <div
             className="w-12 h-12 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: mockProject.color + '20' }}
+            style={{ backgroundColor: (project.color || '#6B7280') + '20' }}
           >
-            <span className="text-xl" style={{ color: mockProject.color }}>📁</span>
+            <span className="text-xl" style={{ color: project.color || '#6B7280' }}>📁</span>
           </div>
           <div>
-            <h1 className="text-2xl font-bold">{mockProject.name}</h1>
-            <p className="text-muted-foreground">{mockProject.description}</p>
+            <h1 className="text-2xl font-bold">{project.name}</h1>
+            <p className="text-muted-foreground">{project.description || ''}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -137,8 +141,8 @@ function ProjectDetailPage() {
           <CardContent className="pt-4 pb-4">
             <div className="text-sm text-muted-foreground">Progression</div>
             <div className="mt-1 flex items-center gap-2">
-              <Progress value={mockProject.progressPercentage} className="flex-1 h-2" />
-              <span className="font-semibold">{Math.round(mockProject.progressPercentage)}%</span>
+              <Progress value={project.progressPercentage || 0} className="flex-1 h-2" />
+              <span className="font-semibold">{Math.round(project.progressPercentage || 0)}%</span>
             </div>
           </CardContent>
         </Card>
@@ -146,7 +150,7 @@ function ProjectDetailPage() {
           <CardContent className="pt-4 pb-4">
             <div className="text-sm text-muted-foreground">Taches</div>
             <div className="text-xl font-bold mt-1">
-              {mockProject.completedTasks} / {mockProject.totalTasks}
+              {project.completedTasks || 0} / {project.totalTasks || 0}
             </div>
           </CardContent>
         </Card>
@@ -154,10 +158,12 @@ function ProjectDetailPage() {
           <CardContent className="pt-4 pb-4">
             <div className="text-sm text-muted-foreground">Temps passe</div>
             <div className="text-xl font-bold mt-1">
-              {formatDuration(mockProject.totalTimeMinutes)}
-              <span className="text-sm text-muted-foreground font-normal ml-1">
-                / {formatDuration(mockProject.totalEstimatedMinutes)}
-              </span>
+              {formatDuration(project.totalTimeMinutes || 0)}
+              {project.totalEstimatedMinutes ? (
+                <span className="text-sm text-muted-foreground font-normal ml-1">
+                  / {formatDuration(project.totalEstimatedMinutes)}
+                </span>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -167,7 +173,7 @@ function ProjectDetailPage() {
             <div className="flex items-center gap-2 mt-1">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span className="font-semibold">
-                {new Date(mockProject.endDate).toLocaleDateString('fr-FR')}
+                {project.endDate ? new Date(project.endDate).toLocaleDateString('fr-FR') : '-'}
               </span>
             </div>
           </CardContent>
@@ -176,7 +182,9 @@ function ProjectDetailPage() {
           <CardContent className="pt-4 pb-4">
             <div className="text-sm text-muted-foreground">Budget</div>
             <div className="text-xl font-bold mt-1">
-              {mockProject.budgetAmount?.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+              {project.budgetAmount
+                ? project.budgetAmount.toLocaleString('fr-FR', { style: 'currency', currency: project.budgetCurrency || 'EUR' })
+                : '-'}
             </div>
           </CardContent>
         </Card>
@@ -205,7 +213,7 @@ function ProjectDetailPage() {
             <CardContent>
               {/* Status columns summary */}
               <div className="flex gap-2 mb-4 flex-wrap">
-                {mockStatuses.map(status => (
+                {statusCounts.map(status => (
                   <Badge
                     key={status.id}
                     variant="outline"
@@ -213,7 +221,7 @@ function ProjectDetailPage() {
                   >
                     <span
                       className="w-2 h-2 rounded-full mr-2"
-                      style={{ backgroundColor: status.color }}
+                      style={{ backgroundColor: status.color || '#6B7280' }}
                     />
                     {status.name} ({status.tasks})
                   </Badge>
@@ -221,68 +229,78 @@ function ProjectDetailPage() {
               </div>
 
               {/* Task list */}
-              <div className="space-y-2">
-                {mockTasks.map(task => {
-                  const status = mockStatuses.find(s => s.id === task.statusId)
-                  const priority = priorityConfig[task.priority as keyof typeof priorityConfig]
-                  const isCompleted = status?.name === 'Termine'
+              {isLoadingTasks ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : tasks.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Aucune tache pour ce projet
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {tasks.map(task => {
+                    const status = statuses.find(s => s.id === task.statusId)
+                    const priority = priorityConfig[task.priority as keyof typeof priorityConfig] || priorityConfig.medium
+                    const isCompleted = status?.name?.toLowerCase().includes('termin') || status?.name?.toLowerCase().includes('done')
 
-                  return (
-                    <div
-                      key={task.id}
-                      className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer group"
-                    >
-                      <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                    return (
+                      <div
+                        key={task.id}
+                        className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer group"
+                      >
+                        <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
 
-                      <button className="flex-shrink-0">
-                        {isCompleted ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        ) : (
-                          <Circle className="h-5 w-5 text-muted-foreground hover:text-primary" />
-                        )}
-                      </button>
+                        <button className="flex-shrink-0">
+                          {isCompleted ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                          ) : (
+                            <Circle className="h-5 w-5 text-muted-foreground hover:text-primary" />
+                          )}
+                        </button>
 
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-medium ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>
-                          {task.title}
-                        </p>
-                      </div>
-
-                      <Badge className={priority.color} variant="outline">
-                        {priority.label}
-                      </Badge>
-
-                      {task.dueDate && (
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {new Date(task.dueDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-medium ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>
+                            {task.title}
+                          </p>
                         </div>
-                      )}
 
-                      {task.assignee && (
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs">
-                            {task.assignee.split(' ').map(n => n[0]).join('')}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
+                        <Badge className={priority.color} variant="outline">
+                          {priority.label}
+                        </Badge>
 
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Modifier</DropdownMenuItem>
-                          <DropdownMenuItem>Dupliquer</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">Supprimer</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  )
-                })}
-              </div>
+                        {task.dueDate && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Calendar className="h-3.5 w-3.5" />
+                            {new Date(task.dueDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                          </div>
+                        )}
+
+                        {task.assignees && task.assignees.length > 0 && (
+                          <Avatar className="h-6 w-6">
+                            <AvatarFallback className="text-xs">
+                              {(task.assignees[0]?.user?.fullName || '?').split(' ').map(n => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>Modifier</DropdownMenuItem>
+                            <DropdownMenuItem>Dupliquer</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive">Supprimer</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -299,34 +317,44 @@ function ProjectDetailPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {mockMembers.map(member => (
-                  <div key={member.id} className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarFallback>
-                          {member.name.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{member.name}</p>
-                        <p className="text-sm text-muted-foreground capitalize">{member.role}</p>
+              {isLoadingMembers ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : members.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Aucun membre dans ce projet
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {members.map(member => (
+                    <div key={member.id} className="flex items-center justify-between p-3 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarFallback>
+                            {(member.user?.fullName || member.user?.email || '?').split(' ').map(n => n[0]).join('')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">{member.user?.fullName || member.user?.email || 'Utilisateur'}</p>
+                          <p className="text-sm text-muted-foreground capitalize">{member.role}</p>
+                        </div>
                       </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>Modifier le role</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive">Retirer</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Modifier le role</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">Retirer</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -337,43 +365,8 @@ function ProjectDetailPage() {
               <CardTitle className="text-lg">Activite recente</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm">
-                      <span className="font-medium">Alice</span> a termine la tache{' '}
-                      <span className="font-medium">"Integration header/footer"</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">Il y a 2 heures</p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <Clock className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm">
-                      <span className="font-medium">Bob</span> a enregistre 2h30 de travail sur{' '}
-                      <span className="font-medium">"Page produits - liste"</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">Il y a 4 heures</p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">
-                    <AlertCircle className="h-4 w-4 text-yellow-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm">
-                      <span className="font-medium">Claire</span> a commente{' '}
-                      <span className="font-medium">"Integration CMS"</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">Hier</p>
-                  </div>
-                </div>
+              <div className="text-center py-8 text-muted-foreground">
+                L'historique d'activite sera disponible prochainement
               </div>
             </CardContent>
           </Card>

@@ -10,110 +10,55 @@ import {
   Trash2,
   ToggleLeft,
   ToggleRight,
+  Loader2,
 } from 'lucide-react'
 import { useState } from 'react'
+import { useOrganization } from '@/lib/auth'
+import { useProducts, useProductCategories, type ProductType } from '@sedona/invoice'
 
 export const Route = createFileRoute('/_authenticated/invoices/products/')({
   component: ProductsPage,
 })
 
-// Mock data
-const mockProducts = [
-  {
-    id: '1',
-    name: 'Developpement web',
-    description: 'Developpement de sites et applications web',
-    type: 'service',
-    sku: 'DEV-WEB',
-    unitPrice: 650,
-    unit: 'jour',
-    vatRate: 20,
-    category: 'Developpement',
-    isActive: true,
-  },
-  {
-    id: '2',
-    name: 'Consulting stratégique',
-    description: 'Conseil et accompagnement stratégique',
-    type: 'service',
-    sku: 'CONS-STRAT',
-    unitPrice: 1200,
-    unit: 'jour',
-    vatRate: 20,
-    category: 'Consulting',
-    isActive: true,
-  },
-  {
-    id: '3',
-    name: 'Formation React',
-    description: 'Formation au framework React.js',
-    type: 'service',
-    sku: 'FORM-REACT',
-    unitPrice: 2500,
-    unit: 'forfait',
-    vatRate: 20,
-    category: 'Formation',
-    isActive: true,
-  },
-  {
-    id: '4',
-    name: 'Maintenance mensuelle',
-    description: 'Contrat de maintenance applicative',
-    type: 'service',
-    sku: 'MAINT-MENS',
-    unitPrice: 500,
-    unit: 'mois',
-    vatRate: 20,
-    category: 'Maintenance',
-    isActive: true,
-  },
-  {
-    id: '5',
-    name: 'Licence logiciel',
-    description: 'Licence annuelle du logiciel',
-    type: 'product',
-    sku: 'LIC-SOFT',
-    unitPrice: 1500,
-    unit: 'annee',
-    vatRate: 20,
-    category: 'Licences',
-    isActive: false,
-  },
-  {
-    id: '6',
-    name: 'Hebergement cloud',
-    description: 'Hebergement serveur cloud',
-    type: 'service',
-    sku: 'CLOUD-HOST',
-    unitPrice: 150,
-    unit: 'mois',
-    vatRate: 20,
-    category: 'Infrastructure',
-    isActive: true,
-  },
-]
-
 function ProductsPage() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'all' | 'product' | 'service'>('all')
   const [showInactive, setShowInactive] = useState(false)
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
 
-  const filteredProducts = mockProducts.filter((product) => {
-    if (typeFilter !== 'all' && product.type !== typeFilter) return false
-    if (!showInactive && !product.isActive) return false
-    if (search && !product.name.toLowerCase().includes(search.toLowerCase()) &&
-        !product.sku?.toLowerCase().includes(search.toLowerCase()) &&
-        !product.description?.toLowerCase().includes(search.toLowerCase())) return false
-    return true
-  })
+  // Fetch products from Supabase
+  const { data: productsData, isLoading, error } = useProducts(
+    organizationId,
+    {
+      search: search || undefined,
+      type: typeFilter !== 'all' ? typeFilter as ProductType : undefined,
+      isActive: showInactive ? undefined : true,
+    },
+    { page: 1, pageSize: 100 }
+  )
 
-  // Stats
-  const totalProducts = mockProducts.filter(p => p.type === 'product').length
-  const totalServices = mockProducts.filter(p => p.type === 'service').length
-  const activeCount = mockProducts.filter(p => p.isActive).length
+  // Fetch categories
+  const { data: categoriesData } = useProductCategories(organizationId)
 
-  // Get unique categories
-  const categories = Array.from(new Set(mockProducts.map(p => p.category).filter(Boolean)))
+  const products = productsData?.data || []
+  const categories = categoriesData || []
+
+  // Stats from fetched data
+  const totalProducts = products.filter(p => p.type === 'product').length
+  const totalServices = products.filter(p => p.type === 'service').length
+  const activeCount = products.filter(p => p.isActive).length
+
+  if (error) {
+    return (
+      <div className="page-container">
+        <Card className="p-8 text-center">
+          <p className="text-red-500">Erreur lors du chargement des produits</p>
+          <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="page-container">
@@ -247,66 +192,14 @@ function ProductsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {filteredProducts.map((product) => (
-                  <tr key={product.id} className={`hover:bg-muted/50 transition-colors ${!product.isActive ? 'opacity-60' : ''}`}>
-                    <td className="p-4">
-                      <div>
-                        <p className="font-medium">{product.name}</p>
-                        {product.description && (
-                          <p className="text-sm text-muted-foreground truncate max-w-xs">
-                            {product.description}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <code className="text-sm bg-muted px-2 py-1 rounded">{product.sku}</code>
-                    </td>
-                    <td className="p-4">
-                      <Badge variant="outline" className="gap-1">
-                        {product.type === 'service' ? (
-                          <>
-                            <Briefcase className="h-3 w-3" />
-                            Service
-                          </>
-                        ) : (
-                          <>
-                            <Package className="h-3 w-3" />
-                            Produit
-                          </>
-                        )}
-                      </Badge>
-                    </td>
-                    <td className="p-4 text-muted-foreground">{product.category}</td>
-                    <td className="p-4 text-right font-medium">
-                      {product.unitPrice.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                      <span className="text-muted-foreground font-normal">/{product.unit}</span>
-                    </td>
-                    <td className="p-4 text-right text-muted-foreground">{product.vatRate}%</td>
-                    <td className="p-4">
-                      {product.isActive ? (
-                        <Badge className="bg-green-100 text-green-700">Actif</Badge>
-                      ) : (
-                        <Badge className="bg-gray-100 text-gray-500">Inactif</Badge>
-                      )}
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" title="Modifier">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" title="Supprimer">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground mt-2">Chargement...</p>
                     </td>
                   </tr>
-                ))}
-
-                {filteredProducts.length === 0 && (
+                ) : products.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="p-8 text-center">
                       <Package className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
@@ -316,6 +209,65 @@ function ProductsPage() {
                       </p>
                     </td>
                   </tr>
+                ) : (
+                  products.map((product) => (
+                    <tr key={product.id} className={`hover:bg-muted/50 transition-colors ${!product.isActive ? 'opacity-60' : ''}`}>
+                      <td className="p-4">
+                        <div>
+                          <p className="font-medium">{product.name}</p>
+                          {product.description && (
+                            <p className="text-sm text-muted-foreground truncate max-w-xs">
+                              {product.description}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <code className="text-sm bg-muted px-2 py-1 rounded">{product.sku || '-'}</code>
+                      </td>
+                      <td className="p-4">
+                        <Badge variant="outline" className="gap-1">
+                          {product.type === 'service' ? (
+                            <>
+                              <Briefcase className="h-3 w-3" />
+                              Service
+                            </>
+                          ) : (
+                            <>
+                              <Package className="h-3 w-3" />
+                              Produit
+                            </>
+                          )}
+                        </Badge>
+                      </td>
+                      <td className="p-4 text-muted-foreground">{product.category || '-'}</td>
+                      <td className="p-4 text-right font-medium">
+                        {(product.unitPrice || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        <span className="text-muted-foreground font-normal">/{product.unit || 'unite'}</span>
+                      </td>
+                      <td className="p-4 text-right text-muted-foreground">{product.vatRate || 0}%</td>
+                      <td className="p-4">
+                        {product.isActive ? (
+                          <Badge className="bg-green-100 text-green-700">Actif</Badge>
+                        ) : (
+                          <Badge className="bg-gray-100 text-gray-500">Inactif</Badge>
+                        )}
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon" title="Modifier">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" title="Supprimer">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>

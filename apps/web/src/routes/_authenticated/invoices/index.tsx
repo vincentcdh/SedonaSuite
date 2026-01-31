@@ -3,7 +3,6 @@ import { Button, Card, CardContent, Input, Badge } from '@sedona/ui'
 import {
   Plus,
   Search,
-  Filter,
   FileText,
   Send,
   CheckCircle,
@@ -13,62 +12,15 @@ import {
   Eye,
   Download,
   Mail,
+  Loader2,
 } from 'lucide-react'
 import { useState } from 'react'
+import { useOrganization } from '@/lib/auth'
+import { useInvoices, type InvoiceStatus } from '@sedona/invoice'
 
 export const Route = createFileRoute('/_authenticated/invoices/')({
   component: InvoicesPage,
 })
-
-// Mock data
-const mockInvoices = [
-  {
-    id: '1',
-    invoiceNumber: 'FAC-2025-0042',
-    clientName: 'Acme Corp',
-    issueDate: '2025-01-15',
-    dueDate: '2025-02-15',
-    total: 4500.00,
-    status: 'paid',
-  },
-  {
-    id: '2',
-    invoiceNumber: 'FAC-2025-0041',
-    clientName: 'Tech Solutions',
-    issueDate: '2025-01-10',
-    dueDate: '2025-02-10',
-    total: 2850.00,
-    status: 'sent',
-  },
-  {
-    id: '3',
-    invoiceNumber: 'FAC-2025-0040',
-    clientName: 'Design Studio',
-    issueDate: '2025-01-05',
-    dueDate: '2025-01-20',
-    total: 1200.00,
-    status: 'overdue',
-  },
-  {
-    id: '4',
-    invoiceNumber: 'FAC-2025-0039',
-    clientName: 'Marketing Pro',
-    issueDate: '2025-01-03',
-    dueDate: '2025-02-03',
-    total: 3750.00,
-    status: 'partial',
-    amountPaid: 1500.00,
-  },
-  {
-    id: '5',
-    invoiceNumber: 'FAC-2025-0038',
-    clientName: 'Finance Plus',
-    issueDate: '2025-01-02',
-    dueDate: '2025-02-02',
-    total: 5200.00,
-    status: 'draft',
-  },
-]
 
 const statusConfig = {
   draft: { label: 'Brouillon', color: 'bg-muted text-muted-foreground', icon: FileText },
@@ -82,19 +34,37 @@ const statusConfig = {
 function InvoicesPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
 
-  const filteredInvoices = mockInvoices.filter((invoice) => {
-    if (statusFilter !== 'all' && invoice.status !== statusFilter) return false
-    if (search && !invoice.invoiceNumber.toLowerCase().includes(search.toLowerCase()) &&
-        !invoice.clientName.toLowerCase().includes(search.toLowerCase())) return false
-    return true
-  })
+  // Fetch invoices from Supabase
+  const { data: invoicesData, isLoading, error } = useInvoices(
+    organizationId,
+    {
+      search: search || undefined,
+      status: statusFilter !== 'all' ? statusFilter as InvoiceStatus : undefined,
+    },
+    { page: 1, pageSize: 50 }
+  )
 
-  // Stats
-  const totalRevenue = mockInvoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.total, 0)
-  const outstanding = mockInvoices.filter(i => ['sent', 'partial', 'overdue'].includes(i.status))
-    .reduce((sum, i) => sum + (i.total - (i.amountPaid || 0)), 0)
-  const overdueCount = mockInvoices.filter(i => i.status === 'overdue').length
+  const invoices = invoicesData?.data || []
+
+  // Stats from fetched data
+  const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + (i.total || 0), 0)
+  const outstanding = invoices.filter(i => ['sent', 'partial', 'overdue'].includes(i.status))
+    .reduce((sum, i) => sum + ((i.total || 0) - (i.amountPaid || 0)), 0)
+  const overdueCount = invoices.filter(i => i.status === 'overdue').length
+
+  if (error) {
+    return (
+      <div className="page-container">
+        <Card className="p-8 text-center">
+          <p className="text-red-500">Erreur lors du chargement des factures</p>
+          <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="page-container">
@@ -207,64 +177,14 @@ function InvoicesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {filteredInvoices.map((invoice) => {
-                  const status = statusConfig[invoice.status as keyof typeof statusConfig]
-                  const StatusIcon = status.icon
-                  return (
-                    <tr key={invoice.id} className="hover:bg-muted/50 transition-colors">
-                      <td className="p-4">
-                        <Link
-                          to="/invoices/$invoiceId"
-                          params={{ invoiceId: invoice.id }}
-                          className="font-medium text-primary hover:underline"
-                        >
-                          {invoice.invoiceNumber}
-                        </Link>
-                      </td>
-                      <td className="p-4">{invoice.clientName}</td>
-                      <td className="p-4 text-muted-foreground">
-                        {new Date(invoice.issueDate).toLocaleDateString('fr-FR')}
-                      </td>
-                      <td className="p-4 text-muted-foreground">
-                        {new Date(invoice.dueDate).toLocaleDateString('fr-FR')}
-                      </td>
-                      <td className="p-4 text-right font-medium">
-                        {invoice.total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                        {invoice.status === 'partial' && invoice.amountPaid && (
-                          <div className="text-xs text-muted-foreground">
-                            Reste: {(invoice.total - invoice.amountPaid).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <Badge className={`${status.color} gap-1`}>
-                          <StatusIcon className="h-3 w-3" />
-                          {status.label}
-                        </Badge>
-                      </td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" title="Voir">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" title="Telecharger PDF">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          {invoice.status === 'draft' && (
-                            <Button variant="ghost" size="icon" title="Envoyer">
-                              <Mail className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-
-                {filteredInvoices.length === 0 && (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground mt-2">Chargement...</p>
+                    </td>
+                  </tr>
+                ) : invoices.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-8 text-center">
                       <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
@@ -274,6 +194,63 @@ function InvoicesPage() {
                       </p>
                     </td>
                   </tr>
+                ) : (
+                  invoices.map((invoice) => {
+                    const status = statusConfig[invoice.status as keyof typeof statusConfig]
+                    const StatusIcon = status?.icon || FileText
+                    return (
+                      <tr key={invoice.id} className="hover:bg-muted/50 transition-colors">
+                        <td className="p-4">
+                          <Link
+                            to="/invoices/$invoiceId"
+                            params={{ invoiceId: invoice.id }}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {invoice.invoiceNumber}
+                          </Link>
+                        </td>
+                        <td className="p-4">{invoice.client?.name || '-'}</td>
+                        <td className="p-4 text-muted-foreground">
+                          {new Date(invoice.issueDate).toLocaleDateString('fr-FR')}
+                        </td>
+                        <td className="p-4 text-muted-foreground">
+                          {new Date(invoice.dueDate).toLocaleDateString('fr-FR')}
+                        </td>
+                        <td className="p-4 text-right font-medium">
+                          {(invoice.total || 0).toLocaleString('fr-FR', { style: 'currency', currency: invoice.currency || 'EUR' })}
+                          {invoice.status === 'partial' && invoice.amountPaid > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              Reste: {((invoice.total || 0) - (invoice.amountPaid || 0)).toLocaleString('fr-FR', { style: 'currency', currency: invoice.currency || 'EUR' })}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <Badge className={`${status?.color || 'bg-muted'} gap-1`}>
+                            <StatusIcon className="h-3 w-3" />
+                            {status?.label || invoice.status}
+                          </Badge>
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" title="Voir">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" title="Telecharger PDF">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            {invoice.status === 'draft' && (
+                              <Button variant="ghost" size="icon" title="Envoyer">
+                                <Mail className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>

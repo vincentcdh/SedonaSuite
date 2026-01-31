@@ -258,12 +258,13 @@ export async function createActivity(
     throw new Error('Activity must be linked to a contact, company, or deal')
   }
 
-  const { data, error } = await client
-    .from('crm_activities')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client
+    .from('crm_activities') as any)
     .insert({
       organization_id: organizationId,
       type: input.type,
-      subject: input.subject,
+      title: input.subject, // Note: DB uses 'title', code uses 'subject'
       description: input.description,
       contact_id: input.contactId,
       company_id: input.companyId,
@@ -292,7 +293,7 @@ export async function updateActivity(input: UpdateActivityInput): Promise<Activi
   const updateData: Record<string, any> = {}
 
   if (input.type !== undefined) updateData['type'] = input.type
-  if (input.subject !== undefined) updateData['subject'] = input.subject
+  if (input.subject !== undefined) updateData['title'] = input.subject // Note: DB uses 'title', code uses 'subject'
   if (input.description !== undefined) updateData['description'] = input.description
   if (input.contactId !== undefined) updateData['contact_id'] = input.contactId
   if (input.companyId !== undefined) updateData['company_id'] = input.companyId
@@ -301,8 +302,9 @@ export async function updateActivity(input: UpdateActivityInput): Promise<Activi
   if (input.durationMinutes !== undefined) updateData['duration_minutes'] = input.durationMinutes
   if (input.completedAt !== undefined) updateData['completed_at'] = input.completedAt
 
-  const { data, error } = await client
-    .from('crm_activities')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client
+    .from('crm_activities') as any)
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -341,8 +343,9 @@ export async function uncompleteActivity(activityId: string): Promise<Activity> 
 export async function deleteActivity(activityId: string): Promise<void> {
   const client = getClient()
 
-  const { error } = await client
-    .from('crm_activities')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (client
+    .from('crm_activities') as any)
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', activityId)
 

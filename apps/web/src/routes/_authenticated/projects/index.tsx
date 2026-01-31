@@ -15,6 +15,7 @@ import {
   Clock,
   Pause,
   Archive,
+  Loader2,
 } from 'lucide-react'
 import {
   Button,
@@ -35,70 +36,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@sedona/ui'
+import { useOrganization } from '@/lib/auth'
+import { useProjects, type ProjectStatus } from '@sedona/projects'
 
 export const Route = createFileRoute('/_authenticated/projects/')({
   component: ProjectsListPage,
 })
-
-// Mock data for development
-const mockProjects = [
-  {
-    id: '1',
-    name: 'Refonte Site Web Client A',
-    description: 'Refonte complete du site web avec nouvelle charte graphique',
-    color: '#3B82F6',
-    status: 'active' as const,
-    startDate: '2024-01-15',
-    endDate: '2024-03-30',
-    totalTasks: 24,
-    completedTasks: 16,
-    progressPercentage: 66.7,
-    membersCount: 4,
-    totalTimeMinutes: 4500,
-  },
-  {
-    id: '2',
-    name: 'Application Mobile E-commerce',
-    description: 'Developpement d\'une application mobile React Native',
-    color: '#10B981',
-    status: 'active' as const,
-    startDate: '2024-02-01',
-    endDate: '2024-06-30',
-    totalTasks: 45,
-    completedTasks: 12,
-    progressPercentage: 26.7,
-    membersCount: 6,
-    totalTimeMinutes: 7200,
-  },
-  {
-    id: '3',
-    name: 'Migration Infrastructure Cloud',
-    description: 'Migration des services vers AWS',
-    color: '#F59E0B',
-    status: 'paused' as const,
-    startDate: '2024-01-01',
-    endDate: '2024-04-15',
-    totalTasks: 18,
-    completedTasks: 8,
-    progressPercentage: 44.4,
-    membersCount: 3,
-    totalTimeMinutes: 2100,
-  },
-  {
-    id: '4',
-    name: 'Audit Securite 2024',
-    description: 'Audit complet de la securite du SI',
-    color: '#EF4444',
-    status: 'completed' as const,
-    startDate: '2023-11-01',
-    endDate: '2024-01-15',
-    totalTasks: 15,
-    completedTasks: 15,
-    progressPercentage: 100,
-    membersCount: 2,
-    totalTimeMinutes: 3600,
-  },
-]
 
 const statusConfig = {
   active: { label: 'Actif', icon: CheckCircle2, color: 'bg-green-500' },
@@ -116,20 +59,38 @@ function formatDuration(minutes: number): string {
 function ProjectsListPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
 
-  const filteredProjects = mockProjects.filter(project => {
-    const matchesSearch = project.name.toLowerCase().includes(search.toLowerCase()) ||
-      project.description?.toLowerCase().includes(search.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || project.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  // Fetch projects from Supabase
+  const { data: projectsData, isLoading, error } = useProjects(
+    organizationId,
+    {
+      search: search || undefined,
+      status: statusFilter !== 'all' ? statusFilter as ProjectStatus : undefined,
+    },
+    { page: 1, pageSize: 50 }
+  )
 
-  // Stats
+  const projects = projectsData?.data || []
+
+  // Stats from fetched data
   const stats = {
-    total: mockProjects.length,
-    active: mockProjects.filter(p => p.status === 'active').length,
-    completed: mockProjects.filter(p => p.status === 'completed').length,
-    totalTime: mockProjects.reduce((sum, p) => sum + p.totalTimeMinutes, 0),
+    total: projectsData?.total || 0,
+    active: projects.filter(p => p.status === 'active').length,
+    completed: projects.filter(p => p.status === 'completed').length,
+    totalTime: projects.reduce((sum, p) => sum + (p.totalTimeMinutes || 0), 0),
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <Card className="p-8 text-center">
+          <p className="text-red-500">Erreur lors du chargement des projets</p>
+          <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -216,109 +177,115 @@ function ProjectsListPage() {
       </div>
 
       {/* Projects Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredProjects.map((project) => {
-          const statusInfo = statusConfig[project.status]
-          return (
-            <Card key={project.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: project.color + '20' }}
-                    >
-                      <FolderKanban className="h-5 w-5" style={{ color: project.color }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <Link
-                        to="/projects/$projectId"
-                        params={{ projectId: project.id }}
-                        className="font-semibold hover:text-primary truncate block"
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {projects.map((project) => {
+            const statusInfo = statusConfig[project.status]
+            return (
+              <Card key={project.id} className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: (project.color || '#6B7280') + '20' }}
                       >
-                        {project.name}
-                      </Link>
-                      <Badge
-                        variant="outline"
-                        className="mt-1"
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.color} mr-1.5`} />
-                        {statusInfo.label}
-                      </Badge>
-                    </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Link to="/projects/$projectId" params={{ projectId: project.id }}>
-                          Voir le projet
+                        <FolderKanban className="h-5 w-5" style={{ color: project.color || '#6B7280' }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <Link
+                          to="/projects/$projectId"
+                          params={{ projectId: project.id }}
+                          className="font-semibold hover:text-primary truncate block"
+                        >
+                          {project.name}
                         </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>Modifier</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive">Archiver</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {project.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {project.description}
-                  </p>
-                )}
-
-                {/* Progress */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Progression</span>
-                    <span className="font-medium">{Math.round(project.progressPercentage)}%</span>
+                        <Badge
+                          variant="outline"
+                          className="mt-1"
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.color} mr-1.5`} />
+                          {statusInfo.label}
+                        </Badge>
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <Link to="/projects/$projectId" params={{ projectId: project.id }}>
+                            Voir le projet
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>Modifier</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-destructive">Archiver</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <Progress value={project.progressPercentage} className="h-2" />
-                  <p className="text-xs text-muted-foreground">
-                    {project.completedTasks} / {project.totalTasks} taches
-                  </p>
-                </div>
-
-                {/* Footer stats */}
-                <div className="flex items-center justify-between pt-2 border-t text-sm text-muted-foreground">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1">
-                      <Users className="h-4 w-4" />
-                      <span>{project.membersCount}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>{formatDuration(project.totalTimeMinutes)}</span>
-                    </div>
-                  </div>
-                  {project.endDate && (
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>{new Date(project.endDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
-                    </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {project.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {project.description}
+                    </p>
                   )}
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
 
-        {filteredProjects.length === 0 && (
-          <div className="col-span-full flex flex-col items-center justify-center py-12">
-            <FolderKanban className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-lg font-medium">Aucun projet trouve</p>
-            <p className="text-sm text-muted-foreground">
-              Modifiez votre recherche ou creez un nouveau projet
-            </p>
-          </div>
-        )}
-      </div>
+                  {/* Progress */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Progression</span>
+                      <span className="font-medium">{Math.round(project.progressPercentage || 0)}%</span>
+                    </div>
+                    <Progress value={project.progressPercentage || 0} className="h-2" />
+                    <p className="text-xs text-muted-foreground">
+                      {project.completedTasks || 0} / {project.totalTasks || 0} taches
+                    </p>
+                  </div>
+
+                  {/* Footer stats */}
+                  <div className="flex items-center justify-between pt-2 border-t text-sm text-muted-foreground">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1">
+                        <Users className="h-4 w-4" />
+                        <span>{project.membersCount || 0}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        <span>{formatDuration(project.totalTimeMinutes || 0)}</span>
+                      </div>
+                    </div>
+                    {project.endDate && (
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        <span>{new Date(project.endDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+
+          {projects.length === 0 && (
+            <div className="col-span-full flex flex-col items-center justify-center py-12">
+              <FolderKanban className="h-12 w-12 text-muted-foreground/50 mb-4" />
+              <p className="text-lg font-medium">Aucun projet trouve</p>
+              <p className="text-sm text-muted-foreground">
+                Modifiez votre recherche ou creez un nouveau projet
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

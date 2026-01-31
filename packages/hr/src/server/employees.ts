@@ -137,11 +137,13 @@ export async function getEmployeeById(id: string): Promise<EmployeeWithRelations
       .single()
 
     if (managerData) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mgr = managerData as any
       manager = {
-        id: managerData.id,
-        firstName: managerData.first_name,
-        lastName: managerData.last_name,
-        photoUrl: managerData.photo_url,
+        id: mgr.id,
+        firstName: mgr.first_name,
+        lastName: mgr.last_name,
+        photoUrl: mgr.photo_url,
       }
     }
   }
@@ -195,8 +197,9 @@ export async function createEmployee(
   organizationId: string,
   input: CreateEmployeeInput
 ): Promise<Employee> {
-  const { data, error } = await getSupabaseClient()
-    .from('hr_employees')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (getSupabaseClient()
+    .from('hr_employees') as any)
     .insert({
       organization_id: organizationId,
       first_name: input.firstName,
@@ -286,8 +289,9 @@ export async function updateEmployee(input: UpdateEmployeeInput): Promise<Employ
   if (input.notes !== undefined) updateData.notes = input.notes
   if (input.customFields !== undefined) updateData.custom_fields = input.customFields
 
-  const { data, error } = await getSupabaseClient()
-    .from('hr_employees')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (getSupabaseClient()
+    .from('hr_employees') as any)
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -303,8 +307,9 @@ export async function updateEmployee(input: UpdateEmployeeInput): Promise<Employ
 // ===========================================
 
 export async function deleteEmployee(id: string): Promise<void> {
-  const { error } = await getSupabaseClient()
-    .from('hr_employees')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (getSupabaseClient()
+    .from('hr_employees') as any)
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -316,8 +321,9 @@ export async function deleteEmployee(id: string): Promise<void> {
 // ===========================================
 
 export async function restoreEmployee(id: string): Promise<Employee> {
-  const { data, error } = await getSupabaseClient()
-    .from('hr_employees')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (getSupabaseClient()
+    .from('hr_employees') as any)
     .update({ deleted_at: null })
     .eq('id', id)
     .select()

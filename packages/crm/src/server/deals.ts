@@ -143,8 +143,9 @@ export async function createDeal(
 ): Promise<Deal> {
   const client = getClient()
 
-  const { data, error } = await client
-    .from('crm_deals')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client
+    .from('crm_deals') as any)
     .insert({
       organization_id: organizationId,
       pipeline_id: input.pipelineId,
@@ -213,8 +214,9 @@ export async function updateDeal(input: UpdateDealInput): Promise<Deal> {
     }
   }
 
-  const { data, error } = await client
-    .from('crm_deals')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client
+    .from('crm_deals') as any)
     .update(updateData)
     .eq('id', input.id)
     .select(
@@ -235,8 +237,9 @@ export async function updateDeal(input: UpdateDealInput): Promise<Deal> {
 export async function moveDeal(input: MoveDealInput): Promise<Deal> {
   const client = getClient()
 
-  const { data, error } = await client
-    .from('crm_deals')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client
+    .from('crm_deals') as any)
     .update({ stage_id: input.stageId })
     .eq('id', input.id)
     .select(
@@ -278,8 +281,9 @@ export async function reopenDeal(dealId: string): Promise<Deal> {
 export async function deleteDeal(dealId: string): Promise<void> {
   const client = getClient()
 
-  const { error } = await client
-    .from('crm_deals')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (client
+    .from('crm_deals') as any)
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', dealId)
 

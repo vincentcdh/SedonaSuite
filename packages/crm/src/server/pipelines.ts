@@ -218,15 +218,17 @@ export async function createPipeline(
 
   // If this is set as default, unset other defaults first
   if (input.isDefault) {
-    await client
-      .from('crm_pipelines')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (client
+      .from('crm_pipelines') as any)
       .update({ is_default: false })
       .eq('organization_id', organizationId)
   }
 
   // Create pipeline
-  const { data: pipeline, error: pipelineError } = await client
-    .from('crm_pipelines')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: pipeline, error: pipelineError } = await (client
+    .from('crm_pipelines') as any)
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -251,7 +253,8 @@ export async function createPipeline(
       probability: stage.probability || 0,
     }))
 
-    const { error: stagesError } = await client.from('crm_pipeline_stages').insert(stagesData)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: stagesError } = await (client.from('crm_pipeline_stages') as any).insert(stagesData)
 
     if (stagesError) {
       throw new Error(`Failed to create pipeline stages: ${stagesError.message}`)
@@ -304,8 +307,9 @@ export async function updatePipeline(input: UpdatePipelineInput): Promise<Pipeli
 
       if (current) {
         // Unset other defaults
-        await client
-          .from('crm_pipelines')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (client
+          .from('crm_pipelines') as any)
           .update({ is_default: false })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .eq('organization_id', (current as any)['organization_id'])
@@ -314,7 +318,8 @@ export async function updatePipeline(input: UpdatePipelineInput): Promise<Pipeli
     updateData['is_default'] = input.isDefault
   }
 
-  const { error } = await client.from('crm_pipelines').update(updateData).eq('id', input.id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (client.from('crm_pipelines') as any).update(updateData).eq('id', input.id)
 
   if (error) {
     throw new Error(`Failed to update pipeline: ${error.message}`)
@@ -329,8 +334,9 @@ export async function updatePipeline(input: UpdatePipelineInput): Promise<Pipeli
 export async function deletePipeline(pipelineId: string): Promise<void> {
   const client = getClient()
 
-  const { error } = await client
-    .from('crm_pipelines')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (client
+    .from('crm_pipelines') as any)
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', pipelineId)
 
@@ -352,14 +358,15 @@ export async function createPipelineStage(
 ): Promise<PipelineStage> {
   const client = getClient()
 
-  const { data, error } = await client
-    .from('crm_pipeline_stages')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client
+    .from('crm_pipeline_stages') as any)
     .insert({
       pipeline_id: pipelineId,
       name: input.name,
       color: input.color || '#0c82d6',
       position: input.position,
-      probability: input.probability || 0,
+      win_probability: input.probability || 0,
     })
     .select()
     .single()
@@ -385,8 +392,9 @@ export async function updatePipelineStage(input: UpdatePipelineStageInput): Prom
   if (input.position !== undefined) updateData['position'] = input.position
   if (input.probability !== undefined) updateData['probability'] = input.probability
 
-  const { data, error } = await client
-    .from('crm_pipeline_stages')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client
+    .from('crm_pipeline_stages') as any)
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -435,7 +443,8 @@ export async function reorderPipelineStages(
   // Update positions
   await Promise.all(
     stageIds.map((id, index) =>
-      client.from('crm_pipeline_stages').update({ position: index }).eq('id', id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (client.from('crm_pipeline_stages') as any).update({ position: index }).eq('id', id)
     )
   )
 

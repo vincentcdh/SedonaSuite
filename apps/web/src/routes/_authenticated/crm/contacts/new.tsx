@@ -3,7 +3,7 @@ import { Button, Input, Card, CardContent, CardHeader, CardTitle, Label } from '
 import { ArrowLeft, Save } from 'lucide-react'
 import { useState } from 'react'
 import { useOrganization } from '@/lib/auth'
-import { useCreateContact } from '@sedona/crm'
+import { useCreateContact, type ContactSource } from '@sedona/crm'
 
 export const Route = createFileRoute('/_authenticated/crm/contacts/new')({
   component: NewContactPage,
@@ -30,7 +30,7 @@ function NewContactPage() {
       addressLine1: formData.get('addressLine1') as string || undefined,
       postalCode: formData.get('postalCode') as string || undefined,
       city: formData.get('city') as string || undefined,
-      source: formData.get('source') as string || undefined,
+      source: (formData.get('source') as ContactSource) || undefined,
     }
 
     if (!data.firstName || !data.lastName) {

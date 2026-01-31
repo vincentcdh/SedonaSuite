@@ -19,6 +19,7 @@ import {
   ArrowRight,
   Plus,
   Lock,
+  Loader2,
 } from 'lucide-react'
 import {
   Button,
@@ -37,7 +38,8 @@ import {
 } from '@sedona/ui'
 import { formatCurrency, formatNumber, formatPercentage } from '@sedona/analytics/utils'
 import { getPeriodTypeOptions } from '@sedona/analytics/utils'
-import type { PeriodType } from '@sedona/analytics'
+import { useActiveGoals, type PeriodType } from '@sedona/analytics'
+import { useOrganization } from '@/lib/auth'
 
 export const Route = createFileRoute('/_authenticated/analytics/')({
   component: AnalyticsIndexPage,
@@ -46,7 +48,7 @@ export const Route = createFileRoute('/_authenticated/analytics/')({
 // Simulated PRO status
 const isPro = false
 
-// Mock KPI data
+// Mock KPI data (these would ideally come from computed aggregations)
 const mockKPIs = [
   {
     id: '1',
@@ -86,34 +88,6 @@ const mockKPIs = [
   },
 ]
 
-// Mock goals
-const mockGoals = [
-  {
-    id: '1',
-    name: 'CA mensuel',
-    current: 45680,
-    target: 60000,
-    unit: 'EUR',
-    daysRemaining: 12,
-  },
-  {
-    id: '2',
-    name: 'Nouveaux contacts',
-    current: 67,
-    target: 100,
-    unit: '',
-    daysRemaining: 12,
-  },
-  {
-    id: '3',
-    name: 'Taux de conversion',
-    current: 24,
-    target: 30,
-    unit: '%',
-    daysRemaining: 12,
-  },
-]
-
 // Mock recent activity for chart
 const mockChartData = [
   { label: 'Lun', value: 12 },
@@ -148,8 +122,14 @@ function getTrend(current: number, previous: number): { icon: typeof TrendingUp;
 }
 
 function AnalyticsIndexPage() {
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
+
   const [period, setPeriod] = useState<PeriodType>('month')
   const periodOptions = getPeriodTypeOptions()
+
+  // Fetch goals from Supabase
+  const { data: goals = [], isLoading: goalsLoading } = useActiveGoals(organizationId)
 
   return (
     <div className="p-6 space-y-6">
@@ -261,11 +241,16 @@ function AnalyticsIndexPage() {
             </Link>
           </CardHeader>
           <CardContent className="space-y-4">
-            {mockGoals.map((goal) => {
-              const percent = Math.min(100, (goal.current / goal.target) * 100)
-              const isOnTrack = percent >= ((30 - goal.daysRemaining) / 30) * 100
-
-              return (
+            {goalsLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : goals.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Aucun objectif actif
+              </p>
+            ) : (
+              goals.slice(0, 3).map((goal) => (
                 <div key={goal.id} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{goal.name}</span>
@@ -273,18 +258,18 @@ function AnalyticsIndexPage() {
                       {goal.daysRemaining}j restants
                     </span>
                   </div>
-                  <Progress value={percent} className="h-2" />
+                  <Progress value={goal.percentComplete} className="h-2" />
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">
-                      {goal.current}{goal.unit} / {goal.target}{goal.unit}
+                      {formatNumber(goal.currentValue)} / {formatNumber(goal.targetValue)}
                     </span>
-                    <Badge variant={isOnTrack ? 'default' : 'destructive'} className="text-xs">
-                      {isOnTrack ? 'En bonne voie' : 'En retard'}
+                    <Badge variant={goal.onTrack ? 'default' : 'destructive'} className="text-xs">
+                      {goal.onTrack ? 'En bonne voie' : 'En retard'}
                     </Badge>
                   </div>
                 </div>
-              )
-            })}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

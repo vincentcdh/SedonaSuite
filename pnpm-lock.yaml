@@ -53,6 +53,9 @@ importers:
       '@sedona/hr':
         specifier: workspace:*
         version: link:../../packages/hr
+      '@sedona/invoice':
+        specifier: workspace:^
+        version: link:../../packages/invoice
       '@sedona/projects':
         specifier: workspace:*
         version: link:../../packages/projects

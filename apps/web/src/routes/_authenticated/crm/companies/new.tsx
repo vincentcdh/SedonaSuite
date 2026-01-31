@@ -3,7 +3,7 @@ import { Button, Input, Card, CardContent, CardHeader, CardTitle, Label } from '
 import { ArrowLeft, Save } from 'lucide-react'
 import { useState } from 'react'
 import { useOrganization } from '@/lib/auth'
-import { useCreateCompany } from '@sedona/crm'
+import { useCreateCompany, type CompanySize } from '@sedona/crm'
 
 export const Route = createFileRoute('/_authenticated/crm/companies/new')({
   component: NewCompanyPage,
@@ -26,7 +26,7 @@ function NewCompanyPage() {
       siret: formData.get('siret') as string || undefined,
       website: formData.get('website') as string || undefined,
       industry: formData.get('industry') as string || undefined,
-      size: formData.get('size') as string || undefined,
+      size: (formData.get('size') as CompanySize) || undefined,
       phone: formData.get('phone') as string || undefined,
       email: formData.get('email') as string || undefined,
       addressLine1: formData.get('addressLine1') as string || undefined,

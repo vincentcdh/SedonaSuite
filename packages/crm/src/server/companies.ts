@@ -152,8 +152,9 @@ export async function createCompany(
 ): Promise<Company> {
   const client = getClient()
 
-  const { data, error } = await client
-    .from('crm_companies')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client
+    .from('crm_companies') as any)
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -203,8 +204,9 @@ export async function updateCompany(input: UpdateCompanyInput): Promise<Company>
   if (input.email !== undefined) updateData['email'] = input.email
   if (input.customFields !== undefined) updateData['custom_fields'] = input.customFields
 
-  const { data, error } = await client
-    .from('crm_companies')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client
+    .from('crm_companies') as any)
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -223,8 +225,9 @@ export async function updateCompany(input: UpdateCompanyInput): Promise<Company>
 export async function deleteCompany(companyId: string): Promise<void> {
   const client = getClient()
 
-  const { error } = await client
-    .from('crm_companies')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (client
+    .from('crm_companies') as any)
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', companyId)
 

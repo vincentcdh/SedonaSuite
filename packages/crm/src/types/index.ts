@@ -375,6 +375,7 @@ export interface ActivityFilters {
   completed?: boolean
   dueBefore?: string
   dueAfter?: string
+  search?: string
 }
 
 // ===========================================

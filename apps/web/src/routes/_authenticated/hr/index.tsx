@@ -14,6 +14,7 @@ import {
   Mail,
   Phone,
   Briefcase,
+  Loader2,
 } from 'lucide-react'
 import {
   Button,
@@ -35,90 +36,12 @@ import {
   SelectValue,
   cn,
 } from '@sedona/ui'
-import type { EmployeeStatus, ContractType } from '@sedona/hr'
+import { useEmployees, useDepartments, type EmployeeStatus, type ContractType } from '@sedona/hr'
+import { useOrganization } from '@/lib/auth'
 
 export const Route = createFileRoute('/_authenticated/hr/')({
   component: EmployeesListPage,
 })
-
-// Mock employees data
-const mockEmployees = [
-  {
-    id: '1',
-    firstName: 'Alice',
-    lastName: 'Martin',
-    email: 'alice.martin@company.com',
-    phone: '+33 6 12 34 56 78',
-    photoUrl: null,
-    employeeNumber: 'EMP-00001',
-    jobTitle: 'Developpeur Senior',
-    department: 'Technique',
-    status: 'active' as EmployeeStatus,
-    contractType: 'cdi' as ContractType,
-    contractStartDate: '2022-01-15',
-    manager: { id: '3', firstName: 'Pierre', lastName: 'Durand' },
-  },
-  {
-    id: '2',
-    firstName: 'Bob',
-    lastName: 'Dupont',
-    email: 'bob.dupont@company.com',
-    phone: '+33 6 23 45 67 89',
-    photoUrl: null,
-    employeeNumber: 'EMP-00002',
-    jobTitle: 'Designer UI/UX',
-    department: 'Design',
-    status: 'trial_period' as EmployeeStatus,
-    contractType: 'cdi' as ContractType,
-    contractStartDate: '2024-01-08',
-    manager: null,
-  },
-  {
-    id: '3',
-    firstName: 'Pierre',
-    lastName: 'Durand',
-    email: 'pierre.durand@company.com',
-    phone: '+33 6 34 56 78 90',
-    photoUrl: null,
-    employeeNumber: 'EMP-00003',
-    jobTitle: 'Directeur Technique',
-    department: 'Technique',
-    status: 'active' as EmployeeStatus,
-    contractType: 'cdi' as ContractType,
-    contractStartDate: '2020-03-01',
-    manager: null,
-  },
-  {
-    id: '4',
-    firstName: 'Marie',
-    lastName: 'Bernard',
-    email: 'marie.bernard@company.com',
-    phone: '+33 6 45 67 89 01',
-    photoUrl: null,
-    employeeNumber: 'EMP-00004',
-    jobTitle: 'Stagiaire RH',
-    department: 'Ressources Humaines',
-    status: 'active' as EmployeeStatus,
-    contractType: 'stage' as ContractType,
-    contractStartDate: '2024-02-01',
-    manager: null,
-  },
-  {
-    id: '5',
-    firstName: 'Lucas',
-    lastName: 'Petit',
-    email: 'lucas.petit@company.com',
-    phone: '+33 6 56 78 90 12',
-    photoUrl: null,
-    employeeNumber: 'EMP-00005',
-    jobTitle: 'Commercial',
-    department: 'Ventes',
-    status: 'notice_period' as EmployeeStatus,
-    contractType: 'cdi' as ContractType,
-    contractStartDate: '2021-09-01',
-    manager: null,
-  },
-]
 
 const statusConfig: Record<EmployeeStatus, { label: string; className: string }> = {
   active: { label: 'Actif', className: 'bg-green-100 text-green-700' },
@@ -137,22 +60,33 @@ const contractTypeConfig: Record<ContractType, { label: string; className: strin
 }
 
 function EmployeesListPage() {
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
+
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [departmentFilter, setDepartmentFilter] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
 
-  const departments = [...new Set(mockEmployees.map(e => e.department))]
+  // Fetch employees from Supabase (returns PaginatedResult)
+  const { data: employeesResult, isLoading, error } = useEmployees(organizationId)
+  const employees = employeesResult?.data || []
 
-  const filteredEmployees = mockEmployees.filter(employee => {
+  // Fetch departments from Supabase
+  const { data: departmentsData = [] } = useDepartments(organizationId)
+  const departments = departmentsData.length > 0
+    ? departmentsData
+    : [...new Set(employees.map(e => e.department).filter(Boolean))]
+
+  const filteredEmployees = employees.filter(employee => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       if (
         !employee.firstName.toLowerCase().includes(query) &&
         !employee.lastName.toLowerCase().includes(query) &&
-        !employee.email.toLowerCase().includes(query) &&
-        !employee.employeeNumber.toLowerCase().includes(query) &&
-        !employee.jobTitle.toLowerCase().includes(query)
+        !(employee.email?.toLowerCase().includes(query)) &&
+        !(employee.employeeNumber?.toLowerCase().includes(query)) &&
+        !(employee.jobTitle?.toLowerCase().includes(query))
       ) {
         return false
       }
@@ -168,6 +102,27 @@ function EmployeesListPage() {
 
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0]}${lastName[0]}`.toUpperCase()
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="p-6">
+        <Card className="p-8 text-center">
+          <p className="text-destructive">Erreur lors du chargement des employes</p>
+          <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -281,14 +236,18 @@ function EmployeesListPage() {
                       {employee.firstName} {employee.lastName}
                     </Link>
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Briefcase className="h-3 w-3" />
-                        {employee.jobTitle}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Mail className="h-3 w-3" />
-                        {employee.email}
-                      </span>
+                      {employee.jobTitle && (
+                        <span className="flex items-center gap-1">
+                          <Briefcase className="h-3 w-3" />
+                          {employee.jobTitle}
+                        </span>
+                      )}
+                      {employee.email && (
+                        <span className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          {employee.email}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -304,9 +263,13 @@ function EmployeesListPage() {
                 </div>
 
                 <div className="w-20 flex justify-center">
-                  <Badge className={contractTypeConfig[employee.contractType].className}>
-                    {contractTypeConfig[employee.contractType].label}
-                  </Badge>
+                  {employee.contractType && contractTypeConfig[employee.contractType] ? (
+                    <Badge className={contractTypeConfig[employee.contractType].className}>
+                      {contractTypeConfig[employee.contractType].label}
+                    </Badge>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">-</span>
+                  )}
                 </div>
 
                 <div className="w-10">
@@ -378,30 +341,38 @@ function EmployeesListPage() {
                     {employee.firstName} {employee.lastName}
                   </h3>
                 </Link>
-                <p className="text-sm text-muted-foreground mb-3">{employee.jobTitle}</p>
+                <p className="text-sm text-muted-foreground mb-3">{employee.jobTitle || '-'}</p>
 
                 <div className="flex items-center gap-2 mb-3">
                   <Badge className={statusConfig[employee.status].className}>
                     {statusConfig[employee.status].label}
                   </Badge>
-                  <Badge className={contractTypeConfig[employee.contractType].className}>
-                    {contractTypeConfig[employee.contractType].label}
-                  </Badge>
+                  {employee.contractType && contractTypeConfig[employee.contractType] && (
+                    <Badge className={contractTypeConfig[employee.contractType].className}>
+                      {contractTypeConfig[employee.contractType].label}
+                    </Badge>
+                  )}
                 </div>
 
                 <div className="space-y-1 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="h-3 w-3" />
-                    {employee.department}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-3 w-3" />
-                    <span className="truncate">{employee.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-3 w-3" />
-                    {employee.phone}
-                  </div>
+                  {employee.department && (
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-3 w-3" />
+                      {employee.department}
+                    </div>
+                  )}
+                  {employee.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-3 w-3" />
+                      <span className="truncate">{employee.email}</span>
+                    </div>
+                  )}
+                  {employee.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-3 w-3" />
+                      {employee.phone}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
