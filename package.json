@@ -27,7 +27,8 @@
     "db:reset": "pnpm --filter @sedona/database exec supabase db reset",
     "db:types": "pnpm --filter @sedona/database exec supabase gen types typescript --local > packages/database/src/types/database.ts",
     "db:studio": "pnpm --filter @sedona/database exec supabase studio",
-    "prepare": "husky"
+    "prepare": "husky",
+    "postinstall": "node scripts/check-env.js"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
