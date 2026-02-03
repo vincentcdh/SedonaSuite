@@ -107,3 +107,19 @@ export {
   useIncrementKbArticleViewCount,
   useRecordKbArticleFeedback,
 } from './use-kb-articles'
+
+// Organization Members
+export {
+  organizationMemberKeys,
+  useOrganizationMembers,
+} from './use-organization-members'
+
+// KB Categories
+export {
+  kbCategoryKeys,
+  useKbCategories,
+  useKbCategory,
+  useCreateKbCategory,
+  useUpdateKbCategory,
+  useDeleteKbCategory,
+} from './use-kb-categories'

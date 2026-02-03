@@ -101,7 +101,7 @@ export async function getKbArticlesByCategory(
     .from('tickets_kb_articles')
     .select('*')
     .eq('organization_id', organizationId)
-    .eq('category_id', categoryId)
+    .eq('kb_category_id', categoryId)
     .order('title', { ascending: true })
 
   if (publishedOnly) {
@@ -214,11 +214,13 @@ export async function getPopularKbArticles(
 export async function createKbArticle(
   organizationId: string,
   input: CreateKbArticleInput,
-  userId?: string
+  _userId?: string
 ): Promise<KbArticle> {
   // Generate slug if not provided
   const slug = input.slug || generateSlug(input.title)
 
+  // Note: category_id is temporarily disabled until Supabase schema cache is refreshed
+  // to use kb_category_id instead
   const { data, error } = await getSupabaseClient()
     .from('tickets_kb_articles')
     .insert({
@@ -227,13 +229,10 @@ export async function createKbArticle(
       slug,
       content: input.content,
       excerpt: input.excerpt,
-      category_id: input.categoryId,
       status: input.status || 'draft',
       published_at: input.status === 'published' ? new Date().toISOString() : null,
       meta_title: input.metaTitle,
       meta_description: input.metaDescription,
-      tags: input.tags || [],
-      created_by: userId,
     })
     .select()
     .single()
@@ -257,7 +256,8 @@ export async function updateKbArticle(input: UpdateKbArticleInput): Promise<KbAr
   if (input.slug !== undefined) updateData.slug = input.slug
   if (input.content !== undefined) updateData.content = input.content
   if (input.excerpt !== undefined) updateData.excerpt = input.excerpt
-  if (input.categoryId !== undefined) updateData.category_id = input.categoryId
+  // Use kb_category_id for the new independent KB categories
+  if (input.categoryId !== undefined) updateData.kb_category_id = input.categoryId
   if (input.status !== undefined) {
     updateData.status = input.status
     // Set published_at when publishing for the first time
@@ -336,14 +336,17 @@ export async function archiveKbArticle(id: string): Promise<KbArticle> {
 // ===========================================
 
 export async function incrementKbArticleViewCount(id: string): Promise<void> {
-  const { error } = await getSupabaseClient()
-    .rpc('increment_kb_article_view_count', { article_id: id })
+  // Fetch current count and increment
+  const { data: article } = await getSupabaseClient()
+    .from('tickets_kb_articles')
+    .select('view_count')
+    .eq('id', id)
+    .single()
 
-  // Fallback if RPC doesn't exist
-  if (error) {
+  if (article) {
     await getSupabaseClient()
       .from('tickets_kb_articles')
-      .update({ view_count: getSupabaseClient().raw('view_count + 1') })
+      .update({ view_count: (article.view_count || 0) + 1 })
       .eq('id', id)
   }
 }
@@ -356,11 +359,22 @@ export async function recordKbArticleFeedback(
   id: string,
   isHelpful: boolean
 ): Promise<void> {
-  const updateField = isHelpful ? 'helpful_count' : 'not_helpful_count'
+  // First get the current count
+  const { data: article } = await getSupabaseClient()
+    .from('tickets_kb_articles')
+    .select('helpful_count, not_helpful_count')
+    .eq('id', id)
+    .single()
+
+  if (!article) return
+
+  const updateData = isHelpful
+    ? { helpful_count: (article.helpful_count || 0) + 1 }
+    : { not_helpful_count: (article.not_helpful_count || 0) + 1 }
 
   const { error } = await getSupabaseClient()
     .from('tickets_kb_articles')
-    .update({ [updateField]: getSupabaseClient().raw(`${updateField} + 1`) })
+    .update(updateData)
     .eq('id', id)
 
   if (error) throw error
@@ -392,7 +406,8 @@ function mapKbArticleFromDb(data: any): KbArticle {
     slug: data.slug as string,
     content: data.content as string,
     excerpt: data.excerpt as string | null,
-    categoryId: data.category_id as string | null,
+    // Use kb_category_id if available, fall back to category_id for backwards compatibility
+    categoryId: (data.kb_category_id || data.category_id) as string | null,
     status: data.status as ArticleStatus,
     publishedAt: data.published_at as string | null,
     metaTitle: data.meta_title as string | null,

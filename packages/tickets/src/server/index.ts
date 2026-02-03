@@ -106,3 +106,23 @@ export {
   incrementKbArticleViewCount,
   recordKbArticleFeedback,
 } from './kb-articles'
+
+// Organization Members
+export {
+  getOrganizationMembers,
+  type OrganizationMember,
+} from './organization-members'
+
+// KB Categories
+export {
+  getKbCategories,
+  getAllKbCategories,
+  getKbCategoryById,
+  createKbCategory,
+  updateKbCategory,
+  deleteKbCategory,
+  reorderKbCategories,
+  type KbCategory,
+  type CreateKbCategoryInput,
+  type UpdateKbCategoryInput,
+} from './kb-categories'

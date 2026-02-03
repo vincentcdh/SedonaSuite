@@ -184,7 +184,8 @@ export function useDeleteKbArticle(organizationId: string) {
   return useMutation({
     mutationFn: (id: string) => deleteKbArticle(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: kbArticleKeys.list(organizationId) })
+      // Invalidate all kb-articles queries to ensure list is refreshed
+      queryClient.invalidateQueries({ queryKey: kbArticleKeys.all })
     },
   })
 }
@@ -199,8 +200,8 @@ export function usePublishKbArticle() {
   return useMutation({
     mutationFn: (id: string) => publishKbArticle(id),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: kbArticleKeys.lists() })
-      queryClient.invalidateQueries({ queryKey: kbArticleKeys.detail(data.id) })
+      // Invalidate all kb-articles queries to ensure list is refreshed
+      queryClient.invalidateQueries({ queryKey: kbArticleKeys.all })
     },
   })
 }
@@ -215,8 +216,8 @@ export function useArchiveKbArticle() {
   return useMutation({
     mutationFn: (id: string) => archiveKbArticle(id),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: kbArticleKeys.lists() })
-      queryClient.invalidateQueries({ queryKey: kbArticleKeys.detail(data.id) })
+      // Invalidate all kb-articles queries to ensure list is refreshed
+      queryClient.invalidateQueries({ queryKey: kbArticleKeys.all })
     },
   })
 }
