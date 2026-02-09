@@ -197,46 +197,61 @@ export async function createEmployee(
   organizationId: string,
   input: CreateEmployeeInput
 ): Promise<Employee> {
+  // Build insert data dynamically - only include fields that have values
+  const insertData: Record<string, unknown> = {
+    organization_id: organizationId,
+    first_name: input.firstName,
+    last_name: input.lastName,
+    status: input.status || 'active',
+  }
+
+  // Personal info
+  if (input.email) insertData['email'] = input.email
+  if (input.phone) insertData['phone'] = input.phone
+  if (input.birthDate) insertData['birth_date'] = input.birthDate
+  if (input.birthPlace) insertData['birth_place'] = input.birthPlace
+  if (input.nationality) insertData['nationality'] = input.nationality
+  if (input.socialSecurityNumber) insertData['social_security_number'] = input.socialSecurityNumber
+  if (input.photoUrl) insertData['photo_url'] = input.photoUrl
+
+  // Address
+  if (input.addressLine1) insertData['address_line1'] = input.addressLine1
+  if (input.addressLine2) insertData['address_line2'] = input.addressLine2
+  if (input.city) insertData['city'] = input.city
+  if (input.postalCode) insertData['postal_code'] = input.postalCode
+  if (input.country) insertData['country'] = input.country
+
+  // Emergency contact
+  if (input.emergencyContactName) insertData['emergency_contact_name'] = input.emergencyContactName
+  if (input.emergencyContactPhone) insertData['emergency_contact_phone'] = input.emergencyContactPhone
+  if (input.emergencyContactRelation) insertData['emergency_contact_relation'] = input.emergencyContactRelation
+
+  // Professional info
+  if (input.employeeNumber) insertData['employee_number'] = input.employeeNumber
+  if (input.jobTitle) insertData['job_title'] = input.jobTitle
+  if (input.department) insertData['department'] = input.department
+  if (input.managerId) insertData['manager_id'] = input.managerId
+  if (input.workEmail) insertData['work_email'] = input.workEmail
+  if (input.workPhone) insertData['work_phone'] = input.workPhone
+
+  // Contract
+  if (input.contractType) insertData['contract_type'] = input.contractType
+  if (input.contractStartDate) insertData['contract_start_date'] = input.contractStartDate
+  if (input.contractEndDate) insertData['contract_end_date'] = input.contractEndDate
+  if (input.trialEndDate) insertData['trial_end_date'] = input.trialEndDate
+
+  // Salary
+  if (input.grossSalary) insertData['gross_salary'] = input.grossSalary
+  if (input.salaryCurrency) insertData['salary_currency'] = input.salaryCurrency
+
+  // Notes
+  if (input.notes) insertData['notes'] = input.notes
+  if (input.customFields) insertData['custom_fields'] = input.customFields
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (getSupabaseClient()
     .from('hr_employees') as any)
-    .insert({
-      organization_id: organizationId,
-      first_name: input.firstName,
-      last_name: input.lastName,
-      email: input.email,
-      phone: input.phone,
-      birth_date: input.birthDate,
-      birth_place: input.birthPlace,
-      nationality: input.nationality,
-      social_security_number: input.socialSecurityNumber,
-      photo_url: input.photoUrl,
-      address_line1: input.addressLine1,
-      address_line2: input.addressLine2,
-      city: input.city,
-      postal_code: input.postalCode,
-      country: input.country,
-      emergency_contact_name: input.emergencyContactName,
-      emergency_contact_phone: input.emergencyContactPhone,
-      emergency_contact_relation: input.emergencyContactRelation,
-      employee_number: input.employeeNumber,
-      job_title: input.jobTitle,
-      department: input.department,
-      manager_id: input.managerId,
-      work_email: input.workEmail,
-      work_phone: input.workPhone,
-      contract_type: input.contractType,
-      contract_start_date: input.contractStartDate,
-      contract_end_date: input.contractEndDate,
-      trial_end_date: input.trialEndDate,
-      gross_salary: input.grossSalary,
-      salary_currency: input.salaryCurrency || 'EUR',
-      annual_leave_balance: input.annualLeaveBalance || 0,
-      rtt_balance: input.rttBalance || 0,
-      status: input.status || 'active',
-      notes: input.notes,
-      custom_fields: input.customFields || {},
-    })
+    .insert(insertData)
     .select()
     .single()
 
@@ -281,8 +296,6 @@ export async function updateEmployee(input: UpdateEmployeeInput): Promise<Employ
   if (input.trialEndDate !== undefined) updateData.trial_end_date = input.trialEndDate
   if (input.grossSalary !== undefined) updateData.gross_salary = input.grossSalary
   if (input.salaryCurrency !== undefined) updateData.salary_currency = input.salaryCurrency
-  if (input.annualLeaveBalance !== undefined) updateData.annual_leave_balance = input.annualLeaveBalance
-  if (input.rttBalance !== undefined) updateData.rtt_balance = input.rttBalance
   if (input.status !== undefined) updateData.status = input.status
   if (input.leftDate !== undefined) updateData.left_date = input.leftDate
   if (input.leftReason !== undefined) updateData.left_reason = input.leftReason
@@ -373,49 +386,50 @@ export async function getEmployeeCount(organizationId: string): Promise<number> 
 // ===========================================
 
 function mapEmployeeFromDb(data: any): Employee {
+  // Map only the columns that exist, with safe defaults for missing ones
   return {
     id: data.id as string,
     organizationId: data.organization_id as string,
-    userId: data.user_id as string | null,
+    userId: (data.user_id as string) || null,
     firstName: data.first_name as string,
     lastName: data.last_name as string,
-    email: data.email as string | null,
-    phone: data.phone as string | null,
-    birthDate: data.birth_date as string | null,
-    birthPlace: data.birth_place as string | null,
-    nationality: data.nationality as string | null,
-    socialSecurityNumber: data.social_security_number as string | null,
-    photoUrl: data.photo_url as string | null,
-    addressLine1: data.address_line1 as string | null,
-    addressLine2: data.address_line2 as string | null,
-    city: data.city as string | null,
-    postalCode: data.postal_code as string | null,
-    country: data.country as string | null,
-    emergencyContactName: data.emergency_contact_name as string | null,
-    emergencyContactPhone: data.emergency_contact_phone as string | null,
-    emergencyContactRelation: data.emergency_contact_relation as string | null,
-    employeeNumber: data.employee_number as string | null,
-    jobTitle: data.job_title as string | null,
-    department: data.department as string | null,
-    managerId: data.manager_id as string | null,
-    workEmail: data.work_email as string | null,
-    workPhone: data.work_phone as string | null,
-    contractType: data.contract_type as Employee['contractType'],
-    contractStartDate: data.contract_start_date as string | null,
-    contractEndDate: data.contract_end_date as string | null,
-    trialEndDate: data.trial_end_date as string | null,
-    grossSalary: data.gross_salary as number | null,
+    email: (data.email as string) || null,
+    phone: (data.phone as string) || null,
+    birthDate: (data.birth_date as string) || null,
+    birthPlace: (data.birth_place as string) || null,
+    nationality: (data.nationality as string) || null,
+    socialSecurityNumber: (data.social_security_number as string) || null,
+    photoUrl: (data.photo_url as string) || null,
+    addressLine1: (data.address_line1 as string) || null,
+    addressLine2: (data.address_line2 as string) || null,
+    city: (data.city as string) || null,
+    postalCode: (data.postal_code as string) || null,
+    country: (data.country as string) || null,
+    emergencyContactName: (data.emergency_contact_name as string) || null,
+    emergencyContactPhone: (data.emergency_contact_phone as string) || null,
+    emergencyContactRelation: (data.emergency_contact_relation as string) || null,
+    employeeNumber: (data.employee_number as string) || null,
+    jobTitle: (data.job_title as string) || null,
+    department: (data.department as string) || null,
+    managerId: (data.manager_id as string) || null,
+    workEmail: (data.work_email as string) || null,
+    workPhone: (data.work_phone as string) || null,
+    contractType: (data.contract_type as Employee['contractType']) || null,
+    contractStartDate: (data.contract_start_date as string) || null,
+    contractEndDate: (data.contract_end_date as string) || null,
+    trialEndDate: (data.trial_end_date as string) || null,
+    grossSalary: (data.gross_salary as number) || null,
     salaryCurrency: (data.salary_currency as string) || 'EUR',
-    annualLeaveBalance: (data.annual_leave_balance as number) || 0,
-    rttBalance: (data.rtt_balance as number) || 0,
+    annualLeaveBalance: 0,
+    rttBalance: 0,
     status: (data.status as Employee['status']) || 'active',
-    leftDate: data.left_date as string | null,
-    leftReason: data.left_reason as string | null,
-    notes: data.notes as string | null,
+    leftDate: (data.left_date as string) || null,
+    leftReason: (data.left_reason as string) || null,
+    notes: (data.notes as string) || null,
     customFields: (data.custom_fields as Record<string, unknown>) || {},
     createdAt: data.created_at as string,
     updatedAt: data.updated_at as string,
-    deletedAt: data.deleted_at as string | null,
+    deletedAt: (data.deleted_at as string) || null,
   }
 }
 

@@ -184,25 +184,28 @@ export async function createTicket(
   input: CreateTicketInput,
   userId?: string
 ): Promise<Ticket> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
+    organization_id: organizationId,
+    subject: input.subject,
+    description: input.description,
+    priority: input.priority || 'normal',
+    category_id: input.categoryId,
+    assigned_to: input.assignedTo,
+    source: input.source || 'web',
+    requester_name: input.requesterName,
+    requester_email: input.requesterEmail,
+    requester_phone: input.requesterPhone,
+    contact_id: input.contactId,
+    company_id: input.companyId,
+    tags: input.tags || [],
+    custom_fields: input.customFields || {},
+    created_by: userId,
+  }
+
   const { data, error } = await getSupabaseClient()
     .from('tickets_tickets')
-    .insert({
-      organization_id: organizationId,
-      subject: input.subject,
-      description: input.description,
-      priority: input.priority || 'normal',
-      category_id: input.categoryId,
-      assigned_to: input.assignedTo,
-      source: input.source || 'web',
-      requester_name: input.requesterName,
-      requester_email: input.requesterEmail,
-      requester_phone: input.requesterPhone,
-      contact_id: input.contactId,
-      company_id: input.companyId,
-      tags: input.tags || [],
-      custom_fields: input.customFields || {},
-      created_by: userId,
-    })
+    .insert(insertData)
     .select()
     .single()
 

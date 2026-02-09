@@ -40,48 +40,12 @@ import {
   DropdownMenuTrigger,
   Separator,
 } from '@sedona/ui'
-import type { EmployeeStatus, ContractType } from '@sedona/hr'
+import { useEmployee, type EmployeeStatus, type ContractType } from '@sedona/hr'
+import { Loader2 } from 'lucide-react'
 
 export const Route = createFileRoute('/_authenticated/hr/employees/$employeeId')({
   component: EmployeeDetailPage,
 })
-
-// Mock employee data
-const mockEmployee = {
-  id: '1',
-  firstName: 'Alice',
-  lastName: 'Martin',
-  email: 'alice.personal@gmail.com',
-  phone: '+33 6 12 34 56 78',
-  photoUrl: null,
-  employeeNumber: 'EMP-00001',
-  jobTitle: 'Developpeur Senior',
-  department: 'Technique',
-  status: 'active' as EmployeeStatus,
-  contractType: 'cdi' as ContractType,
-  contractStartDate: '2022-01-15',
-  birthDate: '1990-05-20',
-  birthPlace: 'Paris',
-  nationality: 'Francaise',
-  socialSecurityNumber: '2 90 05 75 XXX XXX XX',
-  addressLine1: '15 rue de la Paix',
-  addressLine2: 'Apt 3B',
-  city: 'Paris',
-  postalCode: '75001',
-  country: 'France',
-  emergencyContactName: 'Jean Martin',
-  emergencyContactPhone: '+33 6 98 76 54 32',
-  emergencyContactRelation: 'Epoux',
-  workEmail: 'alice.martin@company.com',
-  workPhone: '+33 1 23 45 67 89',
-  grossSalary: 4500,
-  salaryCurrency: 'EUR',
-  annualLeaveBalance: 18.5,
-  rttBalance: 8,
-  trialEndDate: '2022-04-15',
-  manager: { id: '3', firstName: 'Pierre', lastName: 'Durand', photoUrl: null },
-  createdAt: '2022-01-10T10:00:00Z',
-}
 
 const mockContracts = [
   {
@@ -148,7 +112,30 @@ function EmployeeDetailPage() {
   const { employeeId } = Route.useParams()
   const [activeTab, setActiveTab] = useState('info')
 
-  const employee = mockEmployee // TODO: Use useEmployee hook
+  const { data: employee, isLoading, error } = useEmployee(employeeId)
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (error || !employee) {
+    return (
+      <div className="p-6">
+        <Card className="p-8 text-center">
+          <p className="text-destructive">Employe non trouve</p>
+          <Link to="/hr">
+            <Button variant="outline" className="mt-4">
+              Retour a la liste
+            </Button>
+          </Link>
+        </Card>
+      </div>
+    )
+  }
 
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0]}${lastName[0]}`.toUpperCase()
@@ -169,11 +156,15 @@ function EmployeeDetailPage() {
     }).format(amount)
   }
 
-  // Calculate tenure
-  const startDate = new Date(employee.contractStartDate)
-  const now = new Date()
-  const tenureYears = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365))
-  const tenureMonths = Math.floor(((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30)) % 12)
+  // Calculate tenure (only if contractStartDate exists)
+  let tenureYears = 0
+  let tenureMonths = 0
+  if (employee.contractStartDate) {
+    const startDate = new Date(employee.contractStartDate)
+    const now = new Date()
+    tenureYears = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365))
+    tenureMonths = Math.floor(((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30)) % 12)
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -196,23 +187,31 @@ function EmployeeDetailPage() {
               <h1 className="text-2xl font-bold">
                 {employee.firstName} {employee.lastName}
               </h1>
-              <Badge className={statusConfig[employee.status].className}>
-                {statusConfig[employee.status].label}
+              <Badge className={statusConfig[employee.status]?.className || 'bg-gray-100 text-gray-700'}>
+                {statusConfig[employee.status]?.label || employee.status}
               </Badge>
-              <Badge className={contractTypeConfig[employee.contractType].className}>
-                {contractTypeConfig[employee.contractType].label}
-              </Badge>
+              {employee.contractType && contractTypeConfig[employee.contractType] && (
+                <Badge className={contractTypeConfig[employee.contractType].className}>
+                  {contractTypeConfig[employee.contractType].label}
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-4 mt-1 text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Briefcase className="h-4 w-4" />
-                {employee.jobTitle}
-              </span>
-              <span className="flex items-center gap-1">
-                <Building className="h-4 w-4" />
-                {employee.department}
-              </span>
-              <span className="text-sm">#{employee.employeeNumber}</span>
+              {employee.jobTitle && (
+                <span className="flex items-center gap-1">
+                  <Briefcase className="h-4 w-4" />
+                  {employee.jobTitle}
+                </span>
+              )}
+              {employee.department && (
+                <span className="flex items-center gap-1">
+                  <Building className="h-4 w-4" />
+                  {employee.department}
+                </span>
+              )}
+              {employee.employeeNumber && (
+                <span className="text-sm">#{employee.employeeNumber}</span>
+              )}
             </div>
           </div>
         </div>
@@ -323,19 +322,19 @@ function EmployeeDetailPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Date de naissance</p>
-                    <p className="font-medium">{formatDate(employee.birthDate)}</p>
+                    <p className="font-medium">{employee.birthDate ? formatDate(employee.birthDate) : '-'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Lieu de naissance</p>
-                    <p className="font-medium">{employee.birthPlace}</p>
+                    <p className="font-medium">{employee.birthPlace || '-'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Nationalite</p>
-                    <p className="font-medium">{employee.nationality}</p>
+                    <p className="font-medium">{employee.nationality || '-'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">N° Securite sociale</p>
-                    <p className="font-medium">{employee.socialSecurityNumber}</p>
+                    <p className="font-medium">{employee.socialSecurityNumber || '-'}</p>
                   </div>
                 </div>
 
@@ -344,45 +343,60 @@ function EmployeeDetailPage() {
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Contact personnel</p>
                   <div className="space-y-2">
-                    <p className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      {employee.email}
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      {employee.phone}
-                    </p>
+                    {employee.email && (
+                      <p className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        {employee.email}
+                      </p>
+                    )}
+                    {employee.phone && (
+                      <p className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        {employee.phone}
+                      </p>
+                    )}
+                    {!employee.email && !employee.phone && (
+                      <p className="text-muted-foreground">-</p>
+                    )}
                   </div>
                 </div>
 
-                <Separator />
+                {(employee.addressLine1 || employee.city) && (
+                  <>
+                    <Separator />
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Adresse</p>
+                      <p className="flex items-start gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                        <span>
+                          {employee.addressLine1 || ''}
+                          {employee.addressLine2 && <>, {employee.addressLine2}</>}
+                          {(employee.postalCode || employee.city) && <br />}
+                          {employee.postalCode} {employee.city}{employee.country && `, ${employee.country}`}
+                        </span>
+                      </p>
+                    </div>
+                  </>
+                )}
 
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Adresse</p>
-                  <p className="flex items-start gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                    <span>
-                      {employee.addressLine1}
-                      {employee.addressLine2 && <>, {employee.addressLine2}</>}
-                      <br />
-                      {employee.postalCode} {employee.city}, {employee.country}
-                    </span>
-                  </p>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Contact d'urgence</p>
-                  <div className="space-y-1">
-                    <p className="font-medium">{employee.emergencyContactName}</p>
-                    <p className="text-sm text-muted-foreground">{employee.emergencyContactRelation}</p>
-                    <p className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      {employee.emergencyContactPhone}
-                    </p>
-                  </div>
-                </div>
+                {(employee.emergencyContactName || employee.emergencyContactPhone) && (
+                  <>
+                    <Separator />
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Contact d'urgence</p>
+                      <div className="space-y-1">
+                        {employee.emergencyContactName && <p className="font-medium">{employee.emergencyContactName}</p>}
+                        {employee.emergencyContactRelation && <p className="text-sm text-muted-foreground">{employee.emergencyContactRelation}</p>}
+                        {employee.emergencyContactPhone && (
+                          <p className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            {employee.emergencyContactPhone}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -398,65 +412,80 @@ function EmployeeDetailPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Poste</p>
-                    <p className="font-medium">{employee.jobTitle}</p>
+                    <p className="font-medium">{employee.jobTitle || '-'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Departement</p>
-                    <p className="font-medium">{employee.department}</p>
+                    <p className="font-medium">{employee.department || '-'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Date d'entree</p>
-                    <p className="font-medium">{formatDate(employee.contractStartDate)}</p>
+                    <p className="font-medium">{employee.contractStartDate ? formatDate(employee.contractStartDate) : '-'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Type de contrat</p>
-                    <Badge className={contractTypeConfig[employee.contractType].className}>
-                      {contractTypeConfig[employee.contractType].label}
-                    </Badge>
+                    {employee.contractType && contractTypeConfig[employee.contractType] ? (
+                      <Badge className={contractTypeConfig[employee.contractType].className}>
+                        {contractTypeConfig[employee.contractType].label}
+                      </Badge>
+                    ) : (
+                      <p className="font-medium">-</p>
+                    )}
                   </div>
                 </div>
 
-                <Separator />
-
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Contact professionnel</p>
-                  <div className="space-y-2">
-                    <p className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      {employee.workEmail}
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      {employee.workPhone}
-                    </p>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {employee.manager && (
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">Manager</p>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback>
-                          {getInitials(employee.manager.firstName, employee.manager.lastName)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{employee.manager.firstName} {employee.manager.lastName}</span>
+                {(employee.workEmail || employee.workPhone) && (
+                  <>
+                    <Separator />
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Contact professionnel</p>
+                      <div className="space-y-2">
+                        {employee.workEmail && (
+                          <p className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            {employee.workEmail}
+                          </p>
+                        )}
+                        {employee.workPhone && (
+                          <p className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            {employee.workPhone}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
 
-                <Separator />
+                {'manager' in employee && employee.manager && (
+                  <>
+                    <Separator />
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Manager</p>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback>
+                            {getInitials(employee.manager.firstName, employee.manager.lastName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{employee.manager.firstName} {employee.manager.lastName}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
 
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Remuneration</p>
-                  <p className="text-xl font-semibold">
-                    {formatCurrency(employee.grossSalary, employee.salaryCurrency)}
-                    <span className="text-sm font-normal text-muted-foreground"> / mois brut</span>
-                  </p>
-                </div>
+                {employee.grossSalary && (
+                  <>
+                    <Separator />
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Remuneration</p>
+                      <p className="text-xl font-semibold">
+                        {formatCurrency(employee.grossSalary, employee.salaryCurrency || 'EUR')}
+                        <span className="text-sm font-normal text-muted-foreground"> / mois brut</span>
+                      </p>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>

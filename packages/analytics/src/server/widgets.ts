@@ -61,20 +61,22 @@ export async function getWidgetById(widgetId: string): Promise<Widget | null> {
 export async function createWidget(input: CreateWidgetInput): Promise<Widget> {
   const client = getSupabaseClient()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
+    dashboard_id: input.dashboardId,
+    title: input.title,
+    widget_type: input.widgetType,
+    metric_source: input.metricSource,
+    config: input.config || {},
+    position_x: input.gridX || 0,
+    position_y: input.gridY || 0,
+    width: input.gridW || 4,
+    height: input.gridH || 2,
+  }
+
   const { data, error } = await client
     .from('analytics_widgets')
-    .insert({
-      dashboard_id: input.dashboardId,
-      title: input.title,
-      widget_type: input.widgetType,
-      metric_source: input.metricSource,
-      metric_key: input.metricKey,
-      config: input.config || {},
-      grid_x: input.gridX || 0,
-      grid_y: input.gridY || 0,
-      grid_w: input.gridW || 4,
-      grid_h: input.gridH || 2,
-    })
+    .insert(insertData)
     .select()
     .single()
 
@@ -97,12 +99,11 @@ export async function updateWidget(
   if (input.title !== undefined) updateData.title = input.title
   if (input.widgetType !== undefined) updateData.widget_type = input.widgetType
   if (input.metricSource !== undefined) updateData.metric_source = input.metricSource
-  if (input.metricKey !== undefined) updateData.metric_key = input.metricKey
   if (input.config !== undefined) updateData.config = input.config
-  if (input.gridX !== undefined) updateData.grid_x = input.gridX
-  if (input.gridY !== undefined) updateData.grid_y = input.gridY
-  if (input.gridW !== undefined) updateData.grid_w = input.gridW
-  if (input.gridH !== undefined) updateData.grid_h = input.gridH
+  if (input.gridX !== undefined) updateData.position_x = input.gridX
+  if (input.gridY !== undefined) updateData.position_y = input.gridY
+  if (input.gridW !== undefined) updateData.width = input.gridW
+  if (input.gridH !== undefined) updateData.height = input.gridH
 
   const { data, error } = await client
     .from('analytics_widgets')
@@ -179,63 +180,25 @@ export async function getWidgetData(
 // ===========================================
 
 async function getCachedMetric(
-  organizationId: string,
-  source: string,
-  key: string,
-  filters: MetricFilters
+  _organizationId: string,
+  _source: string,
+  _key: string,
+  _filters: MetricFilters
 ): Promise<any | null> {
-  const client = getSupabaseClient()
-
-  const { data, error } = await client
-    .from('analytics_metrics_cache')
-    .select('*')
-    .eq('organization_id', organizationId)
-    .eq('metric_source', source)
-    .eq('metric_key', key)
-    .eq('period_type', filters.periodType)
-    .eq('period_start', filters.startDate)
-    .eq('period_end', filters.endDate)
-    .gt('expires_at', new Date().toISOString())
-    .order('computed_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  if (error) return null
-
-  return data
+  // Note: analytics_metrics_cache table doesn't exist in schema
+  // Caching is disabled for now
+  return null
 }
 
 async function cacheMetric(
-  organizationId: string,
-  source: string,
-  key: string,
-  filters: MetricFilters,
-  data: any
+  _organizationId: string,
+  _source: string,
+  _key: string,
+  _filters: MetricFilters,
+  _data: any
 ): Promise<void> {
-  const client = getSupabaseClient()
-
-  // Set cache expiration (1 hour for recent data, longer for historical)
-  const now = new Date()
-  const endDate = new Date(filters.endDate)
-  const isRecent = (now.getTime() - endDate.getTime()) < 24 * 60 * 60 * 1000
-  const expiresAt = new Date(now.getTime() + (isRecent ? 60 : 1440) * 60 * 1000)
-
-  await client
-    .from('analytics_metrics_cache')
-    .upsert({
-      organization_id: organizationId,
-      metric_source: source,
-      metric_key: key,
-      period_type: filters.periodType,
-      period_start: filters.startDate,
-      period_end: filters.endDate,
-      value: data.value,
-      metadata: data.metadata || {},
-      computed_at: now.toISOString(),
-      expires_at: expiresAt.toISOString(),
-    }, {
-      onConflict: 'organization_id,metric_source,metric_key,period_type,period_start',
-    })
+  // Note: analytics_metrics_cache table doesn't exist in schema
+  // Caching is disabled for now
 }
 
 async function computeMetric(

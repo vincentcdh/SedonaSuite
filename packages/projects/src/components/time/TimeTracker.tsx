@@ -50,7 +50,7 @@ export function TimeTracker({
 }: TimeTrackerProps) {
   const [elapsed, setElapsed] = useState(0)
   const [description, setDescription] = useState('')
-  const [selectedTaskId, setSelectedTaskId] = useState(initialTaskId || '')
+  const [selectedTaskId, setSelectedTaskId] = useState(initialTaskId || '__none__')
   const [isBillable, setIsBillable] = useState(true)
 
   // Update elapsed time every second when timer is running
@@ -76,7 +76,7 @@ export function TimeTracker({
   const handleStart = useCallback(() => {
     onStart({
       projectId,
-      taskId: selectedTaskId || undefined,
+      taskId: selectedTaskId && selectedTaskId !== '__none__' ? selectedTaskId : undefined,
       description: description || undefined,
     })
     setDescription('')
@@ -191,7 +191,7 @@ export function TimeTracker({
               <SelectValue placeholder="Sélectionner une tâche (optionnel)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Aucune tâche</SelectItem>
+              <SelectItem value="__none__">Aucune tâche</SelectItem>
               {tasks.map((task) => (
                 <SelectItem key={task.id} value={task.id}>
                   {task.title}

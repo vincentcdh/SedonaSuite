@@ -39,10 +39,10 @@
     "@sedona/eslint-config": "workspace:*",
     "@sedona/typescript-config": "workspace:*",
     "@types/node": "^22.15.29",
-    "@types/react": "^19.1.6",
+    "@types/react": "^18.3.17",
     "typescript": "^5.8.3"
   },
   "peerDependencies": {
-    "react": "^19.0.0"
+    "react": "^18.2.0"
   }
 }

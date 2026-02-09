@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Button, Card, Progress } from '@sedona/ui'
-import { Plus, Settings, MoreHorizontal, User, Building2, Calendar, Euro, Sparkles, AlertTriangle, Loader2, Kanban } from 'lucide-react'
+import { Button, Card, Progress, Dialog, DialogContent, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@sedona/ui'
+import { Plus, Settings, MoreHorizontal, User, Building2, Calendar, Euro, Sparkles, AlertTriangle, Loader2, Kanban, Trophy, XCircle, Trash2, Edit } from 'lucide-react'
 import { useState } from 'react'
 import { usePlan } from '@/hooks/usePlan'
 import { useOrganization } from '@/lib/auth'
-import { useDefaultPipeline, usePipelineWithDeals, useMoveDeal } from '@sedona/crm'
+import { useDefaultPipeline, usePipelineWithDeals, useMoveDeal, useCreatePipeline, useCreateDeal, useMarkDealAsWon, useMarkDealAsLost, useDeleteDeal, useContacts, useCompanies, DealForm } from '@sedona/crm'
+import { useQueryClient } from '@tanstack/react-query'
 
 // Plan limits
 const FREE_PLAN_LIMITS = {
@@ -17,9 +18,13 @@ export const Route = createFileRoute('/_authenticated/crm/pipeline/')({
 
 function PipelinePage() {
   const [draggedDeal, setDraggedDeal] = useState<string | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [showCreateDealDialog, setShowCreateDealDialog] = useState(false)
+  const [defaultStageId, setDefaultStageId] = useState<string | undefined>()
   const { isFree } = usePlan()
   const { organization } = useOrganization()
   const organizationId = organization?.id || ''
+  const queryClient = useQueryClient()
 
   // Fetch default pipeline
   const { data: defaultPipeline, isLoading: isLoadingDefault } = useDefaultPipeline(organizationId)
@@ -32,6 +37,56 @@ function PipelinePage() {
 
   // Move deal mutation
   const moveDealMutation = useMoveDeal()
+
+  // Create pipeline mutation
+  const createPipelineMutation = useCreatePipeline()
+
+  // Create deal mutation
+  const createDealMutation = useCreateDeal()
+
+  // Deal action mutations
+  const markAsWonMutation = useMarkDealAsWon()
+  const markAsLostMutation = useMarkDealAsLost()
+  const deleteDealMutation = useDeleteDeal()
+
+  // Fetch contacts and companies for deal form
+  const { data: contactsData } = useContacts(organizationId, {}, { pageSize: 100 })
+  const { data: companiesData } = useCompanies(organizationId, {}, { pageSize: 100 })
+  const contacts = contactsData?.data || []
+  const companies = companiesData?.data || []
+
+  const handleOpenCreateDeal = (stageId?: string) => {
+    setDefaultStageId(stageId)
+    setShowCreateDealDialog(true)
+  }
+
+  const handleCreateDefaultPipeline = async () => {
+    if (!organizationId) return
+    setIsCreating(true)
+    try {
+      await createPipelineMutation.mutateAsync({
+        organizationId,
+        data: {
+          name: 'Pipeline Commercial',
+          description: 'Pipeline de vente par defaut',
+          isDefault: true,
+          stages: [
+            { name: 'Nouveau', color: '#6b7280', position: 0, probability: 10 },
+            { name: 'Qualification', color: '#3b82f6', position: 1, probability: 25 },
+            { name: 'Proposition', color: '#f59e0b', position: 2, probability: 50 },
+            { name: 'Negociation', color: '#8b5cf6', position: 3, probability: 75 },
+            { name: 'Gagne', color: '#10b981', position: 4, probability: 100 },
+          ],
+        },
+      })
+      // Invalidate queries to refetch
+      queryClient.invalidateQueries({ queryKey: ['pipelines'] })
+    } catch (err) {
+      console.error('Failed to create pipeline:', err)
+    } finally {
+      setIsCreating(false)
+    }
+  }
 
   const isLoading = isLoadingDefault || isLoadingPipeline
 
@@ -101,9 +156,13 @@ function PipelinePage() {
           <p className="text-sm text-muted-foreground mb-4">
             Creez votre premier pipeline pour commencer a gerer vos opportunites commerciales.
           </p>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Creer un pipeline
+          <Button size="sm" onClick={handleCreateDefaultPipeline} disabled={isCreating}>
+            {isCreating ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4 mr-2" />
+            )}
+            {isCreating ? 'Creation...' : 'Creer un pipeline'}
           </Button>
         </Card>
       </div>
@@ -160,7 +219,7 @@ function PipelinePage() {
               </Button>
             </Link>
           ) : (
-            <Button size="sm">
+            <Button size="sm" onClick={() => handleOpenCreateDeal()}>
               <Plus className="h-4 w-4 mr-2" />
               Nouveau deal
             </Button>
@@ -215,9 +274,46 @@ function PipelinePage() {
                       <div className="p-3">
                         <div className="flex items-start justify-between mb-2">
                           <h4 className="font-medium text-sm">{deal.name}</h4>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => console.log('Edit deal:', deal.id)}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Modifier
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => markAsWonMutation.mutate(deal.id)}
+                                className="text-green-600"
+                              >
+                                <Trophy className="h-4 w-4 mr-2" />
+                                Marquer comme gagne
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => markAsLostMutation.mutate({ dealId: deal.id })}
+                                className="text-orange-600"
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Marquer comme perdu
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  if (confirm('Etes-vous sur de vouloir supprimer ce deal ?')) {
+                                    deleteDealMutation.mutate(deal.id)
+                                  }
+                                }}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Supprimer
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
                           <Euro className="h-3 w-3" />
@@ -258,7 +354,7 @@ function PipelinePage() {
 
                 {/* Add Deal Button */}
                 <div className="p-2 border-t">
-                  <Button variant="ghost" size="sm" className="w-full justify-start">
+                  <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => handleOpenCreateDeal(stage.id)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Ajouter un deal
                   </Button>
@@ -294,6 +390,35 @@ function PipelinePage() {
           </div>
         </div>
       </div>
+
+      {/* Create Deal Dialog */}
+      <Dialog open={showCreateDealDialog} onOpenChange={setShowCreateDealDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nouveau deal</DialogTitle>
+          </DialogHeader>
+          <DealForm
+            pipelineId={pipelineId}
+            stages={stages}
+            defaultStageId={defaultStageId}
+            contacts={contacts}
+            companies={companies}
+            onSubmit={async (data) => {
+              try {
+                await createDealMutation.mutateAsync({
+                  organizationId,
+                  data,
+                })
+                setShowCreateDealDialog(false)
+              } catch (error) {
+                console.error('Failed to create deal:', error)
+              }
+            }}
+            onCancel={() => setShowCreateDealDialog(false)}
+            isLoading={createDealMutation.isPending}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

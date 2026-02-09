@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Button, Input, Card, CardContent, Progress } from '@sedona/ui'
+import { Button, Input, Card, CardContent, Progress, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@sedona/ui'
 import {
   Plus,
   Search,
@@ -13,11 +13,13 @@ import {
   Sparkles,
   AlertTriangle,
   Loader2,
+  Edit,
+  Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
 import { usePlan } from '@/hooks/usePlan'
 import { useOrganization } from '@/lib/auth'
-import { useCompanies } from '@sedona/crm'
+import { useCompanies, useDeleteCompany } from '@sedona/crm'
 
 // Plan limits
 const FREE_PLAN_LIMITS = {
@@ -42,6 +44,9 @@ function CompaniesPage() {
   )
 
   const companies = companiesData?.data || []
+
+  // Delete company mutation
+  const deleteCompanyMutation = useDeleteCompany()
 
   // Usage tracking for FREE plan
   const currentCount = companiesData?.total || 0
@@ -166,9 +171,37 @@ function CompaniesPage() {
                     <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                       <Building2 className="h-6 w-6" />
                     </div>
-                    <Button variant="ghost" size="sm" onClick={(e) => e.preventDefault()}>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={(e) => e.preventDefault()}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.preventDefault()
+                            window.location.href = `/crm/companies/${company.id}`
+                          }}
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.preventDefault()
+                            if (confirm('Etes-vous sur de vouloir supprimer cette entreprise ?')) {
+                              deleteCompanyMutation.mutate(company.id)
+                            }
+                          }}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   <h3 className="font-semibold mb-1">{company.name}</h3>
                   <p className="text-sm text-muted-foreground mb-4">{company.industry || '-'}</p>

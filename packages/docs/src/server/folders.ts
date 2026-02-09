@@ -26,7 +26,7 @@ export async function getFolders(
   const offset = (page - 1) * pageSize
 
   let query = getSupabaseClient()
-    .from('docs_folders')
+    .from('docs.folders')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -60,7 +60,7 @@ export async function getFolders(
 
 export async function getFolderTree(organizationId: string): Promise<FolderWithChildren[]> {
   const { data, error } = await getSupabaseClient()
-    .from('docs_folders')
+    .from('docs.folders')
     .select('*')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -103,7 +103,7 @@ function buildFolderTree(folders: Folder[]): FolderWithChildren[] {
 
 export async function getFolderById(id: string): Promise<Folder | null> {
   const { data, error } = await getSupabaseClient()
-    .from('docs_folders')
+    .from('docs.folders')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
@@ -129,7 +129,7 @@ export async function getFolderBreadcrumbs(folderId: string): Promise<FolderBrea
   if (pathIds.length === 0) return []
 
   const { data, error } = await getSupabaseClient()
-    .from('docs_folders')
+    .from('docs.folders')
     .select('id, name')
     .in('id', pathIds)
 
@@ -153,7 +153,7 @@ export async function createFolder(
   userId?: string
 ): Promise<Folder> {
   const { data, error } = await getSupabaseClient()
-    .from('docs_folders')
+    .from('docs.folders')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -183,7 +183,7 @@ export async function updateFolder(input: UpdateFolderInput): Promise<Folder> {
   if (input.icon !== undefined) updateData.icon = input.icon
 
   const { data, error } = await getSupabaseClient()
-    .from('docs_folders')
+    .from('docs.folders')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -200,7 +200,7 @@ export async function updateFolder(input: UpdateFolderInput): Promise<Folder> {
 
 export async function deleteFolder(id: string): Promise<void> {
   const { error } = await getSupabaseClient()
-    .from('docs_folders')
+    .from('docs.folders')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -213,7 +213,7 @@ export async function deleteFolder(id: string): Promise<void> {
 
 export async function restoreFolder(id: string): Promise<Folder> {
   const { data, error } = await getSupabaseClient()
-    .from('docs_folders')
+    .from('docs.folders')
     .update({ deleted_at: null })
     .eq('id', id)
     .select()
@@ -230,7 +230,7 @@ export async function restoreFolder(id: string): Promise<Folder> {
 
 export async function deleteFolderPermanently(id: string): Promise<void> {
   const { error } = await getSupabaseClient()
-    .from('docs_folders')
+    .from('docs.folders')
     .delete()
     .eq('id', id)
 
@@ -249,7 +249,7 @@ export async function getDeletedFolders(
   const offset = (page - 1) * pageSize
 
   const { data, error, count } = await getSupabaseClient()
-    .from('docs_folders')
+    .from('docs.folders')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
     .not('deleted_at', 'is', null)
@@ -273,7 +273,7 @@ export async function getDeletedFolders(
 
 export async function getFolderCount(organizationId: string): Promise<number> {
   const { count, error } = await getSupabaseClient()
-    .from('docs_folders')
+    .from('docs.folders')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .is('deleted_at', null)
@@ -297,6 +297,8 @@ function mapFolderFromDb(data: any): Folder {
     depth: data.depth as number,
     color: data.color as string | null,
     icon: data.icon as string | null,
+    totalSizeBytes: (data.total_size_bytes as number) || 0,
+    fileCount: (data.file_count as number) || 0,
     createdBy: data.created_by as string | null,
     createdAt: data.created_at as string,
     updatedAt: data.updated_at as string,

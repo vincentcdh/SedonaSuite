@@ -34,7 +34,19 @@ export interface AuthSession {
 // ORGANIZATION TYPES
 // ===========================================
 
-export type OrganizationRole = 'owner' | 'admin' | 'member'
+// Nouveaux rôles: owner (propriétaire), manager (gestionnaire), employee (employé)
+// Note: 'admin' et 'member' sont gardés pour rétrocompatibilité mais mappés vers les nouveaux rôles
+export type OrganizationRole = 'owner' | 'manager' | 'employee'
+
+// Alias pour rétrocompatibilité (à supprimer après migration complète)
+export type LegacyOrganizationRole = 'owner' | 'admin' | 'member'
+
+// Mapping des anciens rôles vers les nouveaux
+export const ROLE_MIGRATION_MAP: Record<LegacyOrganizationRole, OrganizationRole> = {
+  owner: 'owner',
+  admin: 'manager',
+  member: 'employee',
+}
 
 export interface Organization {
   id: string
@@ -73,9 +85,180 @@ export interface OrganizationMember {
   organizationId: string
   userId: string
   role: OrganizationRole
+  managerId?: string | null  // ID du manager (pour hiérarchie)
   joinedAt: Date | null
   invitedAt?: Date | null
   invitedBy?: string | null
+}
+
+// ===========================================
+// PERMISSION TYPES
+// ===========================================
+
+// Modules disponibles dans l'application
+export type AppModule =
+  | 'crm'
+  | 'invoices'
+  | 'projects'
+  | 'tickets'
+  | 'hr'
+  | 'documents'
+  | 'analytics'
+  | 'settings'
+
+// Actions possibles sur un module
+export type PermissionAction =
+  | 'view'
+  | 'create'
+  | 'edit'
+  | 'delete'
+  | 'export'
+  | 'manage_team'
+  | 'approve'
+  | 'send'
+  | 'view_financial'
+  | 'manage_settings'
+
+// Permissions pour un module
+export interface ModulePermissions {
+  canView: boolean
+  canCreate: boolean
+  canEdit: boolean
+  canDelete: boolean
+  canExport: boolean
+  canManageTeam: boolean
+  canApprove: boolean
+  canSend: boolean
+  canViewFinancial: boolean
+  canManageSettings: boolean
+}
+
+// Toutes les permissions d'un utilisateur
+export type UserPermissions = Record<AppModule, ModulePermissions>
+
+// Permission de base dans la DB
+export interface RolePermission {
+  id: string
+  organizationId: string
+  role: OrganizationRole
+  module: AppModule
+  canView: boolean
+  canCreate: boolean
+  canEdit: boolean
+  canDelete: boolean
+  canExport: boolean
+  canManageTeam: boolean
+  canApprove: boolean
+  canSend: boolean
+  canViewFinancial: boolean
+  canManageSettings: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+// ===========================================
+// PLAN LIMITS TYPES
+// ===========================================
+
+export type SubscriptionPlan = 'FREE' | 'PRO' | 'ENTERPRISE'
+
+export interface PlanLimits {
+  plan: SubscriptionPlan
+
+  // CRM
+  maxContacts: number | null       // null = illimité
+  maxCompanies: number | null
+  maxDeals: number | null
+
+  // Facturation
+  maxInvoicesPerMonth: number | null
+  maxClients: number | null
+  maxProducts: number | null
+
+  // Projets
+  maxProjects: number | null
+  maxTasksPerProject: number | null
+
+  // Tickets
+  maxTicketsPerMonth: number | null
+  maxKbArticles: number | null
+
+  // RH
+  maxEmployees: number | null
+  maxLeaveTypes: number | null
+
+  // Documents
+  maxStorageMb: number | null
+  maxFolders: number | null
+
+  // Membres
+  maxUsers: number | null
+
+  // Fonctionnalités
+  featureAnalytics: boolean
+  featureCustomReports: boolean
+  featureApiAccess: boolean
+  featureCustomFields: boolean
+  featureAutomations: boolean
+  featureIntegrations: boolean
+  featureWhiteLabel: boolean
+  featurePrioritySupport: boolean
+  featureSla: boolean
+}
+
+// Résultat de vérification de limite
+export interface LimitCheckResult {
+  allowed: boolean
+  limit: number | null
+  current: number
+  unlimited: boolean
+  remaining?: number
+}
+
+// Fonctionnalités vérifiables
+export type PlanFeature =
+  | 'feature_analytics'
+  | 'feature_custom_reports'
+  | 'feature_api_access'
+  | 'feature_custom_fields'
+  | 'feature_automations'
+  | 'feature_integrations'
+  | 'feature_white_label'
+  | 'feature_priority_support'
+  | 'feature_sla'
+
+// Limites vérifiables
+export type PlanLimitName =
+  | 'max_contacts'
+  | 'max_companies'
+  | 'max_deals'
+  | 'max_invoices_per_month'
+  | 'max_clients'
+  | 'max_products'
+  | 'max_projects'
+  | 'max_tasks_per_project'
+  | 'max_tickets_per_month'
+  | 'max_kb_articles'
+  | 'max_employees'
+  | 'max_leave_types'
+  | 'max_storage_mb'
+  | 'max_folders'
+  | 'max_users'
+
+// ===========================================
+// USER CONTEXT (pour le contexte React)
+// ===========================================
+
+export interface UserContext {
+  user: AuthUser
+  organization: Organization
+  role: OrganizationRole
+  permissions: UserPermissions
+  planLimits: PlanLimits
+  managerId?: string | null
+  isOwner: boolean
+  isManager: boolean
+  isEmployee: boolean
 }
 
 // ===========================================

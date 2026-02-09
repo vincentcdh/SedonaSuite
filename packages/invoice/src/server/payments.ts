@@ -115,13 +115,14 @@ export async function createPayment(
 // ===========================================
 
 export async function updatePayment(input: UpdatePaymentInput): Promise<Payment> {
-  const updateData: Record<string, unknown> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: any = {}
 
-  if (input.amount !== undefined) updateData.amount = input.amount
-  if (input.paymentDate !== undefined) updateData.payment_date = input.paymentDate
-  if (input.paymentMethod !== undefined) updateData.payment_method = input.paymentMethod
-  if (input.reference !== undefined) updateData.reference = input.reference
-  if (input.notes !== undefined) updateData.notes = input.notes
+  if (input.amount !== undefined) updateData['amount'] = input.amount
+  if (input.paymentDate !== undefined) updateData['payment_date'] = input.paymentDate
+  if (input.paymentMethod !== undefined) updateData['payment_method'] = input.paymentMethod
+  if (input.reference !== undefined) updateData['reference'] = input.reference
+  if (input.notes !== undefined) updateData['notes'] = input.notes
 
   const { data, error } = await getClient()
     .from('invoice_payments')
@@ -152,20 +153,21 @@ export async function deletePayment(id: string): Promise<void> {
 // HELPERS
 // ===========================================
 
-function mapPaymentFromDb(data: Record<string, unknown>): Payment {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapPaymentFromDb(row: any): Payment {
   return {
-    id: data.id as string,
-    organizationId: data.organization_id as string,
-    invoiceId: data.invoice_id as string,
-    amount: Number(data.amount),
-    currency: (data.currency as string) || 'EUR',
-    paymentDate: data.payment_date as string,
-    paymentMethod: data.payment_method as Payment['paymentMethod'],
-    reference: data.reference as string | null,
-    notes: data.notes as string | null,
-    createdBy: data.created_by as string | null,
-    createdAt: data.created_at as string,
-    updatedAt: data.updated_at as string,
+    id: row.id,
+    organizationId: row.organization_id,
+    invoiceId: row.invoice_id,
+    amount: Number(row.amount),
+    currency: row.currency || 'EUR',
+    paymentDate: row.payment_date,
+    paymentMethod: row.payment_method,
+    reference: row.reference,
+    notes: row.notes,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }
 

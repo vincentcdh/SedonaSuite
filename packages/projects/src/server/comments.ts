@@ -31,7 +31,7 @@ export async function getTaskComments(taskId: string): Promise<TaskComment[]> {
   const userIds = (data || []).map((c: any) => c.user_id)
   const { data: users } = await getSupabaseClient()
     .from('users')
-    .select('id, email, full_name, avatar_url')
+    .select('id, email, first_name, last_name, avatar_url')
     .in('id', userIds)
 
   const userMap: Record<string, any> = {}
@@ -49,18 +49,21 @@ export async function getTaskComments(taskId: string): Promise<TaskComment[]> {
   const replyUserIds = (replies || []).map((r: any) => r.user_id)
   const { data: replyUsers } = await getSupabaseClient()
     .from('users')
-    .select('id, email, full_name, avatar_url')
+    .select('id, email, first_name, last_name, avatar_url')
     .in('id', replyUserIds)
 
   replyUsers?.forEach((u: any) => { userMap[u.id] = u })
 
   const repliesMap: Record<string, TaskComment[]> = {}
   ;(replies || []).forEach((r: any) => {
-    const comment = mapCommentFromDb(r, userMap)
-    if (!repliesMap[r.parent_comment_id]) {
-      repliesMap[r.parent_comment_id] = []
+    const parentId = r.parent_comment_id as string
+    if (parentId) {
+      const comment = mapCommentFromDb(r, userMap)
+      if (!repliesMap[parentId]) {
+        repliesMap[parentId] = []
+      }
+      repliesMap[parentId].push(comment)
     }
-    repliesMap[r.parent_comment_id].push(comment)
   })
 
   return (data || []).map((c: any) => ({
@@ -77,14 +80,17 @@ export async function createTaskComment(
   input: CreateTaskCommentInput,
   userId: string
 ): Promise<TaskComment> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
+    task_id: input.taskId,
+    user_id: userId,
+    content: input.content,
+    parent_comment_id: input.parentCommentId,
+  }
+
   const { data, error } = await getClient()
     .from('projects_task_comments')
-    .insert({
-      task_id: input.taskId,
-      user_id: userId,
-      content: input.content,
-      parent_comment_id: input.parentCommentId,
-    })
+    .insert(insertData)
     .select()
     .single()
 
@@ -93,12 +99,13 @@ export async function createTaskComment(
   // Get user details
   const { data: user } = await getSupabaseClient()
     .from('users')
-    .select('id, email, full_name, avatar_url')
+    .select('id, email, first_name, last_name, avatar_url')
     .eq('id', userId)
     .single()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userMap: Record<string, any> = {}
-  if (user) userMap[user.id] = user
+  if (user) userMap[(user as any).id] = user
 
   return mapCommentFromDb(data, userMap)
 }
@@ -108,12 +115,15 @@ export async function createTaskComment(
 // ===========================================
 
 export async function updateTaskComment(input: UpdateTaskCommentInput): Promise<TaskComment> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: any = {
+    content: input.content,
+    edited_at: new Date().toISOString(),
+  }
+
   const { data, error } = await getClient()
     .from('projects_task_comments')
-    .update({
-      content: input.content,
-      edited_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('id', input.id)
     .select()
     .single()
@@ -121,16 +131,19 @@ export async function updateTaskComment(input: UpdateTaskCommentInput): Promise<
   if (error) throw error
 
   // Get user details
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const commentData = data as any
   const { data: user } = await getSupabaseClient()
     .from('users')
-    .select('id, email, full_name, avatar_url')
-    .eq('id', data.user_id)
+    .select('id, email, first_name, last_name, avatar_url')
+    .eq('id', commentData.user_id)
     .single()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userMap: Record<string, any> = {}
-  if (user) userMap[user.id] = user
+  if (user) userMap[(user as any).id] = user
 
-  return mapCommentFromDb(data, userMap)
+  return mapCommentFromDb(commentData, userMap)
 }
 
 // ===========================================
@@ -150,21 +163,22 @@ export async function deleteTaskComment(id: string): Promise<void> {
 // HELPERS
 // ===========================================
 
-function mapCommentFromDb(data: Record<string, unknown>, userMap: Record<string, any>): TaskComment {
-  const user = userMap[data.user_id as string]
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapCommentFromDb(data: any, userMap: Record<string, any>): TaskComment {
+  const user = userMap[data['user_id'] as string]
   return {
-    id: data.id as string,
-    taskId: data.task_id as string,
-    userId: data.user_id as string,
-    content: data.content as string,
-    parentCommentId: data.parent_comment_id as string | null,
-    createdAt: data.created_at as string,
-    updatedAt: data.updated_at as string,
-    editedAt: data.edited_at as string | null,
+    id: data['id'] as string,
+    taskId: data['task_id'] as string,
+    userId: data['user_id'] as string,
+    content: data['content'] as string,
+    parentCommentId: data['parent_comment_id'] as string | null,
+    createdAt: data['created_at'] as string,
+    updatedAt: data['updated_at'] as string,
+    editedAt: data['edited_at'] as string | null,
     user: user ? {
       id: user.id,
       email: user.email,
-      fullName: user.full_name,
+      fullName: [user.first_name, user.last_name].filter(Boolean).join(' ') || null,
       avatarUrl: user.avatar_url,
     } : undefined,
   }

@@ -15,6 +15,7 @@ export interface TestAccount {
   }
   organization: Organization
   role: OrganizationRole
+  managerId?: string // ID du manager (pour les employees)
 }
 
 // ===========================================
@@ -22,69 +23,87 @@ export interface TestAccount {
 // ===========================================
 
 const ORG_FREE: Organization = {
-    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01',
-    name: 'Startup Demo',
-    slug: 'startup-demo',
-    logo: null,
-    siret: '12345678901234',
-    siren: '123456789',
-    vatNumber: 'FR12345678901',
-    legalName: 'Startup Demo SAS',
-    addressStreet: '10 Rue de la Demo',
-    addressPostalCode: '75001',
-    addressCity: 'Paris',
-    addressCountry: 'France',
-    phone: '+33 1 23 45 67 89',
-    email: 'contact@startup-demo.fr',
-    website: 'https://startup-demo.fr',
-    subscriptionPlan: 'FREE',
-    subscriptionStatus: 'active',
+  id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01',
+  name: 'Startup Demo',
+  slug: 'startup-demo',
+  logo: null,
+  siret: '12345678901234',
+  siren: '123456789',
+  vatNumber: 'FR12345678901',
+  legalName: 'Startup Demo SAS',
+  addressStreet: '10 Rue de la Demo',
+  addressPostalCode: '75001',
+  addressCity: 'Paris',
+  addressCountry: 'France',
+  phone: '+33 1 23 45 67 89',
+  email: 'contact@startup-demo.fr',
+  website: 'https://startup-demo.fr',
+  subscriptionPlan: 'FREE',
+  subscriptionStatus: 'active',
   createdAt: new Date('2024-01-15'),
   updatedAt: new Date('2024-01-15'),
 }
 
 const ORG_PRO: Organization = {
-    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02',
-    name: 'Entreprise Pro',
-    slug: 'entreprise-pro',
-    logo: null,
-    siret: '98765432109876',
-    siren: '987654321',
-    vatNumber: 'FR98765432109',
-    legalName: 'Entreprise Pro SARL',
-    addressStreet: '50 Avenue des Champs-Elysees',
-    addressPostalCode: '75008',
-    addressCity: 'Paris',
-    addressCountry: 'France',
-    phone: '+33 1 98 76 54 32',
-    email: 'contact@entreprise-pro.fr',
-    website: 'https://entreprise-pro.fr',
-    subscriptionPlan: 'PRO',
-    subscriptionStatus: 'active',
+  id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02',
+  name: 'Entreprise Pro',
+  slug: 'entreprise-pro',
+  logo: null,
+  siret: '98765432109876',
+  siren: '987654321',
+  vatNumber: 'FR98765432109',
+  legalName: 'Entreprise Pro SARL',
+  addressStreet: '50 Avenue des Champs-Elysees',
+  addressPostalCode: '75008',
+  addressCity: 'Paris',
+  addressCountry: 'France',
+  phone: '+33 1 98 76 54 32',
+  email: 'contact@entreprise-pro.fr',
+  website: 'https://entreprise-pro.fr',
+  subscriptionPlan: 'PRO',
+  subscriptionStatus: 'active',
   createdAt: new Date('2023-06-01'),
   updatedAt: new Date('2024-01-01'),
 }
 
 const ORG_ENTERPRISE: Organization = {
-    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03',
-    name: 'Grande Entreprise',
-    slug: 'grande-entreprise',
-    logo: null,
-    siret: '11111111111111',
-    siren: '111111111',
-    vatNumber: 'FR11111111111',
-    legalName: 'Grande Entreprise SA',
-    addressStreet: '1 Place de la Defense',
-    addressPostalCode: '92800',
-    addressCity: 'Puteaux',
-    addressCountry: 'France',
-    phone: '+33 1 11 11 11 11',
-    email: 'contact@grande-entreprise.fr',
-    website: 'https://grande-entreprise.fr',
-    subscriptionPlan: 'ENTERPRISE',
-    subscriptionStatus: 'active',
+  id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03',
+  name: 'Grande Entreprise',
+  slug: 'grande-entreprise',
+  logo: null,
+  siret: '11111111111111',
+  siren: '111111111',
+  vatNumber: 'FR11111111111',
+  legalName: 'Grande Entreprise SA',
+  addressStreet: '1 Place de la Defense',
+  addressPostalCode: '92800',
+  addressCity: 'Puteaux',
+  addressCountry: 'France',
+  phone: '+33 1 11 11 11 11',
+  email: 'contact@grande-entreprise.fr',
+  website: 'https://grande-entreprise.fr',
+  subscriptionPlan: 'ENTERPRISE',
+  subscriptionStatus: 'active',
   createdAt: new Date('2022-01-01'),
   updatedAt: new Date('2024-01-01'),
+}
+
+// ===========================================
+// USER IDS (pour référence dans managerId)
+// ===========================================
+const USER_IDS = {
+  // Owners
+  ownerFree: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
+  ownerPro: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b02',
+  ownerEnterprise: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b03',
+  // Managers
+  managerFree: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b04',
+  managerPro: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b05',
+  managerEnterprise: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b06',
+  // Employees
+  employeeFree: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b07',
+  employeePro: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b08',
+  employeeEnterprise: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b09',
 }
 
 // ===========================================
@@ -93,13 +112,13 @@ const ORG_ENTERPRISE: Organization = {
 
 export const TEST_ACCOUNTS: TestAccount[] = [
   // ==========================================
-  // OWNER ACCOUNTS
+  // OWNER ACCOUNTS (proprietaires)
   // ==========================================
   {
     email: 'owner.free@test.sedona.ai',
     password: 'Owner123!',
     user: {
-      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
+      id: USER_IDS.ownerFree,
       name: 'Marie Dupont',
       email: 'owner.free@test.sedona.ai',
       emailVerified: true,
@@ -118,7 +137,7 @@ export const TEST_ACCOUNTS: TestAccount[] = [
     email: 'owner.pro@test.sedona.ai',
     password: 'Owner123!',
     user: {
-      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b02',
+      id: USER_IDS.ownerPro,
       name: 'Jean-Pierre Martin',
       email: 'owner.pro@test.sedona.ai',
       emailVerified: true,
@@ -137,7 +156,7 @@ export const TEST_ACCOUNTS: TestAccount[] = [
     email: 'owner.enterprise@test.sedona.ai',
     password: 'Owner123!',
     user: {
-      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b03',
+      id: USER_IDS.ownerEnterprise,
       name: 'Sophie Bernard',
       email: 'owner.enterprise@test.sedona.ai',
       emailVerified: true,
@@ -154,13 +173,14 @@ export const TEST_ACCOUNTS: TestAccount[] = [
   },
 
   // ==========================================
-  // ADMIN ACCOUNTS
+  // MANAGER ACCOUNTS (gestionnaires)
+  // Note: En base de donnees, les emails sont admin.*.test.sedona.ai
   // ==========================================
   {
     email: 'admin.free@test.sedona.ai',
-    password: 'Admin123!',
+    password: 'Manager123!',
     user: {
-      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b04',
+      id: USER_IDS.managerFree,
       name: 'Pierre Lambert',
       email: 'admin.free@test.sedona.ai',
       emailVerified: true,
@@ -173,13 +193,13 @@ export const TEST_ACCOUNTS: TestAccount[] = [
       updatedAt: new Date('2024-01-20'),
     },
     organization: ORG_FREE,
-    role: 'admin',
+    role: 'manager',
   },
   {
     email: 'admin.pro@test.sedona.ai',
-    password: 'Admin123!',
+    password: 'Manager123!',
     user: {
-      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b05',
+      id: USER_IDS.managerPro,
       name: 'Claire Moreau',
       email: 'admin.pro@test.sedona.ai',
       emailVerified: true,
@@ -192,13 +212,13 @@ export const TEST_ACCOUNTS: TestAccount[] = [
       updatedAt: new Date('2024-01-01'),
     },
     organization: ORG_PRO,
-    role: 'admin',
+    role: 'manager',
   },
   {
     email: 'admin.enterprise@test.sedona.ai',
-    password: 'Admin123!',
+    password: 'Manager123!',
     user: {
-      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b06',
+      id: USER_IDS.managerEnterprise,
       name: 'Thomas Durand',
       email: 'admin.enterprise@test.sedona.ai',
       emailVerified: true,
@@ -211,17 +231,18 @@ export const TEST_ACCOUNTS: TestAccount[] = [
       updatedAt: new Date('2024-01-01'),
     },
     organization: ORG_ENTERPRISE,
-    role: 'admin',
+    role: 'manager',
   },
 
   // ==========================================
-  // MEMBER ACCOUNTS
+  // EMPLOYEE ACCOUNTS (employes)
+  // Note: En base de donnees, les emails sont member.*.test.sedona.ai
   // ==========================================
   {
     email: 'member.free@test.sedona.ai',
-    password: 'Member123!',
+    password: 'Employee123!',
     user: {
-      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b07',
+      id: USER_IDS.employeeFree,
       name: 'Lucas Petit',
       email: 'member.free@test.sedona.ai',
       emailVerified: true,
@@ -234,13 +255,14 @@ export const TEST_ACCOUNTS: TestAccount[] = [
       updatedAt: new Date('2024-02-01'),
     },
     organization: ORG_FREE,
-    role: 'member',
+    role: 'employee',
+    managerId: USER_IDS.managerFree,
   },
   {
     email: 'member.pro@test.sedona.ai',
-    password: 'Member123!',
+    password: 'Employee123!',
     user: {
-      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b08',
+      id: USER_IDS.employeePro,
       name: 'Emma Leroy',
       email: 'member.pro@test.sedona.ai',
       emailVerified: true,
@@ -253,13 +275,14 @@ export const TEST_ACCOUNTS: TestAccount[] = [
       updatedAt: new Date('2024-01-01'),
     },
     organization: ORG_PRO,
-    role: 'member',
+    role: 'employee',
+    managerId: USER_IDS.managerPro,
   },
   {
     email: 'member.enterprise@test.sedona.ai',
-    password: 'Member123!',
+    password: 'Employee123!',
     user: {
-      id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b09',
+      id: USER_IDS.employeeEnterprise,
       name: 'Hugo Girard',
       email: 'member.enterprise@test.sedona.ai',
       emailVerified: true,
@@ -272,7 +295,8 @@ export const TEST_ACCOUNTS: TestAccount[] = [
       updatedAt: new Date('2024-01-01'),
     },
     organization: ORG_ENTERPRISE,
-    role: 'member',
+    role: 'employee',
+    managerId: USER_IDS.managerEnterprise,
   },
 ]
 
@@ -330,22 +354,29 @@ export function getDefaultTestAccount(): TestAccount {
   )!
 }
 
+/**
+ * Get employees managed by a specific manager
+ */
+export function getEmployeesByManager(managerId: string): TestAccount[] {
+  return TEST_ACCOUNTS.filter((account) => account.managerId === managerId)
+}
+
 // ===========================================
 // CREDENTIALS SUMMARY (for quick reference)
 // ===========================================
 /*
- * OWNER ACCOUNTS:
- * - owner.free@test.sedona.ai     / Owner123!   (FREE plan)
- * - owner.pro@test.sedona.ai      / Owner123!   (PRO plan)
- * - owner.enterprise@test.sedona.ai / Owner123! (ENTERPRISE plan)
+ * OWNER ACCOUNTS (Proprietaires - tous les droits):
+ * - owner.free@test.sedona.ai       / Owner123!     (FREE plan)
+ * - owner.pro@test.sedona.ai        / Owner123!     (PRO plan)
+ * - owner.enterprise@test.sedona.ai / Owner123!     (ENTERPRISE plan)
  *
- * ADMIN ACCOUNTS:
- * - admin.free@test.sedona.ai     / Admin123!   (FREE plan)
- * - admin.pro@test.sedona.ai      / Admin123!   (PRO plan)
- * - admin.enterprise@test.sedona.ai / Admin123! (ENTERPRISE plan)
+ * MANAGER ACCOUNTS (Gestionnaires - presque tous les droits):
+ * - admin.free@test.sedona.ai       / Manager123!   (FREE plan)
+ * - admin.pro@test.sedona.ai        / Manager123!   (PRO plan)
+ * - admin.enterprise@test.sedona.ai / Manager123!   (ENTERPRISE plan)
  *
- * MEMBER ACCOUNTS:
- * - member.free@test.sedona.ai    / Member123!  (FREE plan)
- * - member.pro@test.sedona.ai     / Member123!  (PRO plan)
- * - member.enterprise@test.sedona.ai / Member123! (ENTERPRISE plan)
+ * EMPLOYEE ACCOUNTS (Employes - droits limites):
+ * - member.free@test.sedona.ai       / Employee123!  (FREE plan)
+ * - member.pro@test.sedona.ai        / Employee123!  (PRO plan)
+ * - member.enterprise@test.sedona.ai / Employee123!  (ENTERPRISE plan)
  */

@@ -68,18 +68,19 @@ export async function updateTaskChecklistItem(
   input: UpdateTaskChecklistItemInput,
   userId?: string
 ): Promise<TaskChecklistItem> {
-  const updateData: Record<string, unknown> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: any = {}
 
-  if (input.title !== undefined) updateData.title = input.title
-  if (input.position !== undefined) updateData.position = input.position
+  if (input.title !== undefined) updateData['title'] = input.title
+  if (input.position !== undefined) updateData['position'] = input.position
   if (input.isCompleted !== undefined) {
-    updateData.is_completed = input.isCompleted
+    updateData['is_completed'] = input.isCompleted
     if (input.isCompleted) {
-      updateData.completed_at = new Date().toISOString()
-      updateData.completed_by = userId
+      updateData['completed_at'] = new Date().toISOString()
+      updateData['completed_by'] = userId
     } else {
-      updateData.completed_at = null
-      updateData.completed_by = null
+      updateData['completed_at'] = null
+      updateData['completed_by'] = null
     }
   }
 
@@ -132,15 +133,16 @@ export async function toggleTaskChecklistItem(id: string, userId?: string): Prom
 // HELPERS
 // ===========================================
 
-function mapChecklistItemFromDb(data: Record<string, unknown>): TaskChecklistItem {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapChecklistItemFromDb(data: any): TaskChecklistItem {
   return {
-    id: data.id as string,
-    taskId: data.task_id as string,
-    title: data.title as string,
-    isCompleted: (data.is_completed as boolean) || false,
-    position: (data.position as number) || 0,
-    completedAt: data.completed_at as string | null,
-    completedBy: data.completed_by as string | null,
-    createdAt: data.created_at as string,
+    id: data['id'] as string,
+    taskId: data['task_id'] as string,
+    title: data['title'] as string,
+    isCompleted: (data['is_completed'] as boolean) || false,
+    position: (data['position'] as number) || 0,
+    completedAt: data['completed_at'] as string | null,
+    completedBy: data['completed_by'] as string | null,
+    createdAt: data['created_at'] as string,
   }
 }

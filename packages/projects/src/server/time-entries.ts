@@ -64,7 +64,7 @@ export async function getTimeEntries(
   const userIds = [...new Set((data || []).map((e: any) => e.user_id))]
   const { data: users } = await getSupabaseClient()
     .from('users')
-    .select('id, email, full_name')
+    .select('id, email, first_name, last_name')
     .in('id', userIds)
 
   const userMap: Record<string, any> = {}
@@ -80,19 +80,22 @@ export async function getTimeEntries(
   const taskMap: Record<string, any> = {}
   tasks?.forEach((t: any) => { taskMap[t.id] = t })
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const entries: any[] = (data || []).map((e: any) => ({
+    ...mapTimeEntryFromDb(e),
+    user: userMap[e.user_id] ? {
+      id: userMap[e.user_id].id,
+      email: userMap[e.user_id].email,
+      fullName: [userMap[e.user_id].first_name, userMap[e.user_id].last_name].filter(Boolean).join(' ') || null,
+    } : undefined,
+    task: e.task_id && taskMap[e.task_id] ? {
+      id: taskMap[e.task_id].id,
+      title: taskMap[e.task_id].title,
+    } as any : null,
+  }))
+
   return {
-    data: (data || []).map((e: any) => ({
-      ...mapTimeEntryFromDb(e),
-      user: userMap[e.user_id] ? {
-        id: userMap[e.user_id].id,
-        email: userMap[e.user_id].email,
-        fullName: userMap[e.user_id].full_name,
-      } : undefined,
-      task: e.task_id && taskMap[e.task_id] ? {
-        id: taskMap[e.task_id].id,
-        title: taskMap[e.task_id].title,
-      } : null,
-    })),
+    data: entries,
     total: count || 0,
     page,
     pageSize,
@@ -127,20 +130,21 @@ export async function createTimeEntry(
   input: CreateTimeEntryInput,
   userId: string
 ): Promise<TimeEntry> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
+    project_id: input.projectId,
+    task_id: input.taskId,
+    user_id: userId,
+    description: input.description,
+    date: input.startTime ? input.startTime.split('T')[0] : new Date().toISOString().split('T')[0],
+    duration_minutes: input.durationMinutes || 0,
+    is_billable: input.isBillable ?? true,
+    hourly_rate: input.hourlyRate,
+  }
+
   const { data, error } = await getClient()
     .from('projects_time_entries')
-    .insert({
-      project_id: input.projectId,
-      task_id: input.taskId,
-      user_id: userId,
-      description: input.description,
-      start_time: input.startTime,
-      end_time: input.endTime,
-      duration_minutes: input.durationMinutes,
-      is_billable: input.isBillable ?? true,
-      hourly_rate: input.hourlyRate,
-      is_running: !input.endTime,
-    })
+    .insert(insertData)
     .select()
     .single()
 
@@ -154,15 +158,11 @@ export async function createTimeEntry(
 // ===========================================
 
 export async function updateTimeEntry(input: UpdateTimeEntryInput): Promise<TimeEntry> {
-  const updateData: Record<string, unknown> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: any = {}
 
   if (input.taskId !== undefined) updateData.task_id = input.taskId
   if (input.description !== undefined) updateData.description = input.description
-  if (input.startTime !== undefined) updateData.start_time = input.startTime
-  if (input.endTime !== undefined) {
-    updateData.end_time = input.endTime
-    updateData.is_running = false
-  }
   if (input.durationMinutes !== undefined) updateData.duration_minutes = input.durationMinutes
   if (input.isBillable !== undefined) updateData.is_billable = input.isBillable
   if (input.hourlyRate !== undefined) updateData.hourly_rate = input.hourlyRate
@@ -218,58 +218,30 @@ export async function startTimer(
 // ===========================================
 
 export async function stopTimer(id: string): Promise<TimeEntry> {
-  const endTime = new Date().toISOString()
-
-  const { data, error } = await getClient()
-    .from('projects_time_entries')
-    .update({
-      end_time: endTime,
-      is_running: false,
-    })
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error) throw error
-
-  return mapTimeEntryFromDb(data)
+  // Note: DB doesn't have end_time or is_running columns
+  // Just return the entry as-is
+  const entry = await getTimeEntryById(id)
+  if (!entry) throw new Error('Time entry not found')
+  return entry
 }
 
 // ===========================================
 // GET RUNNING TIMER
 // ===========================================
 
-export async function getRunningTimer(userId: string): Promise<TimeEntry | null> {
-  const { data, error } = await getClient()
-    .from('projects_time_entries')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('is_running', true)
-    .single()
-
-  if (error) {
-    if (error.code === 'PGRST116') return null
-    throw error
-  }
-
-  return mapTimeEntryFromDb(data)
+export async function getRunningTimer(_userId: string): Promise<TimeEntry | null> {
+  // Note: DB doesn't have is_running column
+  // Running timers not supported
+  return null
 }
 
 // ===========================================
 // STOP ALL RUNNING TIMERS FOR USER
 // ===========================================
 
-async function stopRunningTimers(userId: string): Promise<void> {
-  const { error } = await getClient()
-    .from('projects_time_entries')
-    .update({
-      end_time: new Date().toISOString(),
-      is_running: false,
-    })
-    .eq('user_id', userId)
-    .eq('is_running', true)
-
-  if (error) throw error
+async function stopRunningTimers(_userId: string): Promise<void> {
+  // Note: DB doesn't have end_time or is_running columns
+  // No-op
 }
 
 // ===========================================
@@ -324,21 +296,22 @@ export async function getProjectTimeSummary(projectId: string): Promise<{
 // HELPERS
 // ===========================================
 
-function mapTimeEntryFromDb(data: Record<string, unknown>): TimeEntry {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapTimeEntryFromDb(data: any): TimeEntry {
   return {
-    id: data.id as string,
-    projectId: data.project_id as string,
-    taskId: data.task_id as string | null,
-    userId: data.user_id as string,
-    description: data.description as string | null,
-    startTime: data.start_time as string,
-    endTime: data.end_time as string | null,
-    durationMinutes: data.duration_minutes ? Number(data.duration_minutes) : null,
-    isBillable: (data.is_billable as boolean) ?? true,
-    hourlyRate: data.hourly_rate ? Number(data.hourly_rate) : null,
-    isRunning: (data.is_running as boolean) || false,
-    createdAt: data.created_at as string,
-    updatedAt: data.updated_at as string,
+    id: data['id'] as string,
+    projectId: data['project_id'] as string,
+    taskId: data['task_id'] as string | null,
+    userId: data['user_id'] as string,
+    description: data['description'] as string | null,
+    startTime: data['date'] as string, // DB uses 'date' instead of 'start_time'
+    endTime: null, // DB doesn't have end_time
+    durationMinutes: data['duration_minutes'] ? Number(data['duration_minutes']) : null,
+    isBillable: (data['is_billable'] as boolean) ?? true,
+    hourlyRate: data['hourly_rate'] ? Number(data['hourly_rate']) : null,
+    isRunning: false, // DB doesn't have is_running
+    createdAt: data['created_at'] as string,
+    updatedAt: data['updated_at'] as string,
   }
 }
 

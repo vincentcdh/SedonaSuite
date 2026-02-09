@@ -49,20 +49,23 @@ export async function inviteClient(input: InviteClientInput): Promise<ClientAcce
   const supabase = getSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
+    project_id: input.projectId,
+    access_type: 'account',
+    client_email: input.clientEmail,
+    client_name: input.clientName,
+    can_comment: input.permissions?.canComment ?? true,
+    can_upload_files: input.permissions?.canUploadFiles ?? false,
+    can_see_time_tracking: input.permissions?.canSeeTimeTracking ?? false,
+    can_see_budget: input.permissions?.canSeeBudget ?? false,
+    can_see_team_members: input.permissions?.canSeeTeamMembers ?? true,
+    created_by: user?.id,
+  }
+
   const { data, error } = await getClient()
     .from('projects_client_access')
-    .insert({
-      project_id: input.projectId,
-      access_type: 'account',
-      client_email: input.clientEmail,
-      client_name: input.clientName,
-      can_comment: input.permissions?.canComment ?? true,
-      can_upload_files: input.permissions?.canUploadFiles ?? false,
-      can_see_time_tracking: input.permissions?.canSeeTimeTracking ?? false,
-      can_see_budget: input.permissions?.canSeeBudget ?? false,
-      can_see_team_members: input.permissions?.canSeeTeamMembers ?? true,
-      created_by: user?.id,
-    })
+    .insert(insertData)
     .select()
     .single()
 
@@ -81,7 +84,8 @@ export async function createShareLink(input: CreateShareLinkInput): Promise<Clie
   // Generate a unique share token
   const shareToken = generateRandomToken()
 
-  const insertData: Record<string, any> = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
     project_id: input.projectId,
     access_type: 'link',
     share_token: shareToken,
@@ -193,16 +197,18 @@ export async function validateShareToken(token: string): Promise<{
   if (!data.is_active) return null
   if (data.expires_at && new Date(data.expires_at) < new Date()) return null
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const accessData = data as any
   return {
-    clientAccessId: data.id,
-    projectId: data.project_id,
-    projectName: data.projects_projects?.name || '',
+    clientAccessId: accessData.id,
+    projectId: accessData.project_id,
+    projectName: accessData.projects_projects?.name || '',
     permissions: {
-      canComment: data.can_comment,
-      canUploadFiles: data.can_upload_files,
-      canSeeTimeTracking: data.can_see_time_tracking,
-      canSeeBudget: data.can_see_budget,
-      canSeeTeamMembers: data.can_see_team_members,
+      canComment: accessData.can_comment || false,
+      canUploadFiles: accessData.can_upload_files || false,
+      canSeeTimeTracking: accessData.can_see_time_tracking || false,
+      canSeeBudget: accessData.can_see_budget || false,
+      canSeeTeamMembers: accessData.can_see_team_members || false,
     },
   }
 }

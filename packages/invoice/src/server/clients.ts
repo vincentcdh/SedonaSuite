@@ -37,7 +37,7 @@ export async function getClients(
 
   // Apply filters
   if (filters.search) {
-    query = query.or(`name.ilike.%${filters.search}%,legal_name.ilike.%${filters.search}%,billing_email.ilike.%${filters.search}%`)
+    query = query.or(`name.ilike.%${filters.search}%,legal_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`)
   }
 
   // Sorting
@@ -87,31 +87,32 @@ export async function createClient(
   organizationId: string,
   input: CreateClientInput
 ): Promise<InvoiceClient> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
+    organization_id: organizationId,
+    name: input.name,
+    legal_name: input.legalName,
+    siret: input.siret,
+    vat_number: input.vatNumber,
+    address_line1: input.billingAddressLine1,
+    address_line2: input.billingAddressLine2,
+    city: input.billingCity,
+    postal_code: input.billingPostalCode,
+    country: input.billingCountry || 'France',
+    email: input.billingEmail,
+    phone: input.billingPhone,
+    contact_name: input.contactName,
+    payment_terms: input.paymentTerms || 30,
+    default_payment_method: input.paymentMethod || 'transfer',
+    crm_company_id: input.crmCompanyId,
+    crm_contact_id: input.crmContactId,
+    notes: input.notes,
+    custom_fields: input.customFields || {},
+  }
+
   const { data, error } = await getClient()
     .from('invoice_clients')
-    .insert({
-      organization_id: organizationId,
-      name: input.name,
-      legal_name: input.legalName,
-      siret: input.siret,
-      vat_number: input.vatNumber,
-      legal_form: input.legalForm,
-      billing_address_line1: input.billingAddressLine1,
-      billing_address_line2: input.billingAddressLine2,
-      billing_city: input.billingCity,
-      billing_postal_code: input.billingPostalCode,
-      billing_country: input.billingCountry || 'France',
-      billing_email: input.billingEmail,
-      billing_phone: input.billingPhone,
-      contact_name: input.contactName,
-      payment_terms: input.paymentTerms || 30,
-      payment_method: input.paymentMethod || 'transfer',
-      default_currency: input.defaultCurrency || 'EUR',
-      crm_company_id: input.crmCompanyId,
-      crm_contact_id: input.crmContactId,
-      notes: input.notes,
-      custom_fields: input.customFields || {},
-    })
+    .insert(insertData)
     .select()
     .single()
 
@@ -125,28 +126,27 @@ export async function createClient(
 // ===========================================
 
 export async function updateClient(input: UpdateClientInput): Promise<InvoiceClient> {
-  const updateData: Record<string, unknown> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: any = {}
 
-  if (input.name !== undefined) updateData.name = input.name
-  if (input.legalName !== undefined) updateData.legal_name = input.legalName
-  if (input.siret !== undefined) updateData.siret = input.siret
-  if (input.vatNumber !== undefined) updateData.vat_number = input.vatNumber
-  if (input.legalForm !== undefined) updateData.legal_form = input.legalForm
-  if (input.billingAddressLine1 !== undefined) updateData.billing_address_line1 = input.billingAddressLine1
-  if (input.billingAddressLine2 !== undefined) updateData.billing_address_line2 = input.billingAddressLine2
-  if (input.billingCity !== undefined) updateData.billing_city = input.billingCity
-  if (input.billingPostalCode !== undefined) updateData.billing_postal_code = input.billingPostalCode
-  if (input.billingCountry !== undefined) updateData.billing_country = input.billingCountry
-  if (input.billingEmail !== undefined) updateData.billing_email = input.billingEmail
-  if (input.billingPhone !== undefined) updateData.billing_phone = input.billingPhone
-  if (input.contactName !== undefined) updateData.contact_name = input.contactName
-  if (input.paymentTerms !== undefined) updateData.payment_terms = input.paymentTerms
-  if (input.paymentMethod !== undefined) updateData.payment_method = input.paymentMethod
-  if (input.defaultCurrency !== undefined) updateData.default_currency = input.defaultCurrency
-  if (input.crmCompanyId !== undefined) updateData.crm_company_id = input.crmCompanyId
-  if (input.crmContactId !== undefined) updateData.crm_contact_id = input.crmContactId
-  if (input.notes !== undefined) updateData.notes = input.notes
-  if (input.customFields !== undefined) updateData.custom_fields = input.customFields
+  if (input.name !== undefined) updateData['name'] = input.name
+  if (input.legalName !== undefined) updateData['legal_name'] = input.legalName
+  if (input.siret !== undefined) updateData['siret'] = input.siret
+  if (input.vatNumber !== undefined) updateData['vat_number'] = input.vatNumber
+  if (input.billingAddressLine1 !== undefined) updateData['address_line1'] = input.billingAddressLine1
+  if (input.billingAddressLine2 !== undefined) updateData['address_line2'] = input.billingAddressLine2
+  if (input.billingCity !== undefined) updateData['city'] = input.billingCity
+  if (input.billingPostalCode !== undefined) updateData['postal_code'] = input.billingPostalCode
+  if (input.billingCountry !== undefined) updateData['country'] = input.billingCountry
+  if (input.billingEmail !== undefined) updateData['email'] = input.billingEmail
+  if (input.billingPhone !== undefined) updateData['phone'] = input.billingPhone
+  if (input.contactName !== undefined) updateData['contact_name'] = input.contactName
+  if (input.paymentTerms !== undefined) updateData['payment_terms'] = input.paymentTerms
+  if (input.paymentMethod !== undefined) updateData['default_payment_method'] = input.paymentMethod
+  if (input.crmCompanyId !== undefined) updateData['crm_company_id'] = input.crmCompanyId
+  if (input.crmContactId !== undefined) updateData['crm_contact_id'] = input.crmContactId
+  if (input.notes !== undefined) updateData['notes'] = input.notes
+  if (input.customFields !== undefined) updateData['custom_fields'] = input.customFields
 
   const { data, error } = await getClient()
     .from('invoice_clients')
@@ -177,33 +177,34 @@ export async function deleteClient(id: string): Promise<void> {
 // HELPERS
 // ===========================================
 
-function mapClientFromDb(data: Record<string, unknown>): InvoiceClient {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapClientFromDb(row: any): InvoiceClient {
   return {
-    id: data.id as string,
-    organizationId: data.organization_id as string,
-    name: data.name as string,
-    legalName: data.legal_name as string | null,
-    siret: data.siret as string | null,
-    vatNumber: data.vat_number as string | null,
-    legalForm: data.legal_form as string | null,
-    billingAddressLine1: data.billing_address_line1 as string | null,
-    billingAddressLine2: data.billing_address_line2 as string | null,
-    billingCity: data.billing_city as string | null,
-    billingPostalCode: data.billing_postal_code as string | null,
-    billingCountry: (data.billing_country as string) || 'France',
-    billingEmail: data.billing_email as string | null,
-    billingPhone: data.billing_phone as string | null,
-    contactName: data.contact_name as string | null,
-    paymentTerms: (data.payment_terms as number) || 30,
-    paymentMethod: (data.payment_method as InvoiceClient['paymentMethod']) || 'transfer',
-    defaultCurrency: (data.default_currency as string) || 'EUR',
-    crmCompanyId: data.crm_company_id as string | null,
-    crmContactId: data.crm_contact_id as string | null,
-    notes: data.notes as string | null,
-    customFields: (data.custom_fields as Record<string, unknown>) || {},
-    createdAt: data.created_at as string,
-    updatedAt: data.updated_at as string,
-    deletedAt: data.deleted_at as string | null,
+    id: row.id,
+    organizationId: row.organization_id,
+    name: row.name,
+    legalName: row.legal_name,
+    siret: row.siret,
+    vatNumber: row.vat_number,
+    legalForm: null, // Not in database schema
+    billingAddressLine1: row.address_line1,
+    billingAddressLine2: row.address_line2,
+    billingCity: row.city,
+    billingPostalCode: row.postal_code,
+    billingCountry: row.country || 'France',
+    billingEmail: row.email,
+    billingPhone: row.phone,
+    contactName: row.contact_name,
+    paymentTerms: row.payment_terms || 30,
+    paymentMethod: row.default_payment_method || 'transfer',
+    defaultCurrency: 'EUR', // Not in database schema
+    crmCompanyId: row.crm_company_id,
+    crmContactId: row.crm_contact_id,
+    notes: row.notes,
+    customFields: row.custom_fields || {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
   }
 }
 

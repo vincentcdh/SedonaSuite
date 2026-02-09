@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Button, Input, Card, CardContent, Badge, Progress } from '@sedona/ui'
+import { Button, Input, Card, CardContent, Badge, Progress, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@sedona/ui'
 import {
   Plus,
   Search,
@@ -15,11 +15,13 @@ import {
   Sparkles,
   AlertTriangle,
   Loader2,
+  Edit,
+  Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
 import { usePlan } from '@/hooks/usePlan'
 import { useOrganization } from '@/lib/auth'
-import { useContacts, useContactCount } from '@sedona/crm'
+import { useContacts, useContactCount, useDeleteContact } from '@sedona/crm'
 
 // Plan limits
 const FREE_PLAN_LIMITS = {
@@ -45,6 +47,9 @@ function ContactsPage() {
 
   // Fetch total contact count for usage tracking
   const { data: totalCount = 0 } = useContactCount(organizationId)
+
+  // Delete contact mutation
+  const deleteContactMutation = useDeleteContact()
 
   const contacts = contactsData?.data || []
 
@@ -268,9 +273,33 @@ function ContactsPage() {
                       </div>
                     </td>
                     <td className="p-4 text-right">
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link to="/crm/contacts/$contactId" params={{ contactId: contact.id }}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Modifier
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => {
+                              if (confirm('Etes-vous sur de vouloir supprimer ce contact ?')) {
+                                deleteContactMutation.mutate(contact.id)
+                              }
+                            }}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))

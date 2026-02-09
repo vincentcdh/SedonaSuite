@@ -155,17 +155,20 @@ export async function createCannedResponse(
   input: CreateCannedResponseInput,
   userId?: string
 ): Promise<CannedResponse> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
+    organization_id: organizationId,
+    title: input.name, // DB uses 'title' instead of 'name'
+    content: input.content,
+    category: input.category,
+    is_shared: input.isPersonal ? false : true, // DB uses is_shared (inverted)
+    user_id: userId,
+    shortcut: input.shortcut,
+  }
+
   const { data, error } = await getSupabaseClient()
     .from('tickets_canned_responses')
-    .insert({
-      organization_id: organizationId,
-      name: input.name,
-      content: input.content,
-      category: input.category,
-      is_personal: input.isPersonal ?? false,
-      created_by: userId,
-      shortcut: input.shortcut,
-    })
+    .insert(insertData)
     .select()
     .single()
 

@@ -3,7 +3,7 @@
 // ===========================================
 
 import { useState } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   Plus,
   Search,
@@ -61,6 +61,7 @@ function ProjectsListPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const { organization } = useOrganization()
   const organizationId = organization?.id || ''
+  const navigate = useNavigate()
 
   // Fetch projects from Supabase
   const { data: projectsData, isLoading, error } = useProjects(
@@ -186,7 +187,11 @@ function ProjectsListPage() {
           {projects.map((project) => {
             const statusInfo = statusConfig[project.status]
             return (
-              <Card key={project.id} className="hover:shadow-md transition-shadow">
+              <Card
+                key={project.id}
+                className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => navigate({ to: '/projects/$projectId', params: { projectId: project.id } })}
+              >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -197,13 +202,9 @@ function ProjectsListPage() {
                         <FolderKanban className="h-5 w-5" style={{ color: project.color || '#6B7280' }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <Link
-                          to="/projects/$projectId"
-                          params={{ projectId: project.id }}
-                          className="font-semibold hover:text-primary truncate block"
-                        >
+                        <span className="font-semibold truncate block">
                           {project.name}
-                        </Link>
+                        </span>
                         <Badge
                           variant="outline"
                           className="mt-1"
@@ -215,15 +216,18 @@ function ProjectsListPage() {
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Link to="/projects/$projectId" params={{ projectId: project.id }}>
-                            Voir le projet
-                          </Link>
+                        <DropdownMenuItem onClick={() => navigate({ to: '/projects/$projectId', params: { projectId: project.id } })}>
+                          Voir le projet
                         </DropdownMenuItem>
                         <DropdownMenuItem>Modifier</DropdownMenuItem>
                         <DropdownMenuSeparator />

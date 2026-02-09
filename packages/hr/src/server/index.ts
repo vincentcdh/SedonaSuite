@@ -111,6 +111,21 @@ export {
   deleteTimeEntry,
   getWeeklySummary,
   getMonthlySummary,
+  getOrganizationTimeStats,
+  getEmployeesTimeStatus,
+  type EmployeeTimeStatus,
+  // Badge / Clock In-Out
+  getBadges,
+  getBadgesByEmployee,
+  getEmployeeBadgeStatus,
+  getAllEmployeesBadgeStatus,
+  getDailyWorkSummary,
+  createBadge,
+  clockIn,
+  clockOut,
+  startBreak,
+  endBreak,
+  deleteBadge,
 } from './time-entries'
 
 // Statistics

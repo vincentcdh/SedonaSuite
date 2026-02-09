@@ -2,23 +2,25 @@
 // LEAVES MANAGEMENT PAGE
 // ===========================================
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { getSupabaseClient } from '@sedona/database'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import {
   Plus,
   Calendar,
   Clock,
   Check,
   X,
-  Filter,
   CalendarDays,
+  Loader2,
 } from 'lucide-react'
 import {
   Button,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Badge,
   Avatar,
   AvatarFallback,
@@ -32,63 +34,30 @@ import {
   SelectTrigger,
   SelectValue,
   cn,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Input,
+  Label,
+  Textarea,
 } from '@sedona/ui'
+import {
+  useLeaveRequests,
+  useLeaveTypes,
+  useEmployees,
+  useCreateLeaveRequest,
+  useApproveLeaveRequest,
+  useRejectLeaveRequest,
+  createLeaveRequestSchema,
+} from '@sedona/hr'
 import type { LeaveStatus } from '@sedona/hr'
+import { useOrganization, useAuth } from '@/lib/auth'
 
 export const Route = createFileRoute('/_authenticated/hr/leaves/')({
   component: LeavesPage,
 })
-
-// Mock leave requests
-const mockLeaveRequests = [
-  {
-    id: '1',
-    employee: { id: '1', firstName: 'Alice', lastName: 'Martin', photoUrl: null },
-    leaveType: { id: '1', name: 'Conges payes', code: 'cp', color: '#10b981' },
-    startDate: '2024-03-01',
-    endDate: '2024-03-08',
-    daysCount: 6,
-    status: 'pending' as LeaveStatus,
-    reason: 'Vacances en famille',
-    createdAt: '2024-02-15T10:00:00Z',
-  },
-  {
-    id: '2',
-    employee: { id: '2', firstName: 'Bob', lastName: 'Dupont', photoUrl: null },
-    leaveType: { id: '2', name: 'RTT', code: 'rtt', color: '#3b82f6' },
-    startDate: '2024-02-20',
-    endDate: '2024-02-20',
-    daysCount: 1,
-    status: 'approved' as LeaveStatus,
-    reason: 'RDV medical',
-    createdAt: '2024-02-10T14:00:00Z',
-    approvedAt: '2024-02-11T09:00:00Z',
-  },
-  {
-    id: '3',
-    employee: { id: '3', firstName: 'Marie', lastName: 'Bernard', photoUrl: null },
-    leaveType: { id: '3', name: 'Maladie', code: 'sick', color: '#f59e0b' },
-    startDate: '2024-02-18',
-    endDate: '2024-02-19',
-    daysCount: 2,
-    status: 'approved' as LeaveStatus,
-    reason: 'Grippe',
-    createdAt: '2024-02-18T08:00:00Z',
-    approvedAt: '2024-02-18T08:30:00Z',
-  },
-  {
-    id: '4',
-    employee: { id: '1', firstName: 'Alice', lastName: 'Martin', photoUrl: null },
-    leaveType: { id: '1', name: 'Conges payes', code: 'cp', color: '#10b981' },
-    startDate: '2024-01-15',
-    endDate: '2024-01-19',
-    daysCount: 5,
-    status: 'rejected' as LeaveStatus,
-    reason: 'Voyage',
-    rejectionReason: 'Periode de forte activite',
-    createdAt: '2024-01-10T10:00:00Z',
-  },
-]
 
 const statusConfig: Record<LeaveStatus, { label: string; className: string; icon: typeof Clock }> = {
   pending: { label: 'En attente', className: 'bg-yellow-100 text-yellow-700', icon: Clock },
@@ -98,8 +67,80 @@ const statusConfig: Record<LeaveStatus, { label: string; className: string; icon
 }
 
 function LeavesPage() {
+  const { organization } = useOrganization()
+  const { user } = useAuth()
+  const organizationId = organization?.id || ''
+  const userId = user?.id || ''
+
   const [activeTab, setActiveTab] = useState('pending')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  // Queries - séparées pour éviter qu'une erreur bloque les autres
+  const {
+    data: leaveRequestsData,
+    isLoading: isLoadingRequests,
+    error: leaveRequestsError
+  } = useLeaveRequests(organizationId)
+
+  const {
+    data: leaveTypesData,
+    isLoading: isLoadingTypes,
+    error: leaveTypesError
+  } = useLeaveTypes(organizationId)
+
+  const {
+    data: employeesData,
+    error: employeesError
+  } = useEmployees(organizationId)
+
+  // Mutations
+  const createLeaveRequest = useCreateLeaveRequest(organizationId, userId)
+  const approveLeaveRequest = useApproveLeaveRequest(userId)
+  const rejectLeaveRequest = useRejectLeaveRequest(userId)
+
+  const leaveRequests = leaveRequestsData?.data || []
+  const leaveTypes = leaveTypesData || []
+  const employees = employeesData?.data || []
+
+  // Debug log - à supprimer après
+  console.log('DEBUG leaves:', {
+    organizationId,
+    leaveTypes,
+    leaveTypesData,
+    leaveTypesError: leaveTypesError?.message,
+    isLoadingTypes,
+    employees,
+    employeesError: employeesError?.message,
+    leaveRequestsError: leaveRequestsError?.message,
+  })
+
+  // Test direct Supabase - à supprimer après
+  useEffect(() => {
+    if (organizationId) {
+      getSupabaseClient()
+        .from('hr_leave_types')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .then(({ data, error }) => {
+          console.log('DIRECT SUPABASE TEST hr_leave_types:', { data, error, organizationId })
+        })
+    }
+  }, [organizationId])
+
+  // Form
+  const form = useForm<z.infer<typeof createLeaveRequestSchema>>({
+    resolver: zodResolver(createLeaveRequestSchema),
+    defaultValues: {
+      employeeId: '',
+      leaveTypeId: '',
+      startDate: '',
+      endDate: '',
+      startHalfDay: false,
+      endHalfDay: false,
+      reason: '',
+    },
+  })
 
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0]}${lastName[0]}`.toUpperCase()
@@ -113,10 +154,52 @@ function LeavesPage() {
     })
   }
 
-  const pendingRequests = mockLeaveRequests.filter(r => r.status === 'pending')
+  const pendingRequests = leaveRequests.filter(r => r.status === 'pending')
   const allRequests = statusFilter === 'all'
-    ? mockLeaveRequests
-    : mockLeaveRequests.filter(r => r.status === statusFilter)
+    ? leaveRequests
+    : leaveRequests.filter(r => r.status === statusFilter)
+
+  const handleCreateRequest = async (data: z.infer<typeof createLeaveRequestSchema>) => {
+    console.log('handleCreateRequest called with:', data)
+    try {
+      const result = await createLeaveRequest.mutateAsync(data)
+      console.log('Leave request created:', result)
+      setIsDialogOpen(false)
+      form.reset()
+    } catch (error) {
+      console.error('Erreur lors de la creation de la demande:', error)
+      alert('Erreur: ' + (error as Error).message)
+    }
+  }
+
+  // Debug form errors
+  const onFormError = (errors: any) => {
+    console.log('Form validation errors:', errors)
+  }
+
+  const handleApprove = async (id: string) => {
+    try {
+      await approveLeaveRequest.mutateAsync({ id })
+    } catch (error) {
+      console.error('Erreur lors de l\'approbation:', error)
+    }
+  }
+
+  const handleReject = async (id: string) => {
+    try {
+      await rejectLeaveRequest.mutateAsync({ id, rejectionReason: '' })
+    } catch (error) {
+      console.error('Erreur lors du refus:', error)
+    }
+  }
+
+  if (isLoadingRequests) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -133,7 +216,7 @@ function LeavesPage() {
             <CalendarDays className="h-4 w-4 mr-2" />
             Calendrier
           </Button>
-          <Button>
+          <Button onClick={() => setIsDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Nouvelle demande
           </Button>
@@ -160,7 +243,9 @@ function LeavesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Approuvees ce mois</p>
-                <p className="text-2xl font-bold">12</p>
+                <p className="text-2xl font-bold">
+                  {leaveRequests.filter(r => r.status === 'approved').length}
+                </p>
               </div>
               <div className="p-2 bg-green-100 rounded-lg">
                 <Check className="h-5 w-5 text-green-600" />
@@ -173,7 +258,11 @@ function LeavesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Jours poses ce mois</p>
-                <p className="text-2xl font-bold">28</p>
+                <p className="text-2xl font-bold">
+                  {leaveRequests
+                    .filter(r => r.status === 'approved')
+                    .reduce((acc, r) => acc + (r.daysCount || 0), 0)}
+                </p>
               </div>
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Calendar className="h-5 w-5 text-blue-600" />
@@ -185,8 +274,8 @@ function LeavesPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Absents aujourd'hui</p>
-                <p className="text-2xl font-bold">2</p>
+                <p className="text-sm text-muted-foreground">Total demandes</p>
+                <p className="text-2xl font-bold">{leaveRequests.length}</p>
               </div>
               <div className="p-2 bg-purple-100 rounded-lg">
                 <Calendar className="h-5 w-5 text-purple-600" />
@@ -243,26 +332,34 @@ function LeavesPage() {
                       <div className="flex items-start gap-4">
                         <Avatar className="h-10 w-10">
                           <AvatarFallback>
-                            {getInitials(request.employee.firstName, request.employee.lastName)}
+                            {request.employee
+                              ? getInitials(request.employee.firstName, request.employee.lastName)
+                              : '??'}
                           </AvatarFallback>
                         </Avatar>
                         <div>
                           <div className="flex items-center gap-2">
-                            <Link
-                              to="/hr/employees/$employeeId"
-                              params={{ employeeId: request.employee.id }}
-                              className="font-medium hover:text-primary"
-                            >
-                              {request.employee.firstName} {request.employee.lastName}
-                            </Link>
-                            <Badge
-                              style={{
-                                backgroundColor: `${request.leaveType.color}20`,
-                                color: request.leaveType.color,
-                              }}
-                            >
-                              {request.leaveType.name}
-                            </Badge>
+                            {request.employee ? (
+                              <Link
+                                to="/hr/employees/$employeeId"
+                                params={{ employeeId: request.employee.id }}
+                                className="font-medium hover:text-primary"
+                              >
+                                {request.employee.firstName} {request.employee.lastName}
+                              </Link>
+                            ) : (
+                              <span className="font-medium">Employe inconnu</span>
+                            )}
+                            {request.leaveType && (
+                              <Badge
+                                style={{
+                                  backgroundColor: `${request.leaveType.color}20`,
+                                  color: request.leaveType.color,
+                                }}
+                              >
+                                {request.leaveType.name}
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-sm text-muted-foreground mt-1">
                             Du {formatDate(request.startDate)} au {formatDate(request.endDate)}
@@ -277,11 +374,21 @@ function LeavesPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" className="text-destructive">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive"
+                          onClick={() => handleReject(request.id)}
+                          disabled={rejectLeaveRequest.isPending}
+                        >
                           <X className="h-4 w-4 mr-1" />
                           Refuser
                         </Button>
-                        <Button size="sm">
+                        <Button
+                          size="sm"
+                          onClick={() => handleApprove(request.id)}
+                          disabled={approveLeaveRequest.isPending}
+                        >
                           <Check className="h-4 w-4 mr-1" />
                           Approuver
                         </Button>
@@ -304,26 +411,34 @@ function LeavesPage() {
                     <div className="flex items-center gap-4">
                       <Avatar className="h-10 w-10">
                         <AvatarFallback>
-                          {getInitials(request.employee.firstName, request.employee.lastName)}
+                          {request.employee
+                            ? getInitials(request.employee.firstName, request.employee.lastName)
+                            : '??'}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <div className="flex items-center gap-2">
-                          <Link
-                            to="/hr/employees/$employeeId"
-                            params={{ employeeId: request.employee.id }}
-                            className="font-medium hover:text-primary"
-                          >
-                            {request.employee.firstName} {request.employee.lastName}
-                          </Link>
-                          <Badge
-                            style={{
-                              backgroundColor: `${request.leaveType.color}20`,
-                              color: request.leaveType.color,
-                            }}
-                          >
-                            {request.leaveType.name}
-                          </Badge>
+                          {request.employee ? (
+                            <Link
+                              to="/hr/employees/$employeeId"
+                              params={{ employeeId: request.employee.id }}
+                              className="font-medium hover:text-primary"
+                            >
+                              {request.employee.firstName} {request.employee.lastName}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">Employe inconnu</span>
+                          )}
+                          {request.leaveType && (
+                            <Badge
+                              style={{
+                                backgroundColor: `${request.leaveType.color}20`,
+                                color: request.leaveType.color,
+                              }}
+                            >
+                              {request.leaveType.name}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground">
                           {formatDate(request.startDate)} - {formatDate(request.endDate)}
@@ -348,6 +463,112 @@ function LeavesPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog for new leave request */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Nouvelle demande de conges</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={form.handleSubmit(handleCreateRequest, onFormError)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="employeeId">Employe</Label>
+              <Select
+                value={form.watch('employeeId')}
+                onValueChange={(value) => form.setValue('employeeId', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selectionnez un employe" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map(emp => (
+                    <SelectItem key={emp.id} value={emp.id}>
+                      {emp.firstName} {emp.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {form.formState.errors.employeeId && (
+                <p className="text-sm text-destructive">{form.formState.errors.employeeId.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="leaveTypeId">Type de conge ({leaveTypes.length} types disponibles)</Label>
+              <Select
+                value={form.watch('leaveTypeId')}
+                onValueChange={(value) => form.setValue('leaveTypeId', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selectionnez un type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {leaveTypes.length === 0 ? (
+                    <SelectItem value="_empty" disabled>Aucun type disponible</SelectItem>
+                  ) : (
+                    leaveTypes.map(type => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              {form.formState.errors.leaveTypeId && (
+                <p className="text-sm text-destructive">{form.formState.errors.leaveTypeId.message}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Date de debut</Label>
+                <Input
+                  type="date"
+                  {...form.register('startDate')}
+                />
+                {form.formState.errors.startDate && (
+                  <p className="text-sm text-destructive">{form.formState.errors.startDate.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="endDate">Date de fin</Label>
+                <Input
+                  type="date"
+                  {...form.register('endDate')}
+                />
+                {form.formState.errors.endDate && (
+                  <p className="text-sm text-destructive">{form.formState.errors.endDate.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="reason">Motif (optionnel)</Label>
+              <Textarea
+                placeholder="Raison de la demande..."
+                {...form.register('reason')}
+              />
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+              >
+                Annuler
+              </Button>
+              <Button type="submit" disabled={createLeaveRequest.isPending}>
+                {createLeaveRequest.isPending && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                Creer la demande
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

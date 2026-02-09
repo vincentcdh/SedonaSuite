@@ -1229,43 +1229,52 @@ export type Database = {
       }
       hr_documents: {
         Row: {
-          created_at: string | null
-          document_type: string
-          employee_id: string
-          file_size: number | null
-          file_url: string
           id: string
-          mime_type: string | null
+          organization_id: string
+          employee_id: string
           name: string
-          uploaded_by: string | null
+          document_type: string
+          file_url: string
+          file_size: number | null
+          mime_type: string | null
           valid_from: string | null
           valid_until: string | null
+          uploaded_by: string | null
+          notes: string | null
+          created_at: string | null
+          deleted_at: string | null
         }
         Insert: {
-          created_at?: string | null
-          document_type: string
-          employee_id: string
-          file_size?: number | null
-          file_url: string
           id?: string
-          mime_type?: string | null
+          organization_id: string
+          employee_id: string
           name: string
-          uploaded_by?: string | null
+          document_type: string
+          file_url: string
+          file_size?: number | null
+          mime_type?: string | null
           valid_from?: string | null
           valid_until?: string | null
+          uploaded_by?: string | null
+          notes?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
         }
         Update: {
-          created_at?: string | null
-          document_type?: string
-          employee_id?: string
-          file_size?: number | null
-          file_url?: string
           id?: string
-          mime_type?: string | null
+          organization_id?: string
+          employee_id?: string
           name?: string
-          uploaded_by?: string | null
+          document_type?: string
+          file_url?: string
+          file_size?: number | null
+          mime_type?: string | null
           valid_from?: string | null
           valid_until?: string | null
+          uploaded_by?: string | null
+          notes?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
         }
         Relationships: [
           {
@@ -1425,49 +1434,58 @@ export type Database = {
       }
       hr_interviews: {
         Row: {
-          conducted_at: string | null
-          created_at: string | null
-          development_plan: string | null
-          document_url: string | null
-          employee_id: string
           id: string
+          organization_id: string
+          employee_id: string
           interview_type: string
+          scheduled_date: string
+          conducted_at: string | null
           interviewer_id: string | null
           objectives: string | null
           outcomes: string | null
+          development_plan: string | null
           rating: number | null
-          scheduled_date: string
+          status: string
+          document_url: string | null
+          created_at: string | null
           updated_at: string | null
+          deleted_at: string | null
         }
         Insert: {
-          conducted_at?: string | null
-          created_at?: string | null
-          development_plan?: string | null
-          document_url?: string | null
-          employee_id: string
           id?: string
+          organization_id: string
+          employee_id: string
           interview_type: string
+          scheduled_date: string
+          conducted_at?: string | null
           interviewer_id?: string | null
           objectives?: string | null
           outcomes?: string | null
+          development_plan?: string | null
           rating?: number | null
-          scheduled_date: string
+          status?: string
+          document_url?: string | null
+          created_at?: string | null
           updated_at?: string | null
+          deleted_at?: string | null
         }
         Update: {
-          conducted_at?: string | null
-          created_at?: string | null
-          development_plan?: string | null
-          document_url?: string | null
-          employee_id?: string
           id?: string
+          organization_id?: string
+          employee_id?: string
           interview_type?: string
+          scheduled_date?: string
+          conducted_at?: string | null
           interviewer_id?: string | null
           objectives?: string | null
           outcomes?: string | null
+          development_plan?: string | null
           rating?: number | null
-          scheduled_date?: string
+          status?: string
+          document_url?: string | null
+          created_at?: string | null
           updated_at?: string | null
+          deleted_at?: string | null
         }
         Relationships: [
           {
@@ -1694,6 +1712,154 @@ export type Database = {
             columns: ['organization_id']
             isOneToOne: true
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      hr_badges: {
+        Row: {
+          id: string
+          organization_id: string
+          employee_id: string
+          badge_type: 'clock_in' | 'clock_out' | 'break_start' | 'break_end'
+          badge_time: string
+          badge_date: string
+          latitude: number | null
+          longitude: number | null
+          location_name: string | null
+          device_type: string | null
+          ip_address: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          employee_id: string
+          badge_type: 'clock_in' | 'clock_out' | 'break_start' | 'break_end'
+          badge_time?: string
+          latitude?: number | null
+          longitude?: number | null
+          location_name?: string | null
+          device_type?: string | null
+          ip_address?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          employee_id?: string
+          badge_type?: 'clock_in' | 'clock_out' | 'break_start' | 'break_end'
+          badge_time?: string
+          latitude?: number | null
+          longitude?: number | null
+          location_name?: string | null
+          device_type?: string | null
+          ip_address?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'hr_badges_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'hr_badges_employee_id_fkey'
+            columns: ['employee_id']
+            isOneToOne: false
+            referencedRelation: 'hr_employees'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'hr_badges_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      hr_absences: {
+        Row: {
+          id: string
+          organization_id: string
+          employee_id: string
+          leave_type_id: string
+          start_date: string
+          end_date: string
+          days_count: number
+          medical_certificate_url: string | null
+          reason: string | null
+          recorded_by: string | null
+          created_at: string | null
+          updated_at: string | null
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          employee_id: string
+          leave_type_id: string
+          start_date: string
+          end_date: string
+          days_count: number
+          medical_certificate_url?: string | null
+          reason?: string | null
+          recorded_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          employee_id?: string
+          leave_type_id?: string
+          start_date?: string
+          end_date?: string
+          days_count?: number
+          medical_certificate_url?: string | null
+          reason?: string | null
+          recorded_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'hr_absences_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'hr_absences_employee_id_fkey'
+            columns: ['employee_id']
+            isOneToOne: false
+            referencedRelation: 'hr_employees'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'hr_absences_leave_type_id_fkey'
+            columns: ['leave_type_id']
+            isOneToOne: false
+            referencedRelation: 'hr_leave_types'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'hr_absences_recorded_by_fkey'
+            columns: ['recorded_by']
+            isOneToOne: false
+            referencedRelation: 'users'
             referencedColumns: ['id']
           },
         ]
@@ -3847,10 +4013,58 @@ export type Database = {
           },
         ]
       }
+      tickets_kb_categories: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          organization_id: string
+          position: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          organization_id: string
+          position?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          organization_id?: string
+          position?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'tickets_kb_categories_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       tickets_kb_articles: {
         Row: {
           author_id: string | null
           category_id: string | null
+          kb_category_id: string | null
           content: string
           created_at: string | null
           deleted_at: string | null
@@ -3871,6 +4085,7 @@ export type Database = {
         Insert: {
           author_id?: string | null
           category_id?: string | null
+          kb_category_id?: string | null
           content: string
           created_at?: string | null
           deleted_at?: string | null
@@ -3891,6 +4106,7 @@ export type Database = {
         Update: {
           author_id?: string | null
           category_id?: string | null
+          kb_category_id?: string | null
           content?: string
           created_at?: string | null
           deleted_at?: string | null

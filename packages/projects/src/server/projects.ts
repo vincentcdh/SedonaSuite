@@ -44,7 +44,7 @@ export async function getProjects(
     query = query.eq('status', filters.status)
   }
   if (filters.hasTimeTracking !== undefined) {
-    query = query.eq('allow_time_tracking', filters.hasTimeTracking)
+    query = query.eq('time_tracking_enabled', filters.hasTimeTracking) // DB uses 'time_tracking_enabled'
   }
 
   // Sorting
@@ -88,30 +88,66 @@ async function getProjectsStats(projectIds: string[]) {
 
   const client = getClient()
 
-  const { data: progressData } = await client
-    .from('projects_project_progress')
-    .select('*')
+  // Get tasks for each project
+  const { data: tasksData } = await client
+    .from('projects_tasks')
+    .select('project_id, completed_at, estimated_hours')
     .in('project_id', projectIds)
+    .is('deleted_at', null)
 
+  // Get members count for each project
   const { data: membersData } = await client
     .from('projects_project_members')
     .select('project_id')
     .in('project_id', projectIds)
+
+  // Get time entries for each project
+  const { data: timeData } = await client
+    .from('projects_time_entries')
+    .select('project_id, duration_minutes')
+    .in('project_id', projectIds)
+
+  // Calculate stats per project
+  const taskStats: Record<string, { total: number; completed: number; estimatedMinutes: number }> = {}
+  tasksData?.forEach((t: any) => {
+    const pid = t.project_id
+    if (!taskStats[pid]) {
+      taskStats[pid] = { total: 0, completed: 0, estimatedMinutes: 0 }
+    }
+    taskStats[pid].total++
+    if (t.completed_at) {
+      taskStats[pid].completed++
+    }
+    if (t.estimated_hours) {
+      taskStats[pid].estimatedMinutes += t.estimated_hours * 60
+    }
+  })
 
   const memberCounts: Record<string, number> = {}
   membersData?.forEach((m: any) => {
     memberCounts[m.project_id] = (memberCounts[m.project_id] || 0) + 1
   })
 
-  return (progressData || []).map((p: any) => ({
-    projectId: p.project_id,
-    totalTasks: p.total_tasks,
-    completedTasks: p.completed_tasks,
-    progressPercentage: Number(p.progress_percentage),
-    totalTimeMinutes: Number(p.total_time_minutes),
-    totalEstimatedMinutes: Number(p.total_estimated_minutes),
-    membersCount: memberCounts[p.project_id] || 0,
-  }))
+  const timeTotals: Record<string, number> = {}
+  timeData?.forEach((t: any) => {
+    const pid = t.project_id
+    timeTotals[pid] = (timeTotals[pid] || 0) + (t.duration_minutes || 0)
+  })
+
+  return projectIds.map((projectId) => {
+    const stats = taskStats[projectId] || { total: 0, completed: 0, estimatedMinutes: 0 }
+    const progressPercentage = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0
+
+    return {
+      projectId,
+      totalTasks: stats.total,
+      completedTasks: stats.completed,
+      progressPercentage,
+      totalTimeMinutes: timeTotals[projectId] || 0,
+      totalEstimatedMinutes: stats.estimatedMinutes,
+      membersCount: memberCounts[projectId] || 0,
+    }
+  })
 }
 
 // ===========================================
@@ -155,43 +191,48 @@ export async function createProject(
 ): Promise<Project> {
   const client = getClient()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
+    organization_id: organizationId,
+    name: input.name,
+    description: input.description,
+    color: input.color || '#3B82F6',
+    // Note: 'icon' and 'is_public' don't exist in DB schema
+    status: input.status || 'active',
+    start_date: input.startDate,
+    end_date: input.endDate,
+    budget: input.budgetAmount,
+    currency: input.budgetCurrency || 'EUR',
+    time_tracking_enabled: input.allowTimeTracking ?? true,
+    deal_id: input.dealId,
+    client_id: input.clientId,
+    custom_fields: input.customFields || {},
+    created_by: userId,
+  }
+
   const { data, error } = await client
     .from('projects_projects')
-    .insert({
-      organization_id: organizationId,
-      name: input.name,
-      description: input.description,
-      color: input.color || '#3B82F6',
-      icon: input.icon || 'folder',
-      status: input.status || 'active',
-      start_date: input.startDate,
-      end_date: input.endDate,
-      budget_amount: input.budgetAmount,
-      budget_currency: input.budgetCurrency || 'EUR',
-      is_public: input.isPublic ?? false,
-      allow_time_tracking: input.allowTimeTracking ?? true,
-      deal_id: input.dealId,
-      client_id: input.clientId,
-      custom_fields: input.customFields || {},
-      created_by: userId,
-    })
+    .insert(insertData)
     .select()
     .single()
 
   if (error) throw error
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const memberData: any = {
+    project_id: data.id,
+    user_id: userId,
+    role: 'owner',
+    can_edit_project: true,
+    can_manage_members: true,
+    can_delete_tasks: true,
+    invited_by: userId,
+  }
+
   // Add creator as owner
   await client
     .from('projects_project_members')
-    .insert({
-      project_id: data.id,
-      user_id: userId,
-      role: 'owner',
-      can_edit_project: true,
-      can_manage_members: true,
-      can_delete_tasks: true,
-      invited_by: userId,
-    })
+    .insert(memberData)
 
   return mapProjectFromDb(data)
 }
@@ -201,7 +242,8 @@ export async function createProject(
 // ===========================================
 
 export async function updateProject(input: UpdateProjectInput): Promise<Project> {
-  const updateData: Record<string, unknown> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: any = {}
 
   if (input.name !== undefined) updateData.name = input.name
   if (input.description !== undefined) updateData.description = input.description
@@ -210,10 +252,10 @@ export async function updateProject(input: UpdateProjectInput): Promise<Project>
   if (input.status !== undefined) updateData.status = input.status
   if (input.startDate !== undefined) updateData.start_date = input.startDate
   if (input.endDate !== undefined) updateData.end_date = input.endDate
-  if (input.budgetAmount !== undefined) updateData.budget_amount = input.budgetAmount
-  if (input.budgetCurrency !== undefined) updateData.budget_currency = input.budgetCurrency
-  if (input.isPublic !== undefined) updateData.is_public = input.isPublic
-  if (input.allowTimeTracking !== undefined) updateData.allow_time_tracking = input.allowTimeTracking
+  if (input.budgetAmount !== undefined) updateData.budget = input.budgetAmount // DB uses 'budget'
+  if (input.budgetCurrency !== undefined) updateData.currency = input.budgetCurrency // DB uses 'currency'
+  // Note: 'is_public' doesn't exist in DB schema
+  if (input.allowTimeTracking !== undefined) updateData.time_tracking_enabled = input.allowTimeTracking // DB uses 'time_tracking_enabled'
   if (input.dealId !== undefined) updateData.deal_id = input.dealId
   if (input.clientId !== undefined) updateData.client_id = input.clientId
   if (input.customFields !== undefined) updateData.custom_fields = input.customFields
@@ -235,9 +277,12 @@ export async function updateProject(input: UpdateProjectInput): Promise<Project>
 // ===========================================
 
 export async function deleteProject(id: string): Promise<void> {
+  // Soft delete by setting archived_at
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: any = { archived_at: new Date().toISOString() }
   const { error } = await getClient()
     .from('projects_projects')
-    .update({ archived_at: new Date().toISOString() })
+    .update(updateData)
     .eq('id', id)
 
   if (error) throw error
@@ -247,28 +292,29 @@ export async function deleteProject(id: string): Promise<void> {
 // HELPERS
 // ===========================================
 
-function mapProjectFromDb(data: Record<string, unknown>): Project {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapProjectFromDb(data: any): Project {
   return {
-    id: data.id as string,
-    organizationId: data.organization_id as string,
-    name: data.name as string,
-    description: data.description as string | null,
-    color: (data.color as string) || '#3B82F6',
-    icon: (data.icon as string) || 'folder',
-    status: data.status as Project['status'],
-    startDate: data.start_date as string | null,
-    endDate: data.end_date as string | null,
-    budgetAmount: data.budget_amount ? Number(data.budget_amount) : null,
-    budgetCurrency: (data.budget_currency as string) || 'EUR',
-    isPublic: (data.is_public as boolean) || false,
-    allowTimeTracking: (data.allow_time_tracking as boolean) ?? true,
-    dealId: data.deal_id as string | null,
-    clientId: data.client_id as string | null,
-    customFields: (data.custom_fields as Record<string, unknown>) || {},
-    createdBy: data.created_by as string | null,
-    createdAt: data.created_at as string,
-    updatedAt: data.updated_at as string,
-    archivedAt: data.archived_at as string | null,
+    id: data['id'] as string,
+    organizationId: data['organization_id'] as string,
+    name: data['name'] as string,
+    description: data['description'] as string | null,
+    color: (data['color'] as string) || '#3B82F6',
+    icon: 'folder', // Not in DB schema - using default
+    status: data['status'] as Project['status'],
+    startDate: data['start_date'] as string | null,
+    endDate: data['end_date'] as string | null,
+    budgetAmount: data['budget'] ? Number(data['budget']) : null,
+    budgetCurrency: (data['currency'] as string) || 'EUR',
+    isPublic: false, // Not in DB schema - using default
+    allowTimeTracking: (data['time_tracking_enabled'] as boolean) ?? true,
+    dealId: data['deal_id'] as string | null,
+    clientId: data['client_id'] as string | null,
+    customFields: (data['custom_fields'] as Record<string, unknown>) || {},
+    createdBy: data['created_by'] as string | null,
+    createdAt: data['created_at'] as string,
+    updatedAt: data['updated_at'] as string,
+    archivedAt: data['archived_at'] as string | null,
   }
 }
 

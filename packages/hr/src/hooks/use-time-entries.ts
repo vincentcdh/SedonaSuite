@@ -15,13 +15,33 @@ import {
   deleteTimeEntry,
   getWeeklySummary,
   getMonthlySummary,
+  getOrganizationTimeStats,
+  getEmployeesTimeStatus,
+  getBadges,
+  getBadgesByEmployee,
+  getEmployeeBadgeStatus,
+  getAllEmployeesBadgeStatus,
+  getDailyWorkSummary,
+  createBadge,
+  clockIn,
+  clockOut,
+  startBreak,
+  endBreak,
+  deleteBadge,
 } from '../server/time-entries'
 import type {
   CreateTimeEntryInput,
   UpdateTimeEntryInput,
   TimeEntryFilters,
   PaginationParams,
+  CreateBadgeInput,
+  BadgeFilters,
 } from '../types'
+
+// Helper function to get today's date in ISO format
+function getTodayIsoDate(): string {
+  return new Date().toISOString().split('T')[0] ?? ''
+}
 
 // ===========================================
 // QUERY KEYS
@@ -42,6 +62,16 @@ export const timeEntryKeys = {
     [...timeEntryKeys.all, 'weekly', employeeId, weekStartDate] as const,
   monthlySummary: (employeeId: string, year: number, month: number) =>
     [...timeEntryKeys.all, 'monthly', employeeId, year, month] as const,
+  organizationStats: (organizationId: string) =>
+    [...timeEntryKeys.all, 'orgStats', organizationId] as const,
+  employeesStatus: (organizationId: string) =>
+    [...timeEntryKeys.all, 'employeesStatus', organizationId] as const,
+  badges: (employeeId: string, date: string) =>
+    [...timeEntryKeys.all, 'badges', employeeId, date] as const,
+  badgeStatus: (employeeId: string, date: string) =>
+    [...timeEntryKeys.all, 'badgeStatus', employeeId, date] as const,
+  allBadgeStatus: (organizationId: string, date: string) =>
+    [...timeEntryKeys.all, 'allBadgeStatus', organizationId, date] as const,
 }
 
 // ===========================================
@@ -101,6 +131,22 @@ export function useMonthlySummary(employeeId: string, year: number, month: numbe
     queryKey: timeEntryKeys.monthlySummary(employeeId, year, month),
     queryFn: () => getMonthlySummary(employeeId, year, month),
     enabled: !!employeeId && !!year && !!month,
+  })
+}
+
+export function useOrganizationTimeStats(organizationId: string) {
+  return useQuery({
+    queryKey: timeEntryKeys.organizationStats(organizationId),
+    queryFn: () => getOrganizationTimeStats(organizationId),
+    enabled: !!organizationId,
+  })
+}
+
+export function useEmployeesTimeStatus(organizationId: string) {
+  return useQuery({
+    queryKey: timeEntryKeys.employeesStatus(organizationId),
+    queryFn: () => getEmployeesTimeStatus(organizationId),
+    enabled: !!organizationId,
   })
 }
 
@@ -169,5 +215,143 @@ export function useDeleteTimeEntry() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: timeEntryKeys.all })
     },
+  })
+}
+
+// ===========================================
+// BADGE / CLOCK IN-OUT
+// ===========================================
+
+export function useBadgesByEmployee(employeeId: string, date: string) {
+  return useQuery({
+    queryKey: timeEntryKeys.badges(employeeId, date),
+    queryFn: () => getBadgesByEmployee(employeeId, date),
+    enabled: !!employeeId && !!date,
+  })
+}
+
+export function useEmployeeBadgeStatus(employeeId: string, date: string) {
+  return useQuery({
+    queryKey: timeEntryKeys.badgeStatus(employeeId, date),
+    queryFn: () => getEmployeeBadgeStatus(employeeId, date),
+    enabled: !!employeeId && !!date,
+  })
+}
+
+export function useAllEmployeesBadgeStatus(organizationId: string, date: string) {
+  return useQuery({
+    queryKey: timeEntryKeys.allBadgeStatus(organizationId, date),
+    queryFn: () => getAllEmployeesBadgeStatus(organizationId, date),
+    enabled: !!organizationId && !!date,
+    refetchInterval: 30000, // Refresh every 30 seconds for real-time updates
+  })
+}
+
+export function useClockIn(organizationId: string) {
+  const queryClient = useQueryClient()
+  const today = getTodayIsoDate()
+
+  return useMutation({
+    mutationFn: ({ employeeId, notes }: { employeeId: string; notes?: string }) =>
+      clockIn(organizationId, employeeId, notes),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.badges(data.employeeId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.badgeStatus(data.employeeId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.allBadgeStatus(organizationId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.employeesStatus(organizationId) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.organizationStats(organizationId) })
+    },
+  })
+}
+
+export function useClockOut(organizationId: string) {
+  const queryClient = useQueryClient()
+  const today = getTodayIsoDate()
+
+  return useMutation({
+    mutationFn: ({ employeeId, notes }: { employeeId: string; notes?: string }) =>
+      clockOut(organizationId, employeeId, notes),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.badges(data.employeeId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.badgeStatus(data.employeeId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.allBadgeStatus(organizationId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.employeesStatus(organizationId) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.organizationStats(organizationId) })
+    },
+  })
+}
+
+export function useStartBreak(organizationId: string) {
+  const queryClient = useQueryClient()
+  const today = getTodayIsoDate()
+
+  return useMutation({
+    mutationFn: ({ employeeId, notes }: { employeeId: string; notes?: string }) =>
+      startBreak(organizationId, employeeId, notes),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.badges(data.employeeId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.badgeStatus(data.employeeId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.allBadgeStatus(organizationId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.employeesStatus(organizationId) })
+    },
+  })
+}
+
+export function useEndBreak(organizationId: string) {
+  const queryClient = useQueryClient()
+  const today = getTodayIsoDate()
+
+  return useMutation({
+    mutationFn: ({ employeeId, notes }: { employeeId: string; notes?: string }) =>
+      endBreak(organizationId, employeeId, notes),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.badges(data.employeeId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.badgeStatus(data.employeeId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.allBadgeStatus(organizationId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.employeesStatus(organizationId) })
+    },
+  })
+}
+
+export function useCreateBadge(organizationId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: CreateBadgeInput) => createBadge(organizationId, input),
+    onSuccess: (data) => {
+      const today = getTodayIsoDate()
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.badges(data.employeeId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.badgeStatus(data.employeeId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.allBadgeStatus(organizationId, today) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.employeesStatus(organizationId) })
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.organizationStats(organizationId) })
+    },
+  })
+}
+
+export function useDeleteBadge(organizationId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => deleteBadge(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.all })
+    },
+  })
+}
+
+export function useDailyWorkSummary(employeeId: string, date: string) {
+  return useQuery({
+    queryKey: [...timeEntryKeys.all, 'dailySummary', employeeId, date] as const,
+    queryFn: () => getDailyWorkSummary(employeeId, date),
+    enabled: !!employeeId && !!date,
+  })
+}
+
+export function useBadges(organizationId: string, filters?: BadgeFilters) {
+  return useQuery({
+    queryKey: [...timeEntryKeys.all, 'allBadges', organizationId, filters] as const,
+    queryFn: () => getBadges(organizationId, filters),
+    enabled: !!organizationId,
   })
 }

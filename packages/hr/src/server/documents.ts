@@ -23,7 +23,7 @@ export async function getDocumentsByEmployee(
   const offset = (page - 1) * pageSize
 
   const { data, error, count } = await getSupabaseClient()
-    .from('hr_employee_documents')
+    .from('hr_documents')
     .select('*', { count: 'exact' })
     .eq('employee_id', employeeId)
     .is('deleted_at', null)
@@ -47,7 +47,7 @@ export async function getDocumentsByEmployee(
 
 export async function getDocumentById(id: string): Promise<EmployeeDocument | null> {
   const { data, error } = await getSupabaseClient()
-    .from('hr_employee_documents')
+    .from('hr_documents')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
@@ -71,7 +71,7 @@ export async function createDocument(
   userId?: string
 ): Promise<EmployeeDocument> {
   const { data, error } = await getSupabaseClient()
-    .from('hr_employee_documents')
+    .from('hr_documents')
     .insert({
       organization_id: organizationId,
       employee_id: input.employeeId,
@@ -107,7 +107,7 @@ export async function updateDocument(input: UpdateDocumentInput): Promise<Employ
   if (input.notes !== undefined) updateData.notes = input.notes
 
   const { data, error } = await getSupabaseClient()
-    .from('hr_employee_documents')
+    .from('hr_documents')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -124,7 +124,7 @@ export async function updateDocument(input: UpdateDocumentInput): Promise<Employ
 
 export async function deleteDocument(id: string): Promise<void> {
   const { error } = await getSupabaseClient()
-    .from('hr_employee_documents')
+    .from('hr_documents')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -143,7 +143,7 @@ export async function getExpiringDocuments(
   const futureDate = new Date(today.getTime() + daysAhead * 24 * 60 * 60 * 1000)
 
   const { data, error } = await getSupabaseClient()
-    .from('hr_employee_documents')
+    .from('hr_documents')
     .select('*')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)

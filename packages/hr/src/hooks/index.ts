@@ -112,11 +112,25 @@ export {
   useTimeEntryByDate,
   useWeeklySummary,
   useMonthlySummary,
+  useOrganizationTimeStats,
+  useEmployeesTimeStatus,
   useCreateTimeEntry,
   useUpdateTimeEntry,
   useValidateTimeEntry,
   useUnvalidateTimeEntry,
   useDeleteTimeEntry,
+  // Badge / Clock In-Out
+  useBadges,
+  useBadgesByEmployee,
+  useEmployeeBadgeStatus,
+  useAllEmployeesBadgeStatus,
+  useDailyWorkSummary,
+  useCreateBadge,
+  useClockIn,
+  useClockOut,
+  useStartBreak,
+  useEndBreak,
+  useDeleteBadge,
 } from './use-time-entries'
 
 // Stats hooks

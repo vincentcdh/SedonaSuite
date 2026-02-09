@@ -2,6 +2,8 @@ import { createFileRoute, Outlet } from '@tanstack/react-router'
 
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
+import { PermissionProvider, type SubscriptionPlan, type OrganizationRole } from '@sedona/auth'
+import { useOrganization } from '@/lib/auth'
 
 // TEMPORARY: Auth disabled for development
 // TODO: Re-enable auth when Supabase is configured
@@ -37,7 +39,18 @@ export const Route = createFileRoute('/_authenticated')({
 })
 
 function AuthenticatedLayout() {
-  return (
+  const { organization, role } = useOrganization()
+
+  // Récupérer le plan de l'organisation (défaut: FREE)
+  // Cast explicite pour assurer la compatibilité des types
+  const plan: SubscriptionPlan = (organization?.subscriptionPlan as SubscriptionPlan) || 'FREE'
+  const userRole: OrganizationRole = (role as OrganizationRole) || 'employee'
+
+  // TODO: Réactiver le PermissionProvider quand le problème de rendu sera résolu
+  // Pour l'instant, on l'affiche sans le provider pour ne pas bloquer le développement
+  const enablePermissionProvider = false
+
+  const content = (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
       <Sidebar />
@@ -54,4 +67,14 @@ function AuthenticatedLayout() {
       </div>
     </div>
   )
+
+  if (enablePermissionProvider) {
+    return (
+      <PermissionProvider role={userRole} plan={plan}>
+        {content}
+      </PermissionProvider>
+    )
+  }
+
+  return content
 }

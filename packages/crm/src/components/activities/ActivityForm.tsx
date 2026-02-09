@@ -1,16 +1,19 @@
-import { type FC } from 'react'
+import { type FC, useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
   Button,
-  Card,
-  CardContent,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@sedona/ui'
-import { Phone, Mail, Calendar, CheckSquare, FileText, Save } from 'lucide-react'
-import type { Activity, CreateActivityInput, ActivityType } from '../../types'
+import { Phone, Mail, Calendar, CheckSquare, FileText, Save, User, Building2 } from 'lucide-react'
+import type { Activity, CreateActivityInput, ActivityType, Contact, Company } from '../../types'
 
 const activitySchema = z.object({
   type: z.enum(['call', 'email', 'meeting', 'task', 'note']),
@@ -27,6 +30,9 @@ interface ActivityFormProps {
   contactId?: string
   companyId?: string
   dealId?: string
+  contacts?: Contact[]
+  companies?: Company[]
+  showEntitySelectors?: boolean
   onSubmit: (data: CreateActivityInput) => Promise<void>
   onCancel: () => void
   isLoading?: boolean
@@ -42,13 +48,18 @@ const activityTypes: { value: ActivityType; label: string; icon: React.ReactNode
 
 export const ActivityForm: FC<ActivityFormProps> = ({
   activity,
-  contactId,
-  companyId,
+  contactId: initialContactId,
+  companyId: initialCompanyId,
   dealId,
+  contacts = [],
+  companies = [],
+  showEntitySelectors = false,
   onSubmit,
   onCancel,
   isLoading,
 }) => {
+  const [selectedContactId, setSelectedContactId] = useState<string | undefined>(initialContactId)
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | undefined>(initialCompanyId)
   const {
     register,
     handleSubmit,
@@ -75,6 +86,9 @@ export const ActivityForm: FC<ActivityFormProps> = ({
   const selectedType = watch('type')
 
   const handleFormSubmit = async (data: ActivityFormData) => {
+    const contactId = showEntitySelectors ? selectedContactId : initialContactId
+    const companyId = showEntitySelectors ? selectedCompanyId : initialCompanyId
+
     await onSubmit({
       type: data.type,
       subject: data.subject,
@@ -132,6 +146,63 @@ export const ActivityForm: FC<ActivityFormProps> = ({
           className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
       </div>
+
+      {/* Contact & Company selectors */}
+      {showEntitySelectors && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="contact">
+              <div className="flex items-center gap-1">
+                <User className="h-4 w-4" />
+                Contact
+              </div>
+            </Label>
+            <Select
+              value={selectedContactId || ''}
+              onValueChange={(value) => setSelectedContactId(value || undefined)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selectionner un contact" />
+              </SelectTrigger>
+              <SelectContent>
+                {contacts.map((contact) => (
+                  <SelectItem key={contact.id} value={contact.id}>
+                    {contact.firstName} {contact.lastName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="company">
+              <div className="flex items-center gap-1">
+                <Building2 className="h-4 w-4" />
+                Entreprise
+              </div>
+            </Label>
+            <Select
+              value={selectedCompanyId || ''}
+              onValueChange={(value) => setSelectedCompanyId(value || undefined)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selectionner une entreprise" />
+              </SelectTrigger>
+              <SelectContent>
+                {companies.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {!selectedContactId && !selectedCompanyId && (
+            <p className="text-sm text-error col-span-2">
+              Selectionnez au moins un contact ou une entreprise
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Due Date (for tasks and meetings) */}
       {(selectedType === 'task' || selectedType === 'meeting') && (

@@ -30,7 +30,7 @@ export async function getProjectMembers(projectId: string): Promise<ProjectMembe
   const userIds = (data || []).map((m: any) => m.user_id)
   const { data: users } = await getSupabaseClient()
     .from('users')
-    .select('id, email, full_name, avatar_url')
+    .select('id, email, first_name, last_name, avatar_url')
     .in('id', userIds)
 
   const userMap: Record<string, any> = {}
@@ -43,7 +43,7 @@ export async function getProjectMembers(projectId: string): Promise<ProjectMembe
     user: userMap[m.user_id] ? {
       id: userMap[m.user_id].id,
       email: userMap[m.user_id].email,
-      fullName: userMap[m.user_id].full_name,
+      fullName: [userMap[m.user_id].first_name, userMap[m.user_id].last_name].filter(Boolean).join(' ') || null,
       avatarUrl: userMap[m.user_id].avatar_url,
     } : undefined,
   }))
@@ -81,12 +81,13 @@ export async function addProjectMember(
 // ===========================================
 
 export async function updateProjectMember(input: UpdateProjectMemberInput): Promise<ProjectMember> {
-  const updateData: Record<string, unknown> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: any = {}
 
-  if (input.role !== undefined) updateData.role = input.role
-  if (input.canEditProject !== undefined) updateData.can_edit_project = input.canEditProject
-  if (input.canManageMembers !== undefined) updateData.can_manage_members = input.canManageMembers
-  if (input.canDeleteTasks !== undefined) updateData.can_delete_tasks = input.canDeleteTasks
+  if (input.role !== undefined) updateData['role'] = input.role
+  if (input.canEditProject !== undefined) updateData['can_edit_project'] = input.canEditProject
+  if (input.canManageMembers !== undefined) updateData['can_manage_members'] = input.canManageMembers
+  if (input.canDeleteTasks !== undefined) updateData['can_delete_tasks'] = input.canDeleteTasks
 
   const { data, error } = await getClient()
     .from('projects_project_members')
@@ -134,16 +135,17 @@ export async function isProjectMember(projectId: string, userId: string): Promis
 // HELPERS
 // ===========================================
 
-function mapMemberFromDb(data: Record<string, unknown>): ProjectMember {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapMemberFromDb(data: any): ProjectMember {
   return {
-    id: data.id as string,
-    projectId: data.project_id as string,
-    userId: data.user_id as string,
-    role: data.role as ProjectMember['role'],
-    canEditProject: (data.can_edit_project as boolean) || false,
-    canManageMembers: (data.can_manage_members as boolean) || false,
-    canDeleteTasks: (data.can_delete_tasks as boolean) || false,
-    joinedAt: data.joined_at as string,
-    invitedBy: data.invited_by as string | null,
+    id: data['id'] as string,
+    projectId: data['project_id'] as string,
+    userId: data['user_id'] as string,
+    role: data['role'] as ProjectMember['role'],
+    canEditProject: (data['can_edit_project'] as boolean) || false,
+    canManageMembers: (data['can_manage_members'] as boolean) || false,
+    canDeleteTasks: (data['can_delete_tasks'] as boolean) || false,
+    joinedAt: data['joined_at'] as string,
+    invitedBy: data['invited_by'] as string | null,
   }
 }

@@ -35,6 +35,9 @@ export interface Folder {
   depth: number
   color: string | null
   icon: string | null
+  // Stats (computed)
+  totalSizeBytes: number
+  fileCount: number
   createdBy: string | null
   createdAt: string
   updatedAt: string
@@ -78,6 +81,14 @@ export interface DocFile {
   downloadCount: number
   lastAccessedAt: string | null
   uploadedBy: string | null
+  // Enhanced metadata
+  checksum: string | null
+  width: number | null
+  height: number | null
+  durationSeconds: number | null
+  pageCount: number | null
+  previewUrl: string | null
+  canPreview: boolean
   createdAt: string
   updatedAt: string
   deletedAt: string | null
@@ -244,8 +255,27 @@ export interface DocsSettings {
   maxFileSizeBytes: number | null
   autoOcrEnabled: boolean
   versionRetentionDays: number
+  // File type restrictions
+  allowedExtensions: string[]
+  blockedExtensions: string[]
+  // Upload options
+  requireDescription: boolean
+  autoGenerateThumbnails: boolean
+  enableVirusScan: boolean
   createdAt: string
   updatedAt: string
+}
+
+export interface UpdateDocsSettingsInput {
+  maxStorageBytes?: number | null
+  maxFileSizeBytes?: number | null
+  autoOcrEnabled?: boolean
+  versionRetentionDays?: number
+  allowedExtensions?: string[]
+  blockedExtensions?: string[]
+  requireDescription?: boolean
+  autoGenerateThumbnails?: boolean
+  enableVirusScan?: boolean
 }
 
 // ===========================================
@@ -258,6 +288,31 @@ export interface StorageUsage {
   percentage: number
   fileCount: number
   folderCount: number
+  // By file type
+  documentCount: number
+  imageCount: number
+  pdfCount: number
+  videoCount: number
+  audioCount: number
+  archiveCount: number
+  spreadsheetCount: number
+  presentationCount: number
+}
+
+// ===========================================
+// FILE THUMBNAIL TYPES
+// ===========================================
+
+export type ThumbnailSize = 'small' | 'medium' | 'large'
+
+export interface FileThumbnail {
+  id: string
+  fileId: string
+  size: ThumbnailSize
+  storagePath: string
+  width: number | null
+  height: number | null
+  createdAt: string
 }
 
 // ===========================================

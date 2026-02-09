@@ -27,7 +27,7 @@ export async function getTaskAssignees(taskId: string): Promise<TaskAssignee[]> 
 
   const { data: users } = await getSupabaseClient()
     .from('users')
-    .select('id, email, full_name, avatar_url')
+    .select('id, email, first_name, last_name, avatar_url')
     .in('id', userIds)
 
   const userMap: Record<string, any> = {}
@@ -42,7 +42,7 @@ export async function getTaskAssignees(taskId: string): Promise<TaskAssignee[]> 
     user: userMap[a.user_id] ? {
       id: userMap[a.user_id].id,
       email: userMap[a.user_id].email,
-      fullName: userMap[a.user_id].full_name,
+      fullName: [userMap[a.user_id].first_name, userMap[a.user_id].last_name].filter(Boolean).join(' ') || null,
       avatarUrl: userMap[a.user_id].avatar_url,
     } : undefined,
   }))
@@ -57,36 +57,45 @@ export async function assignUserToTask(
   userId: string,
   assignedBy?: string
 ): Promise<TaskAssignee> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
+    task_id: taskId,
+    user_id: userId,
+    assigned_by: assignedBy,
+  }
+
   const { data, error } = await getClient()
     .from('projects_task_assignees')
-    .insert({
-      task_id: taskId,
-      user_id: userId,
-      assigned_by: assignedBy,
-    })
+    .insert(insertData)
     .select()
     .single()
 
   if (error) throw error
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const assigneeData = data as any
+
   // Get user details
   const { data: user } = await getSupabaseClient()
     .from('users')
-    .select('id, email, full_name, avatar_url')
+    .select('id, email, first_name, last_name, avatar_url')
     .eq('id', userId)
     .single()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const userData = user as any
+
   return {
-    id: data.id,
-    taskId: data.task_id,
-    userId: data.user_id,
-    assignedAt: data.assigned_at,
-    assignedBy: data.assigned_by,
-    user: user ? {
-      id: user.id,
-      email: user.email,
-      fullName: user.full_name,
-      avatarUrl: user.avatar_url,
+    id: assigneeData.id,
+    taskId: assigneeData.task_id,
+    userId: assigneeData.user_id,
+    assignedAt: assigneeData.assigned_at,
+    assignedBy: assigneeData.assigned_by || null,
+    user: userData ? {
+      id: userData.id,
+      email: userData.email,
+      fullName: [userData.first_name, userData.last_name].filter(Boolean).join(' ') || null,
+      avatarUrl: userData.avatar_url,
     } : undefined,
   }
 }
@@ -123,15 +132,16 @@ export async function setTaskAssignees(
   if (userIds.length === 0) return []
 
   // Add new assignees
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any[] = userIds.map(userId => ({
+    task_id: taskId,
+    user_id: userId,
+    assigned_by: assignedBy,
+  }))
+
   const { data, error } = await getClient()
     .from('projects_task_assignees')
-    .insert(
-      userIds.map(userId => ({
-        task_id: taskId,
-        user_id: userId,
-        assigned_by: assignedBy,
-      }))
-    )
+    .insert(insertData)
     .select()
 
   if (error) throw error
@@ -139,7 +149,7 @@ export async function setTaskAssignees(
   // Get user details
   const { data: users } = await getSupabaseClient()
     .from('users')
-    .select('id, email, full_name, avatar_url')
+    .select('id, email, first_name, last_name, avatar_url')
     .in('id', userIds)
 
   const userMap: Record<string, any> = {}
@@ -154,7 +164,7 @@ export async function setTaskAssignees(
     user: userMap[a.user_id] ? {
       id: userMap[a.user_id].id,
       email: userMap[a.user_id].email,
-      fullName: userMap[a.user_id].full_name,
+      fullName: [userMap[a.user_id].first_name, userMap[a.user_id].last_name].filter(Boolean).join(' ') || null,
       avatarUrl: userMap[a.user_id].avatar_url,
     } : undefined,
   }))

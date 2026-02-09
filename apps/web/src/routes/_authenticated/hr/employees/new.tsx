@@ -13,6 +13,7 @@ import {
   Briefcase,
   FileText,
   DollarSign,
+  Loader2,
 } from 'lucide-react'
 import {
   Button,
@@ -29,7 +30,8 @@ import {
   SelectValue,
   Textarea,
 } from '@sedona/ui'
-import { createEmployeeSchema, type CreateEmployeeInput } from '@sedona/hr'
+import { createEmployeeSchema, type CreateEmployeeInput, useCreateEmployee } from '@sedona/hr'
+import { useOrganization } from '@/lib/auth'
 
 export const Route = createFileRoute('/_authenticated/hr/employees/new')({
   component: NewEmployeePage,
@@ -37,13 +39,17 @@ export const Route = createFileRoute('/_authenticated/hr/employees/new')({
 
 function NewEmployeePage() {
   const navigate = useNavigate()
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
+
+  const createEmployee = useCreateEmployee(organizationId)
 
   const {
     register,
     handleSubmit,
     setValue,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<CreateEmployeeInput>({
     resolver: zodResolver(createEmployeeSchema),
     defaultValues: {
@@ -54,10 +60,16 @@ function NewEmployeePage() {
     },
   })
 
+  const contractType = watch('contractType')
+
   const onSubmit = async (data: CreateEmployeeInput) => {
-    console.log('Creating employee:', data)
-    // TODO: Call createEmployee mutation
-    navigate({ to: '/hr' })
+    try {
+      await createEmployee.mutateAsync(data)
+      navigate({ to: '/hr' })
+    } catch (err) {
+      console.error('Error creating employee:', err)
+      alert(`Erreur: ${err instanceof Error ? err.message : JSON.stringify(err)}`)
+    }
   }
 
   return (
@@ -312,7 +324,7 @@ function NewEmployeePage() {
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Type de contrat</Label>
-              <Select onValueChange={(value) => setValue('contractType', value as any)}>
+              <Select onValueChange={(value) => setValue('contractType', value as CreateEmployeeInput['contractType'])}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selectionner un type" />
                 </SelectTrigger>
@@ -330,7 +342,7 @@ function NewEmployeePage() {
               <Label>Statut</Label>
               <Select
                 defaultValue="active"
-                onValueChange={(value) => setValue('status', value as any)}
+                onValueChange={(value) => setValue('status', value as CreateEmployeeInput['status'])}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -349,14 +361,16 @@ function NewEmployeePage() {
                 {...register('contractStartDate')}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="contractEndDate">Date de fin (si CDD/Stage)</Label>
-              <Input
-                id="contractEndDate"
-                type="date"
-                {...register('contractEndDate')}
-              />
-            </div>
+            {(contractType === 'cdd' || contractType === 'stage' || contractType === 'alternance' || contractType === 'interim') && (
+              <div className="space-y-2">
+                <Label htmlFor="contractEndDate">Date de fin</Label>
+                <Input
+                  id="contractEndDate"
+                  type="date"
+                  {...register('contractEndDate')}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="trialEndDate">Fin de periode d'essai</Label>
               <Input
@@ -368,12 +382,12 @@ function NewEmployeePage() {
           </CardContent>
         </Card>
 
-        {/* Salary (Optional) */}
+        {/* Salary */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
-              Remuneration (optionnel)
+              Remuneration
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -382,6 +396,7 @@ function NewEmployeePage() {
               <Input
                 id="grossSalary"
                 type="number"
+                step="0.01"
                 {...register('grossSalary', { valueAsNumber: true })}
                 placeholder="0.00"
               />
@@ -399,6 +414,7 @@ function NewEmployeePage() {
                   <SelectItem value="EUR">EUR</SelectItem>
                   <SelectItem value="USD">USD</SelectItem>
                   <SelectItem value="GBP">GBP</SelectItem>
+                  <SelectItem value="CHF">CHF</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -408,12 +424,12 @@ function NewEmployeePage() {
         {/* Notes */}
         <Card>
           <CardHeader>
-            <CardTitle>Notes</CardTitle>
+            <CardTitle>Notes internes</CardTitle>
           </CardHeader>
           <CardContent>
             <Textarea
               {...register('notes')}
-              placeholder="Notes internes sur l'employe..."
+              placeholder="Notes internes sur l'employe (non visibles par l'employe)..."
               className="min-h-[100px]"
             />
           </CardContent>
@@ -424,8 +440,9 @@ function NewEmployeePage() {
           <Button type="button" variant="outline" onClick={() => navigate({ to: '/hr' })}>
             Annuler
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Creation...' : 'Creer l\'employe'}
+          <Button type="submit" disabled={createEmployee.isPending}>
+            {createEmployee.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {createEmployee.isPending ? 'Creation...' : 'Creer l\'employe'}
           </Button>
         </div>
       </form>

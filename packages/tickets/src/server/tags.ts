@@ -162,7 +162,7 @@ export async function getTagsWithUsageCount(
 
   // Count tag usage
   const tagCountMap: Record<string, number> = {}
-  tickets?.forEach((ticket: { tags: string[] }) => {
+  tickets?.forEach((ticket: { tags: string[] | null }) => {
     ticket.tags?.forEach((tag: string) => {
       tagCountMap[tag] = (tagCountMap[tag] || 0) + 1
     })

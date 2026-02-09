@@ -137,7 +137,8 @@ export function useCreateActivity() {
       data: CreateActivityInput
     }) => createActivity(organizationId, userId, data),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: activityKeys.lists() })
+      // Invalidate all activity-related queries
+      queryClient.invalidateQueries({ queryKey: activityKeys.all })
       if (data?.contactId) {
         queryClient.invalidateQueries({ queryKey: activityKeys.contact(data.contactId) })
       }

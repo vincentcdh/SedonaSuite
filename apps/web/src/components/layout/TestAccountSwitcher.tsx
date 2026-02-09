@@ -28,9 +28,9 @@ import { useTestAccountSwitcher, type TestAccount } from '@/lib/auth'
 
 // Role icons and labels
 const ROLE_CONFIG = {
-  owner: { icon: Crown, label: 'Owner', color: 'text-amber-500' },
-  admin: { icon: Shield, label: 'Admin', color: 'text-blue-500' },
-  member: { icon: User, label: 'Member', color: 'text-gray-500' },
+  owner: { icon: Crown, label: 'Proprietaire', color: 'text-amber-500' },
+  manager: { icon: Shield, label: 'Manager', color: 'text-blue-500' },
+  employee: { icon: User, label: 'Employe', color: 'text-gray-500' },
 }
 
 // Plan colors

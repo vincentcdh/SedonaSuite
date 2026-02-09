@@ -1,11 +1,13 @@
 # Sedona.AI - Configuration Supabase CLI
 # Docs: https://supabase.com/docs/reference/cli/config
 
+project_id = "sedona-crm"
+
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "graphql_public"]
-extra_search_path = ["public", "extensions"]
+schemas = ["public", "graphql_public", "hr", "docs"]
+extra_search_path = ["public", "extensions", "hr", "docs"]
 max_rows = 1000
 
 [db]
@@ -83,5 +85,3 @@ enabled = true
 policy = "per_worker"
 inspector_port = 8083
 
-[experimental]
-webhooks_enabled = false

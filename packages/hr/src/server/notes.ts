@@ -24,7 +24,7 @@ export async function getNotesByEmployee(
   const offset = (page - 1) * pageSize
 
   const { data, error, count } = await getSupabaseClient()
-    .from('hr_employee_notes')
+    .from('hr_notes')
     .select('*', { count: 'exact' })
     .eq('employee_id', employeeId)
     .is('deleted_at', null)
@@ -74,7 +74,7 @@ export async function getNotesByEmployee(
 
 export async function getNoteById(id: string): Promise<EmployeeNoteWithAuthor | null> {
   const { data, error } = await getSupabaseClient()
-    .from('hr_employee_notes')
+    .from('hr_notes')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
@@ -122,7 +122,7 @@ export async function createNote(
   userId?: string
 ): Promise<EmployeeNote> {
   const { data, error } = await getSupabaseClient()
-    .from('hr_employee_notes')
+    .from('hr_notes')
     .insert({
       organization_id: organizationId,
       employee_id: input.employeeId,
@@ -151,7 +151,7 @@ export async function updateNote(input: UpdateEmployeeNoteInput): Promise<Employ
   if (input.isPrivate !== undefined) updateData.is_private = input.isPrivate
 
   const { data, error } = await getSupabaseClient()
-    .from('hr_employee_notes')
+    .from('hr_notes')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -168,7 +168,7 @@ export async function updateNote(input: UpdateEmployeeNoteInput): Promise<Employ
 
 export async function deleteNote(id: string): Promise<void> {
   const { error } = await getSupabaseClient()
-    .from('hr_employee_notes')
+    .from('hr_notes')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 

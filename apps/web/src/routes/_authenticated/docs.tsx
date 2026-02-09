@@ -18,57 +18,53 @@ export const Route = createFileRoute('/_authenticated/docs')({
 })
 
 const navItems = [
-  { href: '/docs', label: 'Tous les fichiers', icon: FolderOpen, exact: true },
-  { href: '/docs/recent', label: 'Recents', icon: Clock },
-  { href: '/docs/favorites', label: 'Favoris', icon: Star },
-  { href: '/docs/trash', label: 'Corbeille', icon: Trash2 },
-  { href: '/docs/activity', label: 'Activite', icon: Activity },
-  { href: '/docs/settings', label: 'Parametres', icon: Settings },
+  { to: '/docs', label: 'Fichiers', icon: FolderOpen, exact: true },
+  { to: '/docs/recent', label: 'Recents', icon: Clock },
+  { to: '/docs/favorites', label: 'Favoris', icon: Star },
+  { to: '/docs/trash', label: 'Corbeille', icon: Trash2 },
+  { to: '/docs/activity', label: 'Activite', icon: Activity },
+  { to: '/docs/settings', label: 'Parametres', icon: Settings },
 ]
 
 function DocsLayout() {
   const location = useLocation()
 
-  const isActive = (href: string, exact?: boolean) => {
+  const isActive = (to: string, exact?: boolean) => {
     if (exact) {
-      return location.pathname === href
+      return location.pathname === to
     }
-    return location.pathname.startsWith(href)
+    return location.pathname.startsWith(to)
   }
 
   return (
-    <div className="flex h-full">
-      {/* Sidebar */}
-      <aside className="w-64 border-r bg-muted/30 flex-shrink-0 hidden md:block">
-        <div className="p-4">
-          <h2 className="font-semibold text-lg mb-4">Documents</h2>
-          <nav className="space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
-                    isActive(item.href, item.exact)
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              )
-            })}
+    <div className="flex flex-col h-full">
+      {/* Sub-navigation */}
+      <div className="border-b bg-card">
+        <div className="px-6">
+          <nav className="flex items-center gap-6 -mb-px">
+            {navItems.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={cn(
+                  'flex items-center gap-2 py-3 border-b-2 text-sm font-medium transition-colors',
+                  isActive(item.to, item.exact)
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            ))}
           </nav>
         </div>
-      </aside>
+      </div>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-auto">
+      {/* Content */}
+      <div className="flex-1 overflow-auto">
         <Outlet />
-      </main>
+      </div>
     </div>
   )
 }

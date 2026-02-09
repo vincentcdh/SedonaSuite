@@ -117,12 +117,13 @@ export async function getProjectDependencies(projectId: string): Promise<TaskDep
 // HELPERS
 // ===========================================
 
-function mapDependencyFromDb(data: Record<string, unknown>): TaskDependency {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapDependencyFromDb(data: any): TaskDependency {
   return {
-    id: data.id as string,
-    taskId: data.task_id as string,
-    dependsOnTaskId: data.depends_on_task_id as string,
-    dependencyType: (data.dependency_type as TaskDependency['dependencyType']) || 'finish_to_start',
-    createdAt: data.created_at as string,
+    id: data['id'] as string,
+    taskId: data['task_id'] as string,
+    dependsOnTaskId: data['depends_on_task_id'] as string,
+    dependencyType: (data['dependency_type'] as TaskDependency['dependencyType']) || 'finish_to_start',
+    createdAt: data['created_at'] as string,
   }
 }

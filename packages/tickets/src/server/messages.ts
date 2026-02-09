@@ -44,29 +44,8 @@ export async function getTicketMessages(
   const authorMap: Record<string, any> = {}
   authors?.forEach((a: any) => { authorMap[a.id] = a })
 
-  // Get attachments
-  const messageIds = (data || []).map((m: any) => m.id)
-  let attachments: any[] = []
-  if (messageIds.length > 0) {
-    const result = await getSupabaseClient().from('tickets_attachments').select('*').in('message_id', messageIds)
-    attachments = result.data || []
-  }
-
+  // Attachments table doesn't exist in schema - returning empty arrays for now
   const attachmentMap: Record<string, any[]> = {}
-  for (const a of attachments) {
-    if (!attachmentMap[a.message_id]) attachmentMap[a.message_id] = []
-    attachmentMap[a.message_id]!.push({
-      id: a.id,
-      ticketId: a.ticket_id,
-      messageId: a.message_id,
-      fileName: a.file_name,
-      fileSize: a.file_size,
-      fileType: a.file_type,
-      storagePath: a.storage_path,
-      uploadedBy: a.uploaded_by,
-      uploadedAt: a.uploaded_at,
-    })
-  }
 
   return (data || []).map((m: any) => ({
     ...mapMessageFromDb(m),

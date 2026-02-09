@@ -394,6 +394,517 @@ export async function getMonthlySummary(
 }
 
 // ===========================================
+// GET ORGANIZATION TIME STATS
+// ===========================================
+
+export async function getOrganizationTimeStats(
+  organizationId: string
+): Promise<{
+  totalHoursToday: number
+  totalHoursWeek: number
+  averagePerDay: number
+  overtimeHours: number
+}> {
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0]
+
+  // Get start of week (Monday)
+  const dayOfWeek = today.getDay()
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+  const weekStart = new Date(today)
+  weekStart.setDate(today.getDate() + mondayOffset)
+  const weekStartStr = weekStart.toISOString().split('T')[0]
+
+  // Get today's entries
+  const { data: todayData } = await getSupabaseClient()
+    .from('hr_time_entries')
+    .select('hours_worked, overtime_hours')
+    .eq('organization_id', organizationId)
+    .eq('date', todayStr)
+
+  // Get week's entries
+  const { data: weekData } = await getSupabaseClient()
+    .from('hr_time_entries')
+    .select('hours_worked, overtime_hours, date')
+    .eq('organization_id', organizationId)
+    .gte('date', weekStartStr)
+    .lte('date', todayStr)
+
+  const todayEntries = todayData || []
+  const weekEntries = weekData || []
+
+  const totalHoursToday = todayEntries.reduce((sum: number, e: any) => sum + (e.hours_worked || 0), 0)
+  const totalHoursWeek = weekEntries.reduce((sum: number, e: any) => sum + (e.hours_worked || 0), 0)
+  const overtimeHours = weekEntries.reduce((sum: number, e: any) => sum + (e.overtime_hours || 0), 0)
+
+  // Calculate unique days worked this week
+  const uniqueDays = new Set(weekEntries.map((e: any) => e.date)).size
+  const averagePerDay = uniqueDays > 0 ? totalHoursWeek / uniqueDays : 0
+
+  return {
+    totalHoursToday: Math.round(totalHoursToday * 10) / 10,
+    totalHoursWeek: Math.round(totalHoursWeek * 10) / 10,
+    averagePerDay: Math.round(averagePerDay * 10) / 10,
+    overtimeHours: Math.round(overtimeHours * 10) / 10,
+  }
+}
+
+// ===========================================
+// GET EMPLOYEES TIME STATUS
+// ===========================================
+
+export interface EmployeeTimeStatus {
+  id: string
+  firstName: string
+  lastName: string
+  photoUrl: string | null
+  jobTitle: string | null
+  hoursToday: number
+  hoursWeek: number
+  lastEntry: {
+    startTime: string | null
+    endTime: string | null
+    notes: string | null
+  } | null
+  status: 'working' | 'break' | 'offline'
+}
+
+export async function getEmployeesTimeStatus(
+  organizationId: string
+): Promise<EmployeeTimeStatus[]> {
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0]
+
+  // Get start of week (Monday)
+  const dayOfWeek = today.getDay()
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+  const weekStart = new Date(today)
+  weekStart.setDate(today.getDate() + mondayOffset)
+  const weekStartStr = weekStart.toISOString().split('T')[0]
+
+  // Get all active employees
+  const { data: employees } = await getSupabaseClient()
+    .from('hr_employees')
+    .select('id, first_name, last_name, photo_url, job_title')
+    .eq('organization_id', organizationId)
+    .eq('status', 'active')
+    .is('deleted_at', null)
+
+  if (!employees || employees.length === 0) {
+    return []
+  }
+
+  const employeeIds = employees.map((e: any) => e.id)
+
+  // Get today's entries for all employees
+  const { data: todayEntries } = await getSupabaseClient()
+    .from('hr_time_entries')
+    .select('employee_id, hours_worked, start_time, end_time, notes')
+    .in('employee_id', employeeIds)
+    .eq('date', todayStr)
+
+  // Get week's entries for all employees
+  const { data: weekEntries } = await getSupabaseClient()
+    .from('hr_time_entries')
+    .select('employee_id, hours_worked')
+    .in('employee_id', employeeIds)
+    .gte('date', weekStartStr)
+    .lte('date', todayStr)
+
+  const todayMap: Record<string, any[]> = {}
+  const weekMap: Record<string, number> = {}
+
+  ;(todayEntries || []).forEach((e: any) => {
+    if (!todayMap[e.employee_id]) {
+      todayMap[e.employee_id] = []
+    }
+    todayMap[e.employee_id].push(e)
+  })
+
+  ;(weekEntries || []).forEach((e: any) => {
+    weekMap[e.employee_id] = (weekMap[e.employee_id] || 0) + (e.hours_worked || 0)
+  })
+
+  return employees.map((emp: any) => {
+    const todayData = todayMap[emp.id] || []
+    const hoursToday = todayData.reduce((sum: number, e: any) => sum + (e.hours_worked || 0), 0)
+    const hoursWeek = weekMap[emp.id] || 0
+    const lastEntry = todayData.length > 0 ? todayData[todayData.length - 1] : null
+
+    // Determine status based on last entry
+    let status: 'working' | 'break' | 'offline' = 'offline'
+    if (lastEntry) {
+      if (lastEntry.start_time && !lastEntry.end_time) {
+        status = 'working'
+      } else if (lastEntry.end_time) {
+        // Check if recently ended (within last 30 minutes)
+        const now = new Date()
+        const [hours, minutes] = (lastEntry.end_time as string).split(':').map(Number)
+        const endTime = new Date(today)
+        endTime.setHours(hours, minutes, 0, 0)
+        const diffMinutes = (now.getTime() - endTime.getTime()) / (1000 * 60)
+        status = diffMinutes < 30 ? 'break' : 'offline'
+      }
+    }
+
+    return {
+      id: emp.id,
+      firstName: emp.first_name,
+      lastName: emp.last_name,
+      photoUrl: emp.photo_url,
+      jobTitle: emp.job_title,
+      hoursToday: Math.round(hoursToday * 10) / 10,
+      hoursWeek: Math.round(hoursWeek * 10) / 10,
+      lastEntry: lastEntry ? {
+        startTime: lastEntry.start_time,
+        endTime: lastEntry.end_time,
+        notes: lastEntry.notes,
+      } : null,
+      status,
+    }
+  })
+}
+
+// ===========================================
+// BADGE / CLOCK IN-OUT
+// ===========================================
+
+import type {
+  Badge,
+  BadgeWithEmployee,
+  BadgeType,
+  EmployeeBadgeStatus,
+  DailyWorkSummary,
+  CreateBadgeInput,
+  BadgeFilters,
+} from '../types'
+
+export async function getBadges(
+  organizationId: string,
+  filters: BadgeFilters = {}
+): Promise<Badge[]> {
+  let query = getSupabaseClient()
+    .from('hr_badges')
+    .select('*')
+    .eq('organization_id', organizationId)
+
+  if (filters.employeeId) {
+    query = query.eq('employee_id', filters.employeeId)
+  }
+  if (filters.dateFrom) {
+    query = query.gte('badge_date', filters.dateFrom)
+  }
+  if (filters.dateTo) {
+    query = query.lte('badge_date', filters.dateTo)
+  }
+  if (filters.badgeType) {
+    if (Array.isArray(filters.badgeType)) {
+      query = query.in('badge_type', filters.badgeType)
+    } else {
+      query = query.eq('badge_type', filters.badgeType)
+    }
+  }
+
+  const { data, error } = await query.order('badge_time', { ascending: true })
+
+  if (error) throw error
+
+  return (data || []).map(mapBadgeFromDb)
+}
+
+export async function getBadgesByEmployee(
+  employeeId: string,
+  date: string
+): Promise<Badge[]> {
+  const { data, error } = await getSupabaseClient()
+    .from('hr_badges')
+    .select('*')
+    .eq('employee_id', employeeId)
+    .eq('badge_date', date)
+    .order('badge_time', { ascending: true })
+
+  if (error) throw error
+
+  return (data || []).map(mapBadgeFromDb)
+}
+
+export async function getEmployeeBadgeStatus(
+  employeeId: string,
+  date: string
+): Promise<EmployeeBadgeStatus> {
+  const badges = await getBadgesByEmployee(employeeId, date)
+
+  // Get employee info
+  const { data: employeeData } = await getSupabaseClient()
+    .from('hr_employees')
+    .select('id, organization_id, first_name, last_name')
+    .eq('id', employeeId)
+    .single()
+
+  const lastBadge = badges.length > 0 ? badges[badges.length - 1] : null
+
+  // Determine status based on last badge
+  const isClockedIn = lastBadge?.badgeType === 'clock_in' || lastBadge?.badgeType === 'break_end'
+  const isOnBreak = lastBadge?.badgeType === 'break_start'
+
+  return {
+    employeeId,
+    organizationId: employeeData?.organization_id || '',
+    firstName: employeeData?.first_name || '',
+    lastName: employeeData?.last_name || '',
+    lastBadgeType: lastBadge?.badgeType || null,
+    lastBadgeTime: lastBadge?.badgeTime || null,
+    badgeDate: date,
+    isClockedIn,
+    isOnBreak,
+  }
+}
+
+export async function getAllEmployeesBadgeStatus(
+  organizationId: string,
+  date: string
+): Promise<EmployeeBadgeStatus[]> {
+  // Get all active employees
+  const { data: employees } = await getSupabaseClient()
+    .from('hr_employees')
+    .select('id, organization_id, first_name, last_name')
+    .eq('organization_id', organizationId)
+    .eq('status', 'active')
+    .is('deleted_at', null)
+
+  if (!employees || employees.length === 0) {
+    return []
+  }
+
+  // Get all badges for today
+  const employeeIds = employees.map((e: any) => e.id)
+  const { data: badges } = await getSupabaseClient()
+    .from('hr_badges')
+    .select('*')
+    .in('employee_id', employeeIds)
+    .eq('badge_date', date)
+    .order('badge_time', { ascending: true })
+
+  // Group badges by employee
+  const badgesByEmployee: Record<string, Badge[]> = {}
+  employeeIds.forEach((id: string) => {
+    badgesByEmployee[id] = []
+  })
+
+  ;(badges || []).forEach((b: any) => {
+    if (!badgesByEmployee[b.employee_id]) {
+      badgesByEmployee[b.employee_id] = []
+    }
+    badgesByEmployee[b.employee_id].push(mapBadgeFromDb(b))
+  })
+
+  return employees.map((emp: any) => {
+    const empBadges = badgesByEmployee[emp.id] || []
+    const lastBadge = empBadges.length > 0 ? empBadges[empBadges.length - 1] : null
+
+    const isClockedIn = lastBadge?.badgeType === 'clock_in' || lastBadge?.badgeType === 'break_end'
+    const isOnBreak = lastBadge?.badgeType === 'break_start'
+
+    return {
+      employeeId: emp.id,
+      organizationId: emp.organization_id,
+      firstName: emp.first_name,
+      lastName: emp.last_name,
+      lastBadgeType: lastBadge?.badgeType || null,
+      lastBadgeTime: lastBadge?.badgeTime || null,
+      badgeDate: date,
+      isClockedIn,
+      isOnBreak,
+    }
+  })
+}
+
+export async function getDailyWorkSummary(
+  employeeId: string,
+  date: string
+): Promise<DailyWorkSummary> {
+  const badges = await getBadgesByEmployee(employeeId, date)
+
+  let totalMinutes = 0
+  let breakMinutes = 0
+  let clockInTime: Date | null = null
+  let breakStartTime: Date | null = null
+  let firstClockIn: string | null = null
+  let lastClockOut: string | null = null
+
+  for (const badge of badges) {
+    const badgeTime = new Date(badge.badgeTime)
+
+    switch (badge.badgeType) {
+      case 'clock_in':
+        clockInTime = badgeTime
+        if (!firstClockIn) {
+          firstClockIn = badge.badgeTime
+        }
+        break
+      case 'clock_out':
+        if (clockInTime) {
+          totalMinutes += (badgeTime.getTime() - clockInTime.getTime()) / (1000 * 60)
+          clockInTime = null
+          lastClockOut = badge.badgeTime
+        }
+        break
+      case 'break_start':
+        breakStartTime = badgeTime
+        break
+      case 'break_end':
+        if (breakStartTime) {
+          breakMinutes += (badgeTime.getTime() - breakStartTime.getTime()) / (1000 * 60)
+          breakStartTime = null
+        }
+        break
+    }
+  }
+
+  // If still clocked in, add time until now
+  if (clockInTime) {
+    const now = new Date()
+    totalMinutes += (now.getTime() - clockInTime.getTime()) / (1000 * 60)
+  }
+
+  // If still on break, add break time until now
+  if (breakStartTime) {
+    const now = new Date()
+    breakMinutes += (now.getTime() - breakStartTime.getTime()) / (1000 * 60)
+  }
+
+  const workMinutes = Math.max(0, totalMinutes - breakMinutes)
+
+  return {
+    totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+    breakHours: Math.round((breakMinutes / 60) * 100) / 100,
+    workHours: Math.round((workMinutes / 60) * 100) / 100,
+    firstClockIn,
+    lastClockOut,
+  }
+}
+
+export async function createBadge(
+  organizationId: string,
+  input: CreateBadgeInput
+): Promise<Badge> {
+  const badgeTime = input.badgeTime || new Date().toISOString()
+
+  const { data, error } = await getSupabaseClient()
+    .from('hr_badges')
+    .insert({
+      organization_id: organizationId,
+      employee_id: input.employeeId,
+      badge_type: input.badgeType,
+      badge_time: badgeTime,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      location_name: input.locationName,
+      device_type: input.deviceType || 'web',
+      notes: input.notes,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  return mapBadgeFromDb(data)
+}
+
+export async function clockIn(
+  organizationId: string,
+  employeeId: string,
+  notes?: string
+): Promise<Badge> {
+  return createBadge(organizationId, {
+    employeeId,
+    badgeType: 'clock_in',
+    notes,
+    deviceType: 'web',
+  })
+}
+
+export async function clockOut(
+  organizationId: string,
+  employeeId: string,
+  notes?: string
+): Promise<Badge> {
+  return createBadge(organizationId, {
+    employeeId,
+    badgeType: 'clock_out',
+    notes,
+    deviceType: 'web',
+  })
+}
+
+export async function startBreak(
+  organizationId: string,
+  employeeId: string,
+  notes?: string
+): Promise<Badge> {
+  return createBadge(organizationId, {
+    employeeId,
+    badgeType: 'break_start',
+    notes,
+    deviceType: 'web',
+  })
+}
+
+export async function endBreak(
+  organizationId: string,
+  employeeId: string,
+  notes?: string
+): Promise<Badge> {
+  return createBadge(organizationId, {
+    employeeId,
+    badgeType: 'break_end',
+    notes,
+    deviceType: 'web',
+  })
+}
+
+export async function deleteBadge(id: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from('hr_badges')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw error
+}
+
+function mapBadgeFromDb(data: any): Badge {
+  return {
+    id: data.id as string,
+    organizationId: data.organization_id as string,
+    employeeId: data.employee_id as string,
+    badgeType: data.badge_type as BadgeType,
+    badgeTime: data.badge_time as string,
+    badgeDate: data.badge_date as string,
+    latitude: data.latitude as number | null,
+    longitude: data.longitude as number | null,
+    locationName: data.location_name as string | null,
+    deviceType: data.device_type as string | null,
+    ipAddress: data.ip_address as string | null,
+    notes: data.notes as string | null,
+    createdBy: data.created_by as string | null,
+    createdAt: data.created_at as string,
+  }
+}
+
+function parseTime(timeStr: string): number {
+  const parts = timeStr.split(':').map(Number)
+  const hours = parts[0] ?? 0
+  const minutes = parts[1] ?? 0
+  return hours * 60 + minutes
+}
+
+function formatMinutesToHours(minutes: number): string {
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${hours}h${mins > 0 ? String(mins).padStart(2, '0') : ''}`
+}
+
+// ===========================================
 // HELPERS
 // ===========================================
 

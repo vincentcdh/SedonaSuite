@@ -39,7 +39,7 @@ import {
 } from '@sedona/projects'
 import { ProFeatureMask } from '@/components/pro'
 import { useOrganization, useAuth } from '@/lib/auth'
-import { useProjects, useTasks, useTimeEntries, useProjectTimeSummary, useRunningTimer } from '@sedona/projects'
+import { useProjects, useTasks, useTimeEntries, useRunningTimer, useCreateTimeEntry, useStartTimer, useStopTimer, useDeleteTimeEntry } from '@sedona/projects'
 
 export const Route = createFileRoute('/_authenticated/projects/time/')({
   component: TimeTrackingPage,
@@ -113,25 +113,63 @@ function TimeTrackingContent() {
   )
   const timeEntries = timeEntriesData?.data || []
 
-  // Fetch project time summary
-  const { data: timeSummary } = useProjectTimeSummary(currentProjectId)
-
   // Fetch running timer for current user
   const { data: runningTimer } = useRunningTimer(userId)
 
+  // Mutations
+  const createTimeEntry = useCreateTimeEntry(currentProjectId, userId)
+  const startTimerMutation = useStartTimer(userId)
+  const stopTimerMutation = useStopTimer(userId)
+  const deleteTimeEntry = useDeleteTimeEntry(currentProjectId)
+
   const isLoading = isLoadingProjects
 
-  const handleStartTimer = (data: { projectId: string; taskId?: string; description?: string }) => {
-    console.log('Starting timer:', data)
+  const handleStartTimer = async (data: { projectId: string; taskId?: string; description?: string }) => {
+    try {
+      await startTimerMutation.mutateAsync(data)
+    } catch (err) {
+      console.error('Error starting timer:', err)
+    }
   }
 
-  const handleStopTimer = (timerId: string, isBillable: boolean) => {
-    console.log('Stopping timer:', timerId, isBillable)
+  const handleStopTimer = async (timerId: string, _isBillable: boolean) => {
+    try {
+      await stopTimerMutation.mutateAsync(timerId)
+    } catch (err) {
+      console.error('Error stopping timer:', err)
+    }
   }
 
-  const handleCreateEntry = (data: unknown) => {
-    console.log('Creating entry:', data)
-    setIsDialogOpen(false)
+  const handleCreateEntry = async (data: {
+    projectId: string
+    taskId?: string
+    description?: string
+    startTime: string
+    durationMinutes: number
+    isBillable: boolean
+    hourlyRate?: number
+  }) => {
+    try {
+      await createTimeEntry.mutateAsync({
+        taskId: data.taskId,
+        description: data.description,
+        startTime: data.startTime,
+        durationMinutes: data.durationMinutes,
+        isBillable: data.isBillable,
+        hourlyRate: data.hourlyRate,
+      })
+      setIsDialogOpen(false)
+    } catch (err) {
+      console.error('Error creating time entry:', err)
+    }
+  }
+
+  const handleDeleteEntry = async (entryId: string) => {
+    try {
+      await deleteTimeEntry.mutateAsync(entryId)
+    } catch (err) {
+      console.error('Error deleting time entry:', err)
+    }
   }
 
   if (isLoading) {
@@ -142,9 +180,18 @@ function TimeTrackingContent() {
     )
   }
 
-  // Calculate stats from fetched data
-  const totalMinutes = timeSummary?.totalMinutes || timeEntries.reduce((sum, e) => sum + (e.durationMinutes || 0), 0)
-  const billableMinutes = timeSummary?.billableMinutes || timeEntries.filter(e => e.isBillable).reduce((sum, e) => sum + (e.durationMinutes || 0), 0)
+  // Calculate stats from fetched data - always use timeEntries for real-time updates
+  const totalMinutes = timeEntries.reduce((sum, e) => sum + (e.durationMinutes || 0), 0)
+  const billableMinutes = timeEntries.filter(e => e.isBillable).reduce((sum, e) => sum + (e.durationMinutes || 0), 0)
+
+  // Calculate total amount from actual hourly rates
+  const totalAmount = timeEntries
+    .filter(e => e.isBillable)
+    .reduce((sum, e) => {
+      const hours = (e.durationMinutes || 0) / 60
+      const rate = e.hourlyRate || 75 // Default rate if not specified
+      return sum + (hours * rate)
+    }, 0)
 
   // Group time by user for chart
   const timeByUser = timeEntries.reduce((acc: Record<string, { name: string; minutes: number; color: string }>, entry) => {
@@ -203,6 +250,7 @@ function TimeTrackingContent() {
                 tasks={tasks}
                 onSubmit={handleCreateEntry}
                 onCancel={() => setIsDialogOpen(false)}
+                isLoading={createTimeEntry.isPending}
               />
             </DialogContent>
           </Dialog>
@@ -214,7 +262,7 @@ function TimeTrackingContent() {
         <TimeStats
           totalMinutes={totalMinutes}
           billableMinutes={billableMinutes}
-          totalAmount={Math.round(billableMinutes / 60 * 75)}
+          totalAmount={Math.round(totalAmount)}
           targetHours={40}
         />
       </div>
@@ -242,7 +290,7 @@ function TimeTrackingContent() {
             <TimeEntriesList
               entries={timeEntries}
               onEdit={(entry: unknown) => console.log('Edit entry:', entry)}
-              onDelete={(entryId: string) => console.log('Delete entry:', entryId)}
+              onDelete={handleDeleteEntry}
             />
           )}
         </div>

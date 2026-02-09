@@ -1,5 +1,6 @@
 // ===========================================
 // TASK COLUMNS (KANBAN) SERVER FUNCTIONS
+// Uses projects_task_statuses table
 // ===========================================
 
 import { getSupabaseClient } from '@sedona/database'
@@ -43,7 +44,7 @@ export interface UpdateColumnInput {
 
 export async function getTaskColumns(projectId: string): Promise<TaskColumn[]> {
   const { data, error } = await getClient()
-    .from('projects_task_columns')
+    .from('projects_task_statuses')
     .select('*')
     .eq('project_id', projectId)
     .order('position', { ascending: true })
@@ -55,7 +56,7 @@ export async function getTaskColumns(projectId: string): Promise<TaskColumn[]> {
 
 export async function getTaskColumnById(id: string): Promise<TaskColumn | null> {
   const { data, error } = await getClient()
-    .from('projects_task_columns')
+    .from('projects_task_statuses')
     .select('*')
     .eq('id', id)
     .single()
@@ -73,24 +74,28 @@ export async function createTaskColumn(input: CreateColumnInput): Promise<TaskCo
   let position = input.position
   if (position === undefined) {
     const { data: columns } = await getClient()
-      .from('projects_task_columns')
+      .from('projects_task_statuses')
       .select('position')
       .eq('project_id', input.projectId)
       .order('position', { ascending: false })
       .limit(1)
 
-    position = columns && columns.length > 0 ? columns[0].position + 1 : 0
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    position = columns && columns.length > 0 ? (columns[0] as any).position + 1 : 0
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
+    project_id: input.projectId,
+    name: input.name,
+    color: input.color || '#6b7280',
+    position,
+    is_completed: false,
   }
 
   const { data, error } = await getClient()
-    .from('projects_task_columns')
-    .insert({
-      project_id: input.projectId,
-      name: input.name,
-      color: input.color || '#6b7280',
-      position,
-      is_system: false,
-    })
+    .from('projects_task_statuses')
+    .insert(insertData)
     .select()
     .single()
 
@@ -100,13 +105,14 @@ export async function createTaskColumn(input: CreateColumnInput): Promise<TaskCo
 }
 
 export async function updateTaskColumn(input: UpdateColumnInput): Promise<TaskColumn> {
-  const updateData: Record<string, any> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: any = {}
   if (input.name !== undefined) updateData['name'] = input.name
   if (input.color !== undefined) updateData['color'] = input.color
   if (input.position !== undefined) updateData['position'] = input.position
 
   const { data, error } = await getClient()
-    .from('projects_task_columns')
+    .from('projects_task_statuses')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -118,30 +124,18 @@ export async function updateTaskColumn(input: UpdateColumnInput): Promise<TaskCo
 }
 
 export async function deleteTaskColumn(id: string): Promise<void> {
-  // Check if column is system column
-  const { data: column } = await getClient()
-    .from('projects_task_columns')
-    .select('is_system')
-    .eq('id', id)
-    .single()
-
-  if (column?.is_system) {
-    throw new Error('Cannot delete system column')
-  }
-
   // Check if column has tasks
   const { count } = await getClient()
     .from('projects_tasks')
     .select('*', { count: 'exact', head: true })
-    .eq('column_id', id)
-    .is('deleted_at', null)
+    .eq('status_id', id)
 
   if (count && count > 0) {
     throw new Error('Cannot delete column with tasks')
   }
 
   const { error } = await getClient()
-    .from('projects_task_columns')
+    .from('projects_task_statuses')
     .delete()
     .eq('id', id)
 
@@ -159,9 +153,11 @@ export async function reorderTaskColumns(
   }))
 
   for (const update of updates) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: any = { position: update.position }
     await getClient()
-      .from('projects_task_columns')
-      .update({ position: update.position })
+      .from('projects_task_statuses')
+      .update(updateData)
       .eq('id', update.id)
   }
 
@@ -173,15 +169,16 @@ export async function reorderTaskColumns(
 // HELPERS
 // ===========================================
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapColumnFromDb(data: any): TaskColumn {
   return {
-    id: data.id,
-    projectId: data.project_id,
-    name: data.name,
-    color: data.color,
-    position: data.position,
-    isSystem: data.is_system,
-    systemStatus: data.system_status,
-    createdAt: data.created_at,
+    id: data['id'],
+    projectId: data['project_id'],
+    name: data['name'],
+    color: data['color'] || '#6B7280',
+    position: data['position'] || 0,
+    isSystem: false, // Not in DB schema
+    systemStatus: null, // Not in DB schema
+    createdAt: data['created_at'],
   }
 }

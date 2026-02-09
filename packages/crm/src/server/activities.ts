@@ -264,7 +264,7 @@ export async function createActivity(
     .insert({
       organization_id: organizationId,
       type: input.type,
-      title: input.subject, // Note: DB uses 'title', code uses 'subject'
+      subject: input.subject,
       description: input.description,
       contact_id: input.contactId,
       company_id: input.companyId,
@@ -293,7 +293,7 @@ export async function updateActivity(input: UpdateActivityInput): Promise<Activi
   const updateData: Record<string, any> = {}
 
   if (input.type !== undefined) updateData['type'] = input.type
-  if (input.subject !== undefined) updateData['title'] = input.subject // Note: DB uses 'title', code uses 'subject'
+  if (input.subject !== undefined) updateData['subject'] = input.subject
   if (input.description !== undefined) updateData['description'] = input.description
   if (input.contactId !== undefined) updateData['contact_id'] = input.contactId
   if (input.companyId !== undefined) updateData['company_id'] = input.companyId

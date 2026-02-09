@@ -1,5 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Button, Card, CardContent, Input } from '@sedona/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  Input,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@sedona/ui'
 import {
   Plus,
   Search,
@@ -15,8 +24,8 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useState } from 'react'
-import { useOrganization } from '@/lib/auth'
-import { useActivities, useOverdueTasks, useCompleteActivity } from '@sedona/crm'
+import { useOrganization, useSession } from '@/lib/auth'
+import { useActivities, useOverdueTasks, useCompleteActivity, useCreateActivity, useContacts, useCompanies, ActivityForm } from '@sedona/crm'
 
 export const Route = createFileRoute('/_authenticated/crm/activities/')({
   component: ActivitiesPage,
@@ -35,9 +44,12 @@ function ActivitiesPage() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [showCompleted, setShowCompleted] = useState(true)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
 
   const { organization } = useOrganization()
+  const { data: sessionData } = useSession()
   const organizationId = organization?.id || ''
+  const userId = sessionData?.user?.id || ''
 
   // Fetch activities from Supabase
   const { data: activitiesData, isLoading, error } = useActivities(
@@ -54,6 +66,15 @@ function ActivitiesPage() {
 
   // Complete activity mutation
   const completeActivityMutation = useCompleteActivity()
+
+  // Create activity mutation
+  const createActivityMutation = useCreateActivity()
+
+  // Fetch contacts and companies for activity form
+  const { data: contactsData } = useContacts(organizationId, {}, { pageSize: 100 })
+  const { data: companiesData } = useCompanies(organizationId, {}, { pageSize: 100 })
+  const contacts = contactsData?.data || []
+  const companies = companiesData?.data || []
 
   const activities = activitiesData?.data || []
   const overdueActivities = overdueData || []
@@ -73,22 +94,32 @@ function ActivitiesPage() {
     }
   }
 
+  const isCompleted = (activity: any) => !!activity.completedAt
+
   const isOverdue = (activity: any) => {
-    if (!activity.dueDate || activity.completed) return false
+    if (!activity.dueDate || isCompleted(activity)) return false
     return new Date(activity.dueDate) < new Date()
   }
 
   const filteredActivities = activities.filter((activity: any) => {
-    if (!showCompleted && activity.completed) return false
+    if (!showCompleted && isCompleted(activity)) return false
     return true
   })
 
   const overdueCount = overdueActivities.length
-  const todayCount = activities.filter((a: any) => !a.completed && !isOverdue(a)).length
-  const completedCount = activities.filter((a: any) => a.completed).length
+  const todayCount = activities.filter((a: any) => !isCompleted(a) && !isOverdue(a)).length
+  const completedCount = activities.filter((a: any) => isCompleted(a)).length
 
   const handleComplete = (activityId: string) => {
-    completeActivityMutation.mutate(activityId)
+    console.log('Completing activity:', activityId)
+    completeActivityMutation.mutate(activityId, {
+      onSuccess: () => {
+        console.log('Activity completed successfully')
+      },
+      onError: (error) => {
+        console.error('Failed to complete activity:', error)
+      },
+    })
   }
 
   if (error) {
@@ -112,7 +143,7 @@ function ActivitiesPage() {
             Gerez vos taches, appels, reunions et notes
           </p>
         </div>
-        <Button size="sm">
+        <Button size="sm" onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Nouvelle activite
         </Button>
@@ -214,18 +245,19 @@ function ActivitiesPage() {
               {filteredActivities.map((activity: any) => {
                 const Icon = getActivityIcon(activity.type)
                 const activityIsOverdue = isOverdue(activity)
+                const activityIsCompleted = isCompleted(activity)
                 return (
                   <div
                     key={activity.id}
                     className={`flex items-start gap-4 p-4 hover:bg-muted/50 transition-colors ${
-                      activity.completed ? 'opacity-60' : ''
+                      activityIsCompleted ? 'opacity-60' : ''
                     }`}
                   >
                     <div
                       className={`p-2 rounded-lg ${
-                        activityIsOverdue && !activity.completed
+                        activityIsOverdue && !activityIsCompleted
                           ? 'bg-error/10 text-error'
-                          : activity.completed
+                          : activityIsCompleted
                           ? 'bg-muted text-muted-foreground'
                           : 'bg-primary/10 text-primary'
                       }`}
@@ -237,7 +269,7 @@ function ActivitiesPage() {
                         <div>
                           <p
                             className={`font-medium ${
-                              activity.completed ? 'line-through text-muted-foreground' : ''
+                              activityIsCompleted ? 'line-through text-muted-foreground' : ''
                             }`}
                           >
                             {activity.subject}
@@ -248,7 +280,7 @@ function ActivitiesPage() {
                             </p>
                           )}
                         </div>
-                        {!activity.completed && (
+                        {!activityIsCompleted && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -275,12 +307,12 @@ function ActivitiesPage() {
                         {activity.dueDate && (
                           <div
                             className={`flex items-center gap-1 ${
-                              activityIsOverdue && !activity.completed ? 'text-error' : ''
+                              activityIsOverdue && !activityIsCompleted ? 'text-error' : ''
                             }`}
                           >
                             <Clock className="h-3 w-3" />
                             {new Date(activity.dueDate).toLocaleDateString('fr-FR')}
-                            {activityIsOverdue && !activity.completed && ' (en retard)'}
+                            {activityIsOverdue && !activityIsCompleted && ' (en retard)'}
                           </div>
                         )}
                       </div>
@@ -302,6 +334,35 @@ function ActivitiesPage() {
           )}
         </CardContent>
       </Card>
+      {/* Create Activity Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nouvelle activite</DialogTitle>
+          </DialogHeader>
+          <ActivityForm
+            contacts={contacts}
+            companies={companies}
+            showEntitySelectors={true}
+            onSubmit={async (data) => {
+              try {
+                console.log('Creating activity with data:', { organizationId, userId, data })
+                const result = await createActivityMutation.mutateAsync({
+                  organizationId,
+                  userId,
+                  data,
+                })
+                console.log('Activity created:', result)
+                setShowCreateDialog(false)
+              } catch (error) {
+                console.error('Failed to create activity:', error)
+              }
+            }}
+            onCancel={() => setShowCreateDialog(false)}
+            isLoading={createActivityMutation.isPending}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -54,10 +54,11 @@ export async function createLabel(input: CreateLabelInput): Promise<Label> {
 // ===========================================
 
 export async function updateLabel(input: UpdateLabelInput): Promise<Label> {
-  const updateData: Record<string, unknown> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: any = {}
 
-  if (input.name !== undefined) updateData.name = input.name
-  if (input.color !== undefined) updateData.color = input.color
+  if (input.name !== undefined) updateData['name'] = input.name
+  if (input.color !== undefined) updateData['color'] = input.color
 
   const { data, error } = await getClient()
     .from('projects_labels')
@@ -140,12 +141,13 @@ export async function getTaskLabels(taskId: string): Promise<Label[]> {
 // HELPERS
 // ===========================================
 
-function mapLabelFromDb(data: Record<string, unknown>): Label {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapLabelFromDb(data: any): Label {
   return {
-    id: data.id as string,
-    projectId: data.project_id as string,
-    name: data.name as string,
-    color: (data.color as string) || '#6B7280',
-    createdAt: data.created_at as string,
+    id: data['id'] as string,
+    projectId: data['project_id'] as string,
+    name: data['name'] as string,
+    color: (data['color'] as string) || '#6B7280',
+    createdAt: data['created_at'] as string,
   }
 }

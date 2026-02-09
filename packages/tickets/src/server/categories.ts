@@ -139,10 +139,13 @@ export async function reorderCategories(
 ): Promise<void> {
   // Update positions in order
   for (let i = 0; i < orderedIds.length; i++) {
+    const id = orderedIds[i]
+    if (!id) continue
+
     const { error } = await getSupabaseClient()
       .from('tickets_categories')
       .update({ position: i })
-      .eq('id', orderedIds[i])
+      .eq('id', id)
       .eq('organization_id', organizationId)
 
     if (error) throw error

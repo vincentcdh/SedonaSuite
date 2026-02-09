@@ -189,10 +189,10 @@ export async function updateDashboardLayout(
     await client
       .from('analytics_widgets')
       .update({
-        grid_x: item.x,
-        grid_y: item.y,
-        grid_w: item.w,
-        grid_h: item.h,
+        position_x: item.x,
+        position_y: item.y,
+        width: item.w,
+        height: item.h,
       })
       .eq('id', item.widgetId)
   }
@@ -249,20 +249,22 @@ export async function duplicateDashboard(
   // Duplicate widgets
   const widgetIdMap: Record<string, string> = {}
   for (const widget of original.widgets) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const insertData: any = {
+      dashboard_id: newDashboard.id,
+      title: widget.title,
+      widget_type: widget.widgetType,
+      metric_source: widget.metricSource,
+      config: widget.config,
+      position_x: widget.gridX,
+      position_y: widget.gridY,
+      width: widget.gridW,
+      height: widget.gridH,
+    }
+
     const { data: newWidget, error: widgetError } = await client
       .from('analytics_widgets')
-      .insert({
-        dashboard_id: newDashboard.id,
-        title: widget.title,
-        widget_type: widget.widgetType,
-        metric_source: widget.metricSource,
-        metric_key: widget.metricKey,
-        config: widget.config,
-        grid_x: widget.gridX,
-        grid_y: widget.gridY,
-        grid_w: widget.gridW,
-        grid_h: widget.gridH,
-      })
+      .insert(insertData)
       .select()
       .single()
 

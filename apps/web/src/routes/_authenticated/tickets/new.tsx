@@ -21,31 +21,27 @@ import {
   SelectValue,
   Badge,
 } from '@sedona/ui'
-import { useCreateTicket, useActiveCategories, type TicketPriority } from '@sedona/tickets'
+import { useCreateTicket, useActiveCategories, useOrganizationMembers, type TicketPriority } from '@sedona/tickets'
 import { useOrganization, useSession } from '@/lib/auth'
 
 export const Route = createFileRoute('/_authenticated/tickets/new')({
   component: NewTicketPage,
 })
 
-// TODO: Replace with real organization members hook when available
-// Using test account UUIDs from test-accounts.ts
-const mockTeamMembers: { id: string; fullName: string; email: string }[] = [
-  { id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b02', fullName: 'Jean-Pierre Martin', email: 'owner.pro@test.sedona.ai' },
-  { id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b05', fullName: 'Claire Moreau', email: 'admin.pro@test.sedona.ai' },
-  { id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b08', fullName: 'Emma Leroy', email: 'member.pro@test.sedona.ai' },
-]
-
 function NewTicketPage() {
   const navigate = useNavigate()
   const { organization } = useOrganization()
   const { data: session } = useSession()
+  const organizationId = organization?.id || ''
 
   // Fetch categories from Supabase
-  const { data: categories, isLoading: categoriesLoading } = useActiveCategories(organization?.id || '')
+  const { data: categories, isLoading: categoriesLoading } = useActiveCategories(organizationId)
+
+  // Fetch organization members for assignment
+  const { data: members, isLoading: membersLoading } = useOrganizationMembers(organizationId)
 
   // Create ticket mutation
-  const createTicketMutation = useCreateTicket(organization?.id || '')
+  const createTicketMutation = useCreateTicket(organizationId)
 
   const [formData, setFormData] = useState({
     subject: '',
@@ -258,16 +254,22 @@ function NewTicketPage() {
                   <Select
                     value={formData.assignedTo}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, assignedTo: value }))}
+                    disabled={membersLoading}
                   >
                     <SelectTrigger id="assignedTo">
-                      <SelectValue placeholder="Selectionner un agent" />
+                      <SelectValue placeholder={membersLoading ? 'Chargement...' : 'Selectionner un agent'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockTeamMembers.map(member => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.fullName}
-                        </SelectItem>
-                      ))}
+                      {(members || []).map(member => {
+                        const fullName = member.user
+                          ? [member.user.firstName, member.user.lastName].filter(Boolean).join(' ') || member.user.email
+                          : 'Membre inconnu'
+                        return (
+                          <SelectItem key={member.id} value={member.userId}>
+                            {fullName}
+                          </SelectItem>
+                        )
+                      })}
                     </SelectContent>
                   </Select>
                 </div>

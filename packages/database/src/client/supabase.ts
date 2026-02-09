@@ -1,11 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-import type { Database, CrmSchema } from '../types/database'
-
-// Extended database type that includes CRM schema
-export interface DatabaseWithCrm extends Database {
-  crm: CrmSchema
-}
+import type { Database } from '../types/database'
 
 // Declare Vite env types for this module
 declare global {
@@ -88,12 +83,9 @@ export function createSupabaseClientWithOptions(options: {
 
 /**
  * Get a Supabase client configured for the CRM schema
- * This provides typed access to CRM tables
+ * CRM tables are in the public schema, so this just returns the standard client
+ * @deprecated Use getSupabaseClient() directly - CRM tables are in public schema
  */
 export function getCrmClient() {
-  return getSupabaseClient().schema('crm') as unknown as {
-    from: <T extends keyof CrmSchema['Tables']>(
-      table: T
-    ) => ReturnType<SupabaseClient<{ public: CrmSchema }>['from']>
-  }
+  return getSupabaseClient()
 }

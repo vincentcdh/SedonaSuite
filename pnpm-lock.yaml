@@ -7,6 +7,16 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@dnd-kit/core':
+        specifier: ^6.3.1
+        version: 6.3.1(react-dom@18.3.1(react@19.2.4))(react@19.2.4)
+      '@dnd-kit/sortable':
+        specifier: ^10.0.0
+        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@18.3.1(react@19.2.4))(react@19.2.4))(react@19.2.4)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.2
+        version: 3.2.2(react@19.2.4)
     devDependencies:
       '@changesets/cli':
         specifier: ^2.27.10
@@ -20,6 +30,9 @@ importers:
       prettier:
         specifier: ^3.4.2
         version: 3.8.1
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
       turbo:
         specifier: ^2.3.3
         version: 2.7.6
@@ -29,6 +42,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@dnd-kit/core':
+        specifier: ^6.3.1
+        version: 6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@dnd-kit/sortable':
+        specifier: ^10.0.0
+        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.2
+        version: 3.2.2(react@18.3.1)
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.71.1(react@18.3.1))
@@ -54,7 +76,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/hr
       '@sedona/invoice':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../../packages/invoice
       '@sedona/projects':
         specifier: workspace:*
@@ -71,6 +93,9 @@ importers:
       '@tanstack/react-router':
         specifier: ^1.93.0
         version: 1.157.16(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
       lucide-react:
         specifier: ^0.468.0
         version: 0.468.0(react@18.3.1)
@@ -143,10 +168,10 @@ importers:
         version: link:../database
       '@tanstack/react-query':
         specifier: ^5.80.7
-        version: 5.90.20(react@19.2.4)
+        version: 5.90.20(react@18.3.1)
       react:
-        specifier: ^19.0.0
-        version: 19.2.4
+        specifier: ^18.2.0
+        version: 18.3.1
       zod:
         specifier: ^3.25.56
         version: 3.25.76
@@ -161,8 +186,8 @@ importers:
         specifier: ^22.15.29
         version: 22.19.7
       '@types/react':
-        specifier: ^19.1.6
-        version: 19.2.10
+        specifier: ^18.3.17
+        version: 18.3.27
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -371,16 +396,16 @@ importers:
         version: link:../ui
       '@tanstack/react-query':
         specifier: ^5.80.7
-        version: 5.90.20(react@19.2.4)
+        version: 5.90.20(react@18.3.1)
       '@tanstack/react-router':
         specifier: ^1.120.3
-        version: 1.157.16(react-dom@18.3.1(react@19.2.4))(react@19.2.4)
+        version: 1.157.16(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       lucide-react:
         specifier: ^0.511.0
-        version: 0.511.0(react@19.2.4)
+        version: 0.511.0(react@18.3.1)
       react:
-        specifier: ^19.1.0
-        version: 19.2.4
+        specifier: ^18.2.0
+        version: 18.3.1
       zod:
         specifier: ^3.25.56
         version: 3.25.76
@@ -395,8 +420,8 @@ importers:
         specifier: ^22.15.29
         version: 22.19.7
       '@types/react':
-        specifier: ^19.1.6
-        version: 19.2.10
+        specifier: ^18.3.17
+        version: 18.3.27
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -475,19 +500,19 @@ importers:
         version: link:../ui
       '@tanstack/react-query':
         specifier: ^5.80.7
-        version: 5.90.20(react@19.2.4)
+        version: 5.90.20(react@18.3.1)
       '@tanstack/react-router':
         specifier: ^1.120.3
-        version: 1.157.16(react-dom@18.3.1(react@19.2.4))(react@19.2.4)
+        version: 1.157.16(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       lucide-react:
         specifier: ^0.511.0
-        version: 0.511.0(react@19.2.4)
+        version: 0.511.0(react@18.3.1)
       react:
-        specifier: ^19.1.0
-        version: 19.2.4
+        specifier: ^18.2.0
+        version: 18.3.1
       react-hook-form:
         specifier: ^7.58.1
-        version: 7.71.1(react@19.2.4)
+        version: 7.71.1(react@18.3.1)
       zod:
         specifier: ^3.25.56
         version: 3.25.76
@@ -502,8 +527,8 @@ importers:
         specifier: ^22.15.29
         version: 22.19.7
       '@types/react':
-        specifier: ^19.1.6
-        version: 19.2.10
+        specifier: ^18.3.17
+        version: 18.3.27
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -564,13 +589,13 @@ importers:
     dependencies:
       '@dnd-kit/core':
         specifier: ^6.3.1
-        version: 6.3.1(react-dom@18.3.1(react@19.2.4))(react@19.2.4)
+        version: 6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@dnd-kit/sortable':
         specifier: ^10.0.0
-        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@18.3.1(react@19.2.4))(react@19.2.4))(react@19.2.4)
+        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       '@dnd-kit/utilities':
         specifier: ^3.2.2
-        version: 3.2.2(react@19.2.4)
+        version: 3.2.2(react@18.3.1)
       '@sedona/core':
         specifier: workspace:*
         version: link:../core
@@ -582,22 +607,22 @@ importers:
         version: link:../ui
       '@tanstack/react-query':
         specifier: ^5.80.7
-        version: 5.90.20(react@19.2.4)
+        version: 5.90.20(react@18.3.1)
       '@tanstack/react-router':
         specifier: ^1.120.3
-        version: 1.157.16(react-dom@18.3.1(react@19.2.4))(react@19.2.4)
+        version: 1.157.16(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
       lucide-react:
         specifier: ^0.511.0
-        version: 0.511.0(react@19.2.4)
+        version: 0.511.0(react@18.3.1)
       react:
-        specifier: ^19.1.0
-        version: 19.2.4
+        specifier: ^18.2.0
+        version: 18.3.1
       react-hook-form:
         specifier: ^7.58.1
-        version: 7.71.1(react@19.2.4)
+        version: 7.71.1(react@18.3.1)
       zod:
         specifier: ^3.25.56
         version: 3.25.76
@@ -612,8 +637,8 @@ importers:
         specifier: ^22.15.29
         version: 22.19.7
       '@types/react':
-        specifier: ^19.1.6
-        version: 19.2.10
+        specifier: ^18.3.17
+        version: 18.3.27
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -631,19 +656,19 @@ importers:
         version: link:../ui
       '@tanstack/react-query':
         specifier: ^5.80.7
-        version: 5.90.20(react@19.2.4)
+        version: 5.90.20(react@18.3.1)
       '@tanstack/react-router':
         specifier: ^1.120.3
-        version: 1.157.16(react-dom@18.3.1(react@19.2.4))(react@19.2.4)
+        version: 1.157.16(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       lucide-react:
         specifier: ^0.511.0
-        version: 0.511.0(react@19.2.4)
+        version: 0.511.0(react@18.3.1)
       react:
-        specifier: ^19.1.0
-        version: 19.2.4
+        specifier: ^18.2.0
+        version: 18.3.1
       react-hook-form:
         specifier: ^7.58.1
-        version: 7.71.1(react@19.2.4)
+        version: 7.71.1(react@18.3.1)
       zod:
         specifier: ^3.25.56
         version: 3.25.76
@@ -658,8 +683,8 @@ importers:
         specifier: ^22.15.29
         version: 22.19.7
       '@types/react':
-        specifier: ^19.1.6
-        version: 19.2.10
+        specifier: ^18.3.17
+        version: 18.3.27
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -672,7 +697,7 @@ importers:
         specifier: ^1.2.2
         version: 1.2.12(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@radix-ui/react-alert-dialog':
-        specifier: ^1.1.4
+        specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@radix-ui/react-aspect-ratio':
         specifier: ^1.1.1
@@ -2600,9 +2625,6 @@ packages:
 
   '@types/react@18.3.27':
     resolution: {integrity: sha512-cisd7gxkzjBKU2GgdYrTdtQx1SORymWyaAFhaxQPK9bYO9ot3Y5OikQRvY0VYQtvwjeQnizCINJAenh/V7MK2w==}
-
-  '@types/react@19.2.10':
-    resolution: {integrity: sha512-WPigyYuGhgZ/cTPRXB2EwUw+XvsRA3GqHlsP4qteqrnnjDrApbS7MxcGr/hke5iUoeB7E/gQtrs9I37zAJ0Vjw==}
 
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
@@ -5314,9 +5336,22 @@ snapshots:
       human-id: 4.1.3
       prettier: 2.8.8
 
+  '@dnd-kit/accessibility@3.1.1(react@18.3.1)':
+    dependencies:
+      react: 18.3.1
+      tslib: 2.8.1
+
   '@dnd-kit/accessibility@3.1.1(react@19.2.4)':
     dependencies:
       react: 19.2.4
+      tslib: 2.8.1
+
+  '@dnd-kit/core@6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@dnd-kit/accessibility': 3.1.1(react@18.3.1)
+      '@dnd-kit/utilities': 3.2.2(react@18.3.1)
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
       tslib: 2.8.1
 
   '@dnd-kit/core@6.3.1(react-dom@18.3.1(react@19.2.4))(react@19.2.4)':
@@ -5327,11 +5362,23 @@ snapshots:
       react-dom: 18.3.1(react@19.2.4)
       tslib: 2.8.1
 
+  '@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@dnd-kit/core': 6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@dnd-kit/utilities': 3.2.2(react@18.3.1)
+      react: 18.3.1
+      tslib: 2.8.1
+
   '@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@18.3.1(react@19.2.4))(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@dnd-kit/core': 6.3.1(react-dom@18.3.1(react@19.2.4))(react@19.2.4)
       '@dnd-kit/utilities': 3.2.2(react@19.2.4)
       react: 19.2.4
+      tslib: 2.8.1
+
+  '@dnd-kit/utilities@3.2.2(react@18.3.1)':
+    dependencies:
+      react: 18.3.1
       tslib: 2.8.1
 
   '@dnd-kit/utilities@3.2.2(react@19.2.4)':
@@ -6630,11 +6677,6 @@ snapshots:
       '@tanstack/query-core': 5.90.20
       react: 18.3.1
 
-  '@tanstack/react-query@5.90.20(react@19.2.4)':
-    dependencies:
-      '@tanstack/query-core': 5.90.20
-      react: 19.2.4
-
   '@tanstack/react-router@1.157.16(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@tanstack/history': 1.154.14
@@ -6646,30 +6688,12 @@ snapshots:
       tiny-invariant: 1.3.3
       tiny-warning: 1.0.3
 
-  '@tanstack/react-router@1.157.16(react-dom@18.3.1(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@tanstack/history': 1.154.14
-      '@tanstack/react-store': 0.8.0(react-dom@18.3.1(react@19.2.4))(react@19.2.4)
-      '@tanstack/router-core': 1.157.16
-      isbot: 5.1.34
-      react: 19.2.4
-      react-dom: 18.3.1(react@19.2.4)
-      tiny-invariant: 1.3.3
-      tiny-warning: 1.0.3
-
   '@tanstack/react-store@0.8.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@tanstack/store': 0.8.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       use-sync-external-store: 1.6.0(react@18.3.1)
-
-  '@tanstack/react-store@0.8.0(react-dom@18.3.1(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@tanstack/store': 0.8.0
-      react: 19.2.4
-      react-dom: 18.3.1(react@19.2.4)
-      use-sync-external-store: 1.6.0(react@19.2.4)
 
   '@tanstack/router-core@1.157.16':
     dependencies:
@@ -6774,10 +6798,6 @@ snapshots:
   '@types/react@18.3.27':
     dependencies:
       '@types/prop-types': 15.7.15
-      csstype: 3.2.3
-
-  '@types/react@19.2.10':
-    dependencies:
       csstype: 3.2.3
 
   '@types/ws@8.18.1':
@@ -8272,9 +8292,9 @@ snapshots:
     dependencies:
       react: 18.3.1
 
-  lucide-react@0.511.0(react@19.2.4):
+  lucide-react@0.511.0(react@18.3.1):
     dependencies:
-      react: 19.2.4
+      react: 18.3.1
 
   magic-string@0.30.21:
     dependencies:
@@ -8586,10 +8606,6 @@ snapshots:
   react-hook-form@7.71.1(react@18.3.1):
     dependencies:
       react: 18.3.1
-
-  react-hook-form@7.71.1(react@19.2.4):
-    dependencies:
-      react: 19.2.4
 
   react-is@16.13.1: {}
 
@@ -9203,10 +9219,6 @@ snapshots:
   use-sync-external-store@1.6.0(react@18.3.1):
     dependencies:
       react: 18.3.1
-
-  use-sync-external-store@1.6.0(react@19.2.4):
-    dependencies:
-      react: 19.2.4
 
   util-deprecate@1.0.2: {}
 

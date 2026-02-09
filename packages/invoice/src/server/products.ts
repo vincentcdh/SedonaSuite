@@ -127,21 +127,22 @@ export async function createProduct(
 // ===========================================
 
 export async function updateProduct(input: UpdateProductInput): Promise<Product> {
-  const updateData: Record<string, unknown> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: any = {}
 
-  if (input.name !== undefined) updateData.name = input.name
-  if (input.description !== undefined) updateData.description = input.description
-  if (input.sku !== undefined) updateData.sku = input.sku
-  if (input.type !== undefined) updateData.type = input.type
-  if (input.unitPrice !== undefined) updateData.unit_price = input.unitPrice
-  if (input.currency !== undefined) updateData.currency = input.currency
-  if (input.unit !== undefined) updateData.unit = input.unit
-  if (input.vatRate !== undefined) updateData.vat_rate = input.vatRate
-  if (input.vatExempt !== undefined) updateData.vat_exempt = input.vatExempt
-  if (input.category !== undefined) updateData.category = input.category
-  if (input.accountingCode !== undefined) updateData.accounting_code = input.accountingCode
-  if (input.isActive !== undefined) updateData.is_active = input.isActive
-  if (input.customFields !== undefined) updateData.custom_fields = input.customFields
+  if (input.name !== undefined) updateData['name'] = input.name
+  if (input.description !== undefined) updateData['description'] = input.description
+  if (input.sku !== undefined) updateData['sku'] = input.sku
+  if (input.type !== undefined) updateData['type'] = input.type
+  if (input.unitPrice !== undefined) updateData['unit_price'] = input.unitPrice
+  if (input.currency !== undefined) updateData['currency'] = input.currency
+  if (input.unit !== undefined) updateData['unit'] = input.unit
+  if (input.vatRate !== undefined) updateData['vat_rate'] = input.vatRate
+  if (input.vatExempt !== undefined) updateData['vat_exempt'] = input.vatExempt
+  if (input.category !== undefined) updateData['category'] = input.category
+  if (input.accountingCode !== undefined) updateData['accounting_code'] = input.accountingCode
+  if (input.isActive !== undefined) updateData['is_active'] = input.isActive
+  if (input.customFields !== undefined) updateData['custom_fields'] = input.customFields
 
   const { data, error } = await getClient()
     .from('invoice_products')
@@ -194,26 +195,27 @@ export async function getProductCategories(organizationId: string): Promise<stri
 // HELPERS
 // ===========================================
 
-function mapProductFromDb(data: Record<string, unknown>): Product {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapProductFromDb(row: any): Product {
   return {
-    id: data.id as string,
-    organizationId: data.organization_id as string,
-    name: data.name as string,
-    description: data.description as string | null,
-    sku: data.sku as string | null,
-    type: (data.type as Product['type']) || 'service',
-    unitPrice: Number(data.unit_price),
-    currency: (data.currency as string) || 'EUR',
-    unit: (data.unit as string) || 'unite',
-    vatRate: Number(data.vat_rate) || 20,
-    vatExempt: (data.vat_exempt as boolean) || false,
-    category: data.category as string | null,
-    accountingCode: data.accounting_code as string | null,
-    isActive: (data.is_active as boolean) ?? true,
-    customFields: (data.custom_fields as Record<string, unknown>) || {},
-    createdAt: data.created_at as string,
-    updatedAt: data.updated_at as string,
-    deletedAt: data.deleted_at as string | null,
+    id: row.id,
+    organizationId: row.organization_id,
+    name: row.name,
+    description: row.description,
+    sku: row.sku,
+    type: row.type || 'service',
+    unitPrice: Number(row.unit_price),
+    currency: row.currency || 'EUR',
+    unit: row.unit || 'unite',
+    vatRate: Number(row.vat_rate) || 20,
+    vatExempt: row.vat_exempt || false,
+    category: row.category,
+    accountingCode: row.accounting_code,
+    isActive: row.is_active ?? true,
+    customFields: row.custom_fields || {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
   }
 }
 

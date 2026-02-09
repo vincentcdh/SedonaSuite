@@ -11,24 +11,107 @@ import {
   AlertTriangle,
   Briefcase,
   Clock,
-  Lock,
+  Loader2,
 } from 'lucide-react'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  Badge,
 } from '@sedona/ui'
+import {
+  useHrStats,
+  useEmployeeCountByDepartment,
+  useEmployeeCountByContractType,
+  useHeadcountHistory,
+} from '@sedona/hr'
+import { useOrganization } from '@/lib/auth'
 
 export const Route = createFileRoute('/_authenticated/hr/reports')({
   component: HrReportsPage,
 })
 
-// Simulated PRO status
-const isPro = false
+// Contract type labels in French
+const contractTypeLabels: Record<string, string> = {
+  cdi: 'CDI',
+  cdd: 'CDD',
+  internship: 'Stage',
+  apprenticeship: 'Alternance',
+  freelance: 'Freelance',
+  temporary: 'Interim',
+  other: 'Autre',
+}
+
+// Contract type colors
+const contractTypeColors: Record<string, string> = {
+  cdi: 'bg-blue-500',
+  cdd: 'bg-purple-500',
+  internship: 'bg-pink-500',
+  apprenticeship: 'bg-indigo-500',
+  freelance: 'bg-green-500',
+  temporary: 'bg-orange-500',
+  other: 'bg-gray-500',
+}
+
+// Month labels in French
+const monthLabels = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aout', 'Sep', 'Oct', 'Nov', 'Dec']
 
 function HrReportsPage() {
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
+
+  // Queries
+  const { data: stats, isLoading: isLoadingStats } = useHrStats(organizationId)
+  const { data: departmentData, isLoading: isLoadingDepartments } = useEmployeeCountByDepartment(organizationId)
+  const { data: contractTypeData, isLoading: isLoadingContractTypes } = useEmployeeCountByContractType(organizationId)
+  const { data: headcountHistory, isLoading: isLoadingHistory } = useHeadcountHistory(organizationId, 12)
+
+  const isLoading = isLoadingStats || isLoadingDepartments || isLoadingContractTypes || isLoadingHistory
+
+  if (isLoading && !stats) {
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // Default values if no data
+  const displayStats = stats || {
+    totalEmployees: 0,
+    activeEmployees: 0,
+    hiredThisMonth: 0,
+    leftThisMonth: 0,
+    absenteeismRate: null,
+    averageTenureMonths: null,
+    leaveDaysThisMonth: 0,
+    overdueInterviews: 0,
+    turnoverRate: null,
+  }
+
+  const departments = departmentData || []
+  const contractTypes = contractTypeData || []
+  const history = headcountHistory || []
+
+  // Calculate percentages for contract types
+  const totalContractTypes = contractTypes.reduce((sum, ct) => sum + ct.count, 0)
+
+  // Calculate percentages for departments
+  const totalDepartments = departments.reduce((sum, d) => sum + d.count, 0)
+
+  // Get max count for history chart scaling
+  const maxHistoryCount = Math.max(...history.map(h => h.count), 1)
+
+  // Format average tenure
+  const formatTenure = (months: number | null) => {
+    if (months === null) return '-'
+    const years = Math.floor(months / 12)
+    const remainingMonths = months % 12
+    if (years === 0) return `${remainingMonths} mois`
+    if (remainingMonths === 0) return `${years} an${years > 1 ? 's' : ''}`
+    return `${years}.${Math.round((remainingMonths / 12) * 10)} ans`
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -46,11 +129,13 @@ function HrReportsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Effectif total</p>
-                <p className="text-3xl font-bold">24</p>
-                <p className="text-sm text-green-600 flex items-center gap-1 mt-1">
-                  <TrendingUp className="h-3 w-3" />
-                  +2 ce mois
-                </p>
+                <p className="text-3xl font-bold">{displayStats.activeEmployees}</p>
+                {displayStats.hiredThisMonth > 0 && (
+                  <p className="text-sm text-green-600 flex items-center gap-1 mt-1">
+                    <TrendingUp className="h-3 w-3" />
+                    +{displayStats.hiredThisMonth} ce mois
+                  </p>
+                )}
               </div>
               <div className="p-3 bg-blue-100 rounded-lg">
                 <Users className="h-6 w-6 text-blue-600" />
@@ -64,7 +149,7 @@ function HrReportsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Embauches ce mois</p>
-                <p className="text-3xl font-bold">3</p>
+                <p className="text-3xl font-bold">{displayStats.hiredThisMonth}</p>
               </div>
               <div className="p-3 bg-green-100 rounded-lg">
                 <TrendingUp className="h-6 w-6 text-green-600" />
@@ -73,61 +158,49 @@ function HrReportsPage() {
           </CardContent>
         </Card>
 
-        {/* Blurred for FREE tier */}
-        <Card className="relative">
+        <Card>
           <CardContent className="p-4">
-            <div className={`flex items-center justify-between ${!isPro ? 'blur-sm' : ''}`}>
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Departs ce mois</p>
-                <p className="text-3xl font-bold">1</p>
-                <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
-                  <TrendingDown className="h-3 w-3" />
-                  Turnover: 4.2%
-                </p>
+                <p className="text-3xl font-bold">{displayStats.leftThisMonth}</p>
+                {displayStats.turnoverRate !== null && displayStats.turnoverRate > 0 && (
+                  <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
+                    <TrendingDown className="h-3 w-3" />
+                    Turnover: {displayStats.turnoverRate.toFixed(1)}%
+                  </p>
+                )}
               </div>
               <div className="p-3 bg-red-100 rounded-lg">
                 <TrendingDown className="h-6 w-6 text-red-600" />
               </div>
             </div>
-            {!isPro && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
-                <Badge variant="secondary" className="gap-1">
-                  <Lock className="h-3 w-3" />
-                  PRO
-                </Badge>
-              </div>
-            )}
           </CardContent>
         </Card>
 
-        {/* Blurred for FREE tier */}
-        <Card className="relative">
+        <Card>
           <CardContent className="p-4">
-            <div className={`flex items-center justify-between ${!isPro ? 'blur-sm' : ''}`}>
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Taux d'absenteisme</p>
-                <p className="text-3xl font-bold">3.2%</p>
+                <p className="text-3xl font-bold">
+                  {displayStats.absenteeismRate !== null
+                    ? `${displayStats.absenteeismRate.toFixed(1)}%`
+                    : '-'}
+                </p>
                 <p className="text-sm text-muted-foreground mt-1">Ce mois</p>
               </div>
               <div className="p-3 bg-orange-100 rounded-lg">
                 <Calendar className="h-6 w-6 text-orange-600" />
               </div>
             </div>
-            {!isPro && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
-                <Badge variant="secondary" className="gap-1">
-                  <Lock className="h-3 w-3" />
-                  PRO
-                </Badge>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Contract distribution - Visible FREE */}
+        {/* Contract distribution */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -136,228 +209,167 @@ function HrReportsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-blue-500" />
-                  <span>CDI</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">18</span>
-                  <span className="text-muted-foreground text-sm">75%</span>
-                </div>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div className="bg-blue-500 h-2 rounded-full" style={{ width: '75%' }} />
-              </div>
+            {contractTypes.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                Aucune donnee disponible
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {contractTypes.map((ct) => {
+                  const percentage = totalContractTypes > 0 ? (ct.count / totalContractTypes) * 100 : 0
+                  const label = contractTypeLabels[ct.contractType] || ct.contractType
+                  const color = contractTypeColors[ct.contractType] || 'bg-gray-500'
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-purple-500" />
-                  <span>CDD</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">3</span>
-                  <span className="text-muted-foreground text-sm">12.5%</span>
-                </div>
+                  return (
+                    <div key={ct.contractType}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${color}`} />
+                          <span>{label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{ct.count}</span>
+                          <span className="text-muted-foreground text-sm">{percentage.toFixed(1)}%</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2 mt-1">
+                        <div
+                          className={`${color} h-2 rounded-full transition-all`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div className="bg-purple-500 h-2 rounded-full" style={{ width: '12.5%' }} />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-pink-500" />
-                  <span>Stage</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">2</span>
-                  <span className="text-muted-foreground text-sm">8.3%</span>
-                </div>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div className="bg-pink-500 h-2 rounded-full" style={{ width: '8.3%' }} />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-indigo-500" />
-                  <span>Alternance</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">1</span>
-                  <span className="text-muted-foreground text-sm">4.2%</span>
-                </div>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div className="bg-indigo-500 h-2 rounded-full" style={{ width: '4.2%' }} />
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Department distribution - Blurred FREE */}
-        <Card className="relative">
+        {/* Department distribution */}
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
               Repartition par departement
             </CardTitle>
           </CardHeader>
-          <CardContent className={!isPro ? 'blur-sm' : ''}>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span>Technique</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">10</span>
-                  <span className="text-muted-foreground text-sm">41.7%</span>
-                </div>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div className="bg-primary h-2 rounded-full" style={{ width: '41.7%' }} />
-              </div>
+          <CardContent>
+            {departments.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                Aucune donnee disponible
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {departments.map((dept) => {
+                  const percentage = totalDepartments > 0 ? (dept.count / totalDepartments) * 100 : 0
 
-              <div className="flex items-center justify-between">
-                <span>Commercial</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">6</span>
-                  <span className="text-muted-foreground text-sm">25%</span>
-                </div>
+                  return (
+                    <div key={dept.department}>
+                      <div className="flex items-center justify-between">
+                        <span>{dept.department}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{dept.count}</span>
+                          <span className="text-muted-foreground text-sm">{percentage.toFixed(1)}%</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2 mt-1">
+                        <div
+                          className="bg-primary h-2 rounded-full transition-all"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div className="bg-primary h-2 rounded-full" style={{ width: '25%' }} />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span>Marketing</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">4</span>
-                  <span className="text-muted-foreground text-sm">16.7%</span>
-                </div>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div className="bg-primary h-2 rounded-full" style={{ width: '16.7%' }} />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span>RH & Admin</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">4</span>
-                  <span className="text-muted-foreground text-sm">16.7%</span>
-                </div>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div className="bg-primary h-2 rounded-full" style={{ width: '16.7%' }} />
-              </div>
-            </div>
+            )}
           </CardContent>
-          {!isPro && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
-              <Badge variant="secondary" className="gap-1">
-                <Lock className="h-3 w-3" />
-                PRO
-              </Badge>
-            </div>
-          )}
         </Card>
       </div>
 
-      {/* Headcount evolution - Blurred FREE */}
-      <Card className="relative">
+      {/* Headcount evolution */}
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
             Evolution des effectifs (12 derniers mois)
           </CardTitle>
         </CardHeader>
-        <CardContent className={!isPro ? 'blur-sm' : ''}>
-          <div className="h-64 flex items-end justify-between gap-2">
-            {[18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 23, 24].map((value, index) => (
-              <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                <div
-                  className="w-full bg-primary rounded-t"
-                  style={{ height: `${(value / 30) * 100}%` }}
-                />
-                <span className="text-xs text-muted-foreground">
-                  {['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aout', 'Sep', 'Oct', 'Nov', 'Dec'][index]}
-                </span>
-              </div>
-            ))}
-          </div>
+        <CardContent>
+          {history.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">
+              Aucune donnee disponible
+            </p>
+          ) : (
+            <div className="h-64 flex items-end justify-between gap-2">
+              {history.map((entry) => {
+                const heightPercent = maxHistoryCount > 0 ? (entry.count / maxHistoryCount) * 100 : 0
+                const monthIndex = parseInt(entry.month.split('-')[1]) - 1
+
+                return (
+                  <div key={entry.month} className="flex-1 flex flex-col items-center gap-2">
+                    <span className="text-xs font-medium">{entry.count}</span>
+                    <div
+                      className="w-full bg-primary rounded-t transition-all"
+                      style={{ height: `${Math.max(heightPercent, 5)}%` }}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {monthLabels[monthIndex]}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </CardContent>
-        {!isPro && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
-            <Badge variant="secondary" className="gap-1">
-              <Lock className="h-3 w-3" />
-              PRO
-            </Badge>
-          </div>
-        )}
       </Card>
 
-      {/* Additional metrics - Blurred FREE */}
+      {/* Additional metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="relative">
+        <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Clock className="h-5 w-5" />
               Anciennete moyenne
             </CardTitle>
           </CardHeader>
-          <CardContent className={!isPro ? 'blur-sm' : ''}>
-            <p className="text-4xl font-bold">2.4</p>
-            <p className="text-muted-foreground">annees</p>
+          <CardContent>
+            <p className="text-4xl font-bold">{formatTenure(displayStats.averageTenureMonths)}</p>
+            {displayStats.averageTenureMonths !== null && (
+              <p className="text-muted-foreground">
+                {displayStats.averageTenureMonths} mois
+              </p>
+            )}
           </CardContent>
-          {!isPro && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
-              <Badge variant="secondary" className="gap-1">
-                <Lock className="h-3 w-3" />
-                PRO
-              </Badge>
-            </div>
-          )}
         </Card>
 
-        <Card className="relative">
+        <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Calendar className="h-5 w-5" />
               Conges poses ce mois
             </CardTitle>
           </CardHeader>
-          <CardContent className={!isPro ? 'blur-sm' : ''}>
-            <p className="text-4xl font-bold">45</p>
+          <CardContent>
+            <p className="text-4xl font-bold">{displayStats.leaveDaysThisMonth}</p>
             <p className="text-muted-foreground">jours</p>
           </CardContent>
-          {!isPro && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
-              <Badge variant="secondary" className="gap-1">
-                <Lock className="h-3 w-3" />
-                PRO
-              </Badge>
-            </div>
-          )}
         </Card>
 
-        <Card className="relative">
+        <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
               Entretiens en retard
             </CardTitle>
           </CardHeader>
-          <CardContent className={!isPro ? 'blur-sm' : ''}>
-            <p className="text-4xl font-bold text-orange-600">2</p>
+          <CardContent>
+            <p className={`text-4xl font-bold ${displayStats.overdueInterviews > 0 ? 'text-orange-600' : ''}`}>
+              {displayStats.overdueInterviews}
+            </p>
             <p className="text-muted-foreground">entretiens pro &gt; 2 ans</p>
           </CardContent>
-          {!isPro && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
-              <Badge variant="secondary" className="gap-1">
-                <Lock className="h-3 w-3" />
-                PRO
-              </Badge>
-            </div>
-          )}
         </Card>
       </div>
     </div>

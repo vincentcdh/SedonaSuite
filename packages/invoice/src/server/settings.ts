@@ -50,44 +50,45 @@ export async function updateInvoiceSettings(
   const existing = await getInvoiceSettings(organizationId)
 
   if (existing) {
-    // Update
-    const updateData: Record<string, unknown> = {}
+    // Update - build update object
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: any = {}
 
-    if (input.companyName !== undefined) updateData.company_name = input.companyName
-    if (input.legalName !== undefined) updateData.legal_name = input.legalName
-    if (input.siret !== undefined) updateData.siret = input.siret
-    if (input.vatNumber !== undefined) updateData.vat_number = input.vatNumber
-    if (input.legalForm !== undefined) updateData.legal_form = input.legalForm
-    if (input.capital !== undefined) updateData.capital = input.capital
-    if (input.addressLine1 !== undefined) updateData.address_line1 = input.addressLine1
-    if (input.addressLine2 !== undefined) updateData.address_line2 = input.addressLine2
-    if (input.city !== undefined) updateData.city = input.city
-    if (input.postalCode !== undefined) updateData.postal_code = input.postalCode
-    if (input.country !== undefined) updateData.country = input.country
-    if (input.email !== undefined) updateData.email = input.email
-    if (input.phone !== undefined) updateData.phone = input.phone
-    if (input.website !== undefined) updateData.website = input.website
-    if (input.logoUrl !== undefined) updateData.logo_url = input.logoUrl
-    if (input.bankName !== undefined) updateData.bank_name = input.bankName
-    if (input.iban !== undefined) updateData.iban = input.iban
-    if (input.bic !== undefined) updateData.bic = input.bic
-    if (input.defaultPaymentTerms !== undefined) updateData.default_payment_terms = input.defaultPaymentTerms
-    if (input.defaultQuoteValidity !== undefined) updateData.default_quote_validity = input.defaultQuoteValidity
-    if (input.defaultVatRate !== undefined) updateData.default_vat_rate = input.defaultVatRate
-    if (input.defaultCurrency !== undefined) updateData.default_currency = input.defaultCurrency
-    if (input.legalMentions !== undefined) updateData.legal_mentions = input.legalMentions
-    if (input.latePaymentPenalty !== undefined) updateData.late_payment_penalty = input.latePaymentPenalty
-    if (input.discountTerms !== undefined) updateData.discount_terms = input.discountTerms
-    if (input.invoiceNotesTemplate !== undefined) updateData.invoice_notes_template = input.invoiceNotesTemplate
-    if (input.invoiceFooterTemplate !== undefined) updateData.invoice_footer_template = input.invoiceFooterTemplate
-    if (input.quoteNotesTemplate !== undefined) updateData.quote_notes_template = input.quoteNotesTemplate
-    if (input.quoteFooterTemplate !== undefined) updateData.quote_footer_template = input.quoteFooterTemplate
-    if (input.invoiceEmailSubject !== undefined) updateData.invoice_email_subject = input.invoiceEmailSubject
-    if (input.invoiceEmailBody !== undefined) updateData.invoice_email_body = input.invoiceEmailBody
-    if (input.quoteEmailSubject !== undefined) updateData.quote_email_subject = input.quoteEmailSubject
-    if (input.quoteEmailBody !== undefined) updateData.quote_email_body = input.quoteEmailBody
-    if (input.reminderEmailSubject !== undefined) updateData.reminder_email_subject = input.reminderEmailSubject
-    if (input.reminderEmailBody !== undefined) updateData.reminder_email_body = input.reminderEmailBody
+    if (input.companyName !== undefined) updateData['company_name'] = input.companyName
+    if (input.legalName !== undefined) updateData['legal_name'] = input.legalName
+    if (input.siret !== undefined) updateData['siret'] = input.siret
+    if (input.vatNumber !== undefined) updateData['vat_number'] = input.vatNumber
+    if (input.legalForm !== undefined) updateData['legal_form'] = input.legalForm
+    if (input.capital !== undefined) updateData['capital'] = input.capital
+    if (input.addressLine1 !== undefined) updateData['address_line1'] = input.addressLine1
+    if (input.addressLine2 !== undefined) updateData['address_line2'] = input.addressLine2
+    if (input.city !== undefined) updateData['city'] = input.city
+    if (input.postalCode !== undefined) updateData['postal_code'] = input.postalCode
+    if (input.country !== undefined) updateData['country'] = input.country
+    if (input.email !== undefined) updateData['email'] = input.email
+    if (input.phone !== undefined) updateData['phone'] = input.phone
+    if (input.website !== undefined) updateData['website'] = input.website
+    if (input.logoUrl !== undefined) updateData['logo_url'] = input.logoUrl
+    if (input.bankName !== undefined) updateData['bank_name'] = input.bankName
+    if (input.iban !== undefined) updateData['iban'] = input.iban
+    if (input.bic !== undefined) updateData['bic'] = input.bic
+    if (input.defaultPaymentTerms !== undefined) updateData['default_payment_terms'] = input.defaultPaymentTerms
+    if (input.defaultQuoteValidity !== undefined) updateData['default_quote_validity'] = input.defaultQuoteValidity
+    if (input.defaultVatRate !== undefined) updateData['default_vat_rate'] = input.defaultVatRate
+    if (input.defaultCurrency !== undefined) updateData['default_currency'] = input.defaultCurrency
+    if (input.legalMentions !== undefined) updateData['legal_mentions'] = input.legalMentions
+    if (input.latePaymentPenalty !== undefined) updateData['late_payment_penalty'] = input.latePaymentPenalty
+    if (input.discountTerms !== undefined) updateData['discount_terms'] = input.discountTerms
+    if (input.invoiceNotesTemplate !== undefined) updateData['invoice_notes_template'] = input.invoiceNotesTemplate
+    if (input.invoiceFooterTemplate !== undefined) updateData['invoice_footer_template'] = input.invoiceFooterTemplate
+    if (input.quoteNotesTemplate !== undefined) updateData['quote_notes_template'] = input.quoteNotesTemplate
+    if (input.quoteFooterTemplate !== undefined) updateData['quote_footer_template'] = input.quoteFooterTemplate
+    if (input.invoiceEmailSubject !== undefined) updateData['invoice_email_subject'] = input.invoiceEmailSubject
+    if (input.invoiceEmailBody !== undefined) updateData['invoice_email_body'] = input.invoiceEmailBody
+    if (input.quoteEmailSubject !== undefined) updateData['quote_email_subject'] = input.quoteEmailSubject
+    if (input.quoteEmailBody !== undefined) updateData['quote_email_body'] = input.quoteEmailBody
+    if (input.reminderEmailSubject !== undefined) updateData['reminder_email_subject'] = input.reminderEmailSubject
+    if (input.reminderEmailBody !== undefined) updateData['reminder_email_body'] = input.reminderEmailBody
 
     const { data, error } = await client
       .from('invoice_settings')
@@ -229,21 +230,22 @@ export async function updateNumberSequence(
     .from('invoice_number_sequences')
     .select('*')
     .eq('organization_id', organizationId)
-    .eq('type', input.type)
+    .eq('document_type', input.type)
     .single()
 
   if (existing) {
     // Update
-    const updateData: Record<string, unknown> = {}
-    if (input.prefix !== undefined) updateData.prefix = input.prefix
-    if (input.suffix !== undefined) updateData.suffix = input.suffix
-    if (input.padding !== undefined) updateData.padding = input.padding
-    if (input.resetFrequency !== undefined) updateData.reset_frequency = input.resetFrequency
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: any = {}
+    if (input.prefix !== undefined) updateData['prefix'] = input.prefix
+    if (input.suffix !== undefined) updateData['suffix'] = input.suffix
+    if (input.padding !== undefined) updateData['padding'] = input.padding
+    if (input.resetFrequency !== undefined) updateData['reset_frequency'] = input.resetFrequency
 
     const { data, error } = await client
       .from('invoice_number_sequences')
       .update(updateData)
-      .eq('id', existing.id)
+      .eq('id', (existing as any).id)
       .select()
       .single()
 
@@ -255,7 +257,7 @@ export async function updateNumberSequence(
       .from('invoice_number_sequences')
       .insert({
         organization_id: organizationId,
-        type: input.type,
+        document_type: input.type,
         prefix: input.prefix || getDefaultPrefix(input.type),
         suffix: input.suffix || '',
         current_number: 0,
@@ -283,73 +285,76 @@ function getDefaultPrefix(type: string): string {
 // HELPERS
 // ===========================================
 
-function mapSettingsFromDb(data: Record<string, unknown>): InvoiceSettings {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapSettingsFromDb(row: any): InvoiceSettings {
   return {
-    id: data.id as string,
-    organizationId: data.organization_id as string,
-    companyName: data.company_name as string | null,
-    legalName: data.legal_name as string | null,
-    siret: data.siret as string | null,
-    vatNumber: data.vat_number as string | null,
-    legalForm: data.legal_form as string | null,
-    capital: data.capital as string | null,
-    addressLine1: data.address_line1 as string | null,
-    addressLine2: data.address_line2 as string | null,
-    city: data.city as string | null,
-    postalCode: data.postal_code as string | null,
-    country: (data.country as string) || 'France',
-    email: data.email as string | null,
-    phone: data.phone as string | null,
-    website: data.website as string | null,
-    logoUrl: data.logo_url as string | null,
-    bankName: data.bank_name as string | null,
-    iban: data.iban as string | null,
-    bic: data.bic as string | null,
-    defaultPaymentTerms: (data.default_payment_terms as number) || 30,
-    defaultQuoteValidity: (data.default_quote_validity as number) || 30,
-    defaultVatRate: Number(data.default_vat_rate) || 20,
-    defaultCurrency: (data.default_currency as string) || 'EUR',
-    legalMentions: data.legal_mentions as string | null,
-    latePaymentPenalty: data.late_payment_penalty as string | null,
-    discountTerms: data.discount_terms as string | null,
-    invoiceNotesTemplate: data.invoice_notes_template as string | null,
-    invoiceFooterTemplate: data.invoice_footer_template as string | null,
-    quoteNotesTemplate: data.quote_notes_template as string | null,
-    quoteFooterTemplate: data.quote_footer_template as string | null,
-    invoiceEmailSubject: data.invoice_email_subject as string | null,
-    invoiceEmailBody: data.invoice_email_body as string | null,
-    quoteEmailSubject: data.quote_email_subject as string | null,
-    quoteEmailBody: data.quote_email_body as string | null,
-    reminderEmailSubject: data.reminder_email_subject as string | null,
-    reminderEmailBody: data.reminder_email_body as string | null,
-    createdAt: data.created_at as string,
-    updatedAt: data.updated_at as string,
+    id: row.id,
+    organizationId: row.organization_id,
+    companyName: row.company_name,
+    legalName: row.legal_name,
+    siret: row.siret,
+    vatNumber: row.vat_number,
+    legalForm: row.legal_form,
+    capital: row.capital,
+    addressLine1: row.address_line1,
+    addressLine2: row.address_line2,
+    city: row.city,
+    postalCode: row.postal_code,
+    country: row.country || 'France',
+    email: row.email,
+    phone: row.phone,
+    website: row.website,
+    logoUrl: row.logo_url,
+    bankName: row.bank_name,
+    iban: row.iban,
+    bic: row.bic,
+    defaultPaymentTerms: row.default_payment_terms || 30,
+    defaultQuoteValidity: row.default_quote_validity || 30,
+    defaultVatRate: Number(row.default_vat_rate) || 20,
+    defaultCurrency: row.default_currency || 'EUR',
+    legalMentions: row.legal_mentions,
+    latePaymentPenalty: row.late_payment_penalty,
+    discountTerms: row.discount_terms,
+    invoiceNotesTemplate: row.invoice_notes_template,
+    invoiceFooterTemplate: row.invoice_footer_template,
+    quoteNotesTemplate: row.quote_notes_template,
+    quoteFooterTemplate: row.quote_footer_template,
+    invoiceEmailSubject: row.invoice_email_subject,
+    invoiceEmailBody: row.invoice_email_body,
+    quoteEmailSubject: row.quote_email_subject,
+    quoteEmailBody: row.quote_email_body,
+    reminderEmailSubject: row.reminder_email_subject,
+    reminderEmailBody: row.reminder_email_body,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }
 
-function mapVatRateFromDb(data: Record<string, unknown>): VatRate {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapVatRateFromDb(row: any): VatRate {
   return {
-    id: data.id as string,
-    organizationId: data.organization_id as string,
-    name: data.name as string,
-    rate: Number(data.rate),
-    isDefault: data.is_default as boolean,
-    createdAt: data.created_at as string,
+    id: row.id,
+    organizationId: row.organization_id,
+    name: row.name,
+    rate: Number(row.rate),
+    isDefault: row.is_default,
+    createdAt: row.created_at,
   }
 }
 
-function mapSequenceFromDb(data: Record<string, unknown>): NumberSequence {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapSequenceFromDb(row: any): NumberSequence {
   return {
-    id: data.id as string,
-    organizationId: data.organization_id as string,
-    type: data.type as NumberSequence['type'],
-    prefix: (data.prefix as string) || '',
-    suffix: (data.suffix as string) || '',
-    currentNumber: (data.current_number as number) || 0,
-    padding: (data.padding as number) || 4,
-    resetFrequency: (data.reset_frequency as NumberSequence['resetFrequency']) || 'never',
-    lastResetAt: data.last_reset_at as string | null,
-    createdAt: data.created_at as string,
-    updatedAt: data.updated_at as string,
+    id: row.id,
+    organizationId: row.organization_id,
+    type: row.document_type,
+    prefix: row.prefix || '',
+    suffix: row.suffix || '',
+    currentNumber: row.current_number || 0,
+    padding: row.padding || 4,
+    resetFrequency: row.reset_frequency || 'never',
+    lastResetAt: row.last_reset_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }

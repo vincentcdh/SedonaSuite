@@ -2,7 +2,22 @@
 // INVOICE COMPONENTS EXPORTS
 // ===========================================
 
-// Components will be added as needed
-// For now, we use the pages directly in the web app
+// Forms
+export * from './forms/ClientForm'
+export * from './forms/ProductForm'
+export * from './forms/InvoiceForm'
+export * from './forms/QuoteForm'
 
-export {}
+// Shared components
+export * from './shared/AddressFields'
+export * from './shared/ClientSelector'
+export * from './shared/ProductSelector'
+export * from './shared/LineItemRow'
+export * from './shared/LineItemsEditor'
+export * from './shared/TotalsDisplay'
+
+// Hooks
+export * from './hooks/useLineItems'
+
+// Schemas
+export * from './schemas'

@@ -15,6 +15,7 @@ import {
   GripVertical,
   Lock,
   Sparkles,
+  Loader2,
 } from 'lucide-react'
 import {
   Button,
@@ -44,42 +45,178 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from '@sedona/ui'
+import {
+  useCategories,
+  useCreateCategory,
+  useUpdateCategory,
+  useDeleteCategory,
+  useTags,
+  useCreateTag,
+  useDeleteTag,
+  useCannedResponses,
+  useCreateCannedResponse,
+  useDeleteCannedResponse,
+  type Category,
+  type Tag as TagType,
+  type CannedResponse,
+} from '@sedona/tickets'
+import { useOrganization } from '@/lib/auth'
 
 export const Route = createFileRoute('/_authenticated/tickets/settings/')({
   component: TicketSettingsPage,
 })
 
-// Simulated PRO status
+// Simulated PRO status - TODO: Get from organization plan
 const isPro = false
 
-// Mock categories
-const mockCategories = [
-  { id: '1', name: 'Support Technique', color: '#3B82F6', icon: 'wrench', ticketCount: 45 },
-  { id: '2', name: 'Facturation', color: '#10B981', icon: 'credit-card', ticketCount: 28 },
-  { id: '3', name: 'Commercial', color: '#F59E0B', icon: 'briefcase', ticketCount: 15 },
-  { id: '4', name: 'Autre', color: '#6B7280', icon: 'folder', ticketCount: 12 },
-]
-
-// Mock tags
-const mockTags = [
-  { id: '1', name: 'urgent', color: '#EF4444', ticketCount: 8 },
-  { id: '2', name: 'bug', color: '#F97316', ticketCount: 12 },
-  { id: '3', name: 'feature', color: '#3B82F6', ticketCount: 5 },
-  { id: '4', name: 'documentation', color: '#8B5CF6', ticketCount: 3 },
-]
-
-// Mock canned responses
-const mockCannedResponses = [
-  { id: '1', name: 'Bienvenue', shortcut: '/bienvenue', category: 'General' },
-  { id: '2', name: 'Demande d\'informations', shortcut: '/info', category: 'General' },
-  { id: '3', name: 'Resolution confirmee', shortcut: '/resolu', category: 'Cloture' },
-  { id: '4', name: 'En attente de retour', shortcut: '/attente', category: 'Suivi' },
-]
+const colorOptions = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
 
 function TicketSettingsPage() {
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
+
+  // Category state
   const [newCategoryDialogOpen, setNewCategoryDialogOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategoryColor, setNewCategoryColor] = useState('#3B82F6')
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
+
+  // Tag state
   const [newTagDialogOpen, setNewTagDialogOpen] = useState(false)
+  const [newTagName, setNewTagName] = useState('')
+  const [newTagColor, setNewTagColor] = useState('#3B82F6')
+  const [tagToDelete, setTagToDelete] = useState<TagType | null>(null)
+
+  // Canned response state
+  const [newResponseDialogOpen, setNewResponseDialogOpen] = useState(false)
+  const [newResponseName, setNewResponseName] = useState('')
+  const [newResponseShortcut, setNewResponseShortcut] = useState('')
+  const [newResponseContent, setNewResponseContent] = useState('')
+  const [responseToDelete, setResponseToDelete] = useState<CannedResponse | null>(null)
+
+  // Fetch data
+  const { data: categories = [], isLoading: loadingCategories } = useCategories(organizationId)
+  const { data: tags = [], isLoading: loadingTags } = useTags(organizationId)
+  const { data: cannedResponses = [], isLoading: loadingResponses } = useCannedResponses(organizationId)
+
+  // Category mutations
+  const createCategory = useCreateCategory(organizationId)
+  const updateCategory = useUpdateCategory(organizationId)
+  const deleteCategory = useDeleteCategory(organizationId)
+
+  // Tag mutations
+  const createTag = useCreateTag(organizationId)
+  const deleteTag = useDeleteTag(organizationId)
+
+  // Canned response mutations
+  const createCannedResponse = useCreateCannedResponse(organizationId)
+  const deleteCannedResponse = useDeleteCannedResponse(organizationId)
+
+  // Category handlers
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return
+    try {
+      await createCategory.mutateAsync({
+        name: newCategoryName.trim(),
+        color: newCategoryColor,
+        position: categories.length,
+      })
+      setNewCategoryName('')
+      setNewCategoryColor('#3B82F6')
+      setNewCategoryDialogOpen(false)
+    } catch (err) {
+      console.error('Error creating category:', err)
+    }
+  }
+
+  const handleUpdateCategory = async () => {
+    if (!editingCategory || !editingCategory.name.trim()) return
+    try {
+      await updateCategory.mutateAsync({
+        id: editingCategory.id,
+        name: editingCategory.name,
+        color: editingCategory.color,
+      })
+      setEditingCategory(null)
+    } catch (err) {
+      console.error('Error updating category:', err)
+    }
+  }
+
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete) return
+    try {
+      await deleteCategory.mutateAsync(categoryToDelete.id)
+      setCategoryToDelete(null)
+    } catch (err) {
+      console.error('Error deleting category:', err)
+    }
+  }
+
+  // Tag handlers
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) return
+    try {
+      await createTag.mutateAsync({
+        name: newTagName.trim(),
+        color: newTagColor,
+      })
+      setNewTagName('')
+      setNewTagColor('#3B82F6')
+      setNewTagDialogOpen(false)
+    } catch (err) {
+      console.error('Error creating tag:', err)
+    }
+  }
+
+  const handleDeleteTag = async () => {
+    if (!tagToDelete) return
+    try {
+      await deleteTag.mutateAsync(tagToDelete.id)
+      setTagToDelete(null)
+    } catch (err) {
+      console.error('Error deleting tag:', err)
+    }
+  }
+
+  // Canned response handlers
+  const handleCreateCannedResponse = async () => {
+    if (!newResponseName.trim() || !newResponseContent.trim()) return
+    try {
+      await createCannedResponse.mutateAsync({
+        name: newResponseName.trim(),
+        shortcut: newResponseShortcut.trim() || undefined,
+        content: newResponseContent.trim(),
+        isShared: true,
+      })
+      setNewResponseName('')
+      setNewResponseShortcut('')
+      setNewResponseContent('')
+      setNewResponseDialogOpen(false)
+    } catch (err) {
+      console.error('Error creating canned response:', err)
+    }
+  }
+
+  const handleDeleteCannedResponse = async () => {
+    if (!responseToDelete) return
+    try {
+      await deleteCannedResponse.mutateAsync(responseToDelete.id)
+      setResponseToDelete(null)
+    } catch (err) {
+      console.error('Error deleting canned response:', err)
+    }
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -137,16 +274,23 @@ function TicketSettingsPage() {
                     <div className="space-y-4 py-4">
                       <div>
                         <Label htmlFor="cat-name">Nom</Label>
-                        <Input id="cat-name" placeholder="Ex: Support Technique" />
+                        <Input
+                          id="cat-name"
+                          placeholder="Ex: Support Technique"
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                        />
                       </div>
                       <div>
-                        <Label htmlFor="cat-color">Couleur</Label>
+                        <Label>Couleur</Label>
                         <div className="flex gap-2 mt-2">
-                          {['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'].map(color => (
+                          {colorOptions.map(color => (
                             <button
                               key={color}
-                              className="w-8 h-8 rounded-full border-2 border-transparent hover:border-gray-300"
+                              type="button"
+                              className={'w-8 h-8 rounded-full border-2 hover:border-gray-300 ' + (newCategoryColor === color ? 'border-primary' : 'border-transparent')}
                               style={{ backgroundColor: color }}
+                              onClick={() => setNewCategoryColor(color)}
                             />
                           ))}
                         </div>
@@ -156,7 +300,8 @@ function TicketSettingsPage() {
                       <Button variant="outline" onClick={() => setNewCategoryDialogOpen(false)}>
                         Annuler
                       </Button>
-                      <Button onClick={() => setNewCategoryDialogOpen(false)}>
+                      <Button onClick={handleCreateCategory} disabled={createCategory.isPending}>
+                        {createCategory.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Creer
                       </Button>
                     </DialogFooter>
@@ -165,28 +310,39 @@ function TicketSettingsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {mockCategories.map(category => (
-                  <div
-                    key={category.id}
-                    className="flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                  >
-                    <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+              {loadingCategories ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : categories.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Folder className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Aucune categorie</p>
+                  <p className="text-sm">Creez votre premiere categorie pour organiser vos tickets</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {categories.map(category => (
                     <div
-                      className="w-4 h-4 rounded"
-                      style={{ backgroundColor: category.color }}
-                    />
-                    <span className="flex-1 font-medium">{category.name}</span>
-                    <Badge variant="secondary">{category.ticketCount} tickets</Badge>
-                    <Button variant="ghost" size="icon">
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+                      key={category.id}
+                      className="flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                      <div
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: category.color || '#6B7280' }}
+                      />
+                      <span className="flex-1 font-medium">{category.name}</span>
+                      <Button variant="ghost" size="icon" onClick={() => setEditingCategory(category)}>
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setCategoryToDelete(category)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -219,16 +375,23 @@ function TicketSettingsPage() {
                     <div className="space-y-4 py-4">
                       <div>
                         <Label htmlFor="tag-name">Nom</Label>
-                        <Input id="tag-name" placeholder="Ex: urgent" />
+                        <Input
+                          id="tag-name"
+                          placeholder="Ex: urgent"
+                          value={newTagName}
+                          onChange={(e) => setNewTagName(e.target.value)}
+                        />
                       </div>
                       <div>
-                        <Label htmlFor="tag-color">Couleur</Label>
+                        <Label>Couleur</Label>
                         <div className="flex gap-2 mt-2">
-                          {['#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6'].map(color => (
+                          {colorOptions.map(color => (
                             <button
                               key={color}
-                              className="w-8 h-8 rounded-full border-2 border-transparent hover:border-gray-300"
+                              type="button"
+                              className={'w-8 h-8 rounded-full border-2 hover:border-gray-300 ' + (newTagColor === color ? 'border-primary' : 'border-transparent')}
                               style={{ backgroundColor: color }}
+                              onClick={() => setNewTagColor(color)}
                             />
                           ))}
                         </div>
@@ -238,7 +401,8 @@ function TicketSettingsPage() {
                       <Button variant="outline" onClick={() => setNewTagDialogOpen(false)}>
                         Annuler
                       </Button>
-                      <Button onClick={() => setNewTagDialogOpen(false)}>
+                      <Button onClick={handleCreateTag} disabled={createTag.isPending}>
+                        {createTag.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Creer
                       </Button>
                     </DialogFooter>
@@ -247,24 +411,36 @@ function TicketSettingsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-3">
-                {mockTags.map(tag => (
-                  <div
-                    key={tag.id}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-muted/50 transition-colors group"
-                  >
-                    <Badge style={{ backgroundColor: tag.color }}>{tag.name}</Badge>
-                    <span className="text-sm text-muted-foreground">{tag.ticketCount}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+              {loadingTags ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : tags.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Tag className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Aucun tag</p>
+                  <p className="text-sm">Creez votre premier tag pour categoriser vos tickets</p>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-3">
+                  {tags.map(tag => (
+                    <div
+                      key={tag.id}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-muted/50 transition-colors group"
                     >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+                      <Badge style={{ backgroundColor: tag.color || '#6B7280' }}>{tag.name}</Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+                        onClick={() => setTagToDelete(tag)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -280,36 +456,99 @@ function TicketSettingsPage() {
                     Creez des modeles de reponses pour gagner du temps
                   </CardDescription>
                 </div>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nouvelle reponse
-                </Button>
+                <Dialog open={newResponseDialogOpen} onOpenChange={setNewResponseDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Nouvelle reponse
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Nouvelle reponse predefinie</DialogTitle>
+                      <DialogDescription>
+                        Creez un modele de reponse reutilisable
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="response-name">Nom</Label>
+                          <Input
+                            id="response-name"
+                            placeholder="Ex: Bienvenue"
+                            value={newResponseName}
+                            onChange={(e) => setNewResponseName(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="response-shortcut">Raccourci (optionnel)</Label>
+                          <Input
+                            id="response-shortcut"
+                            placeholder="Ex: /bienvenue"
+                            value={newResponseShortcut}
+                            onChange={(e) => setNewResponseShortcut(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="response-content">Contenu</Label>
+                        <Textarea
+                          id="response-content"
+                          placeholder="Bonjour, merci de nous avoir contacte..."
+                          value={newResponseContent}
+                          onChange={(e) => setNewResponseContent(e.target.value)}
+                          rows={6}
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setNewResponseDialogOpen(false)}>
+                        Annuler
+                      </Button>
+                      <Button onClick={handleCreateCannedResponse} disabled={createCannedResponse.isPending}>
+                        {createCannedResponse.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Creer
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {mockCannedResponses.map(response => (
-                  <div
-                    key={response.id}
-                    className="flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                  >
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                    <div className="flex-1">
-                      <p className="font-medium">{response.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Raccourci: <code className="bg-muted px-1 rounded">{response.shortcut}</code>
-                      </p>
+              {loadingResponses ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : cannedResponses.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Aucune reponse predefinie</p>
+                  <p className="text-sm">Creez des modeles de reponses pour gagner du temps</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {cannedResponses.map(response => (
+                    <div
+                      key={response.id}
+                      className="flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex-1">
+                        <p className="font-medium">{response.name}</p>
+                        {response.shortcut && (
+                          <p className="text-sm text-muted-foreground">
+                            Raccourci: <code className="bg-muted px-1 rounded">{response.shortcut}</code>
+                          </p>
+                        )}
+                      </div>
+                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setResponseToDelete(response)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Badge variant="outline">{response.category}</Badge>
-                    <Button variant="ghost" size="icon">
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -404,6 +643,117 @@ function TicketSettingsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Edit Category Dialog */}
+      <Dialog open={!!editingCategory} onOpenChange={(open) => !open && setEditingCategory(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modifier la categorie</DialogTitle>
+          </DialogHeader>
+          {editingCategory && (
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="edit-cat-name">Nom</Label>
+                <Input
+                  id="edit-cat-name"
+                  value={editingCategory.name}
+                  onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Couleur</Label>
+                <div className="flex gap-2 mt-2">
+                  {colorOptions.map(color => (
+                    <button
+                      key={color}
+                      type="button"
+                      className={'w-8 h-8 rounded-full border-2 hover:border-gray-300 ' + (editingCategory.color === color ? 'border-primary' : 'border-transparent')}
+                      style={{ backgroundColor: color }}
+                      onClick={() => setEditingCategory({ ...editingCategory, color })}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingCategory(null)}>
+              Annuler
+            </Button>
+            <Button onClick={handleUpdateCategory} disabled={updateCategory.isPending}>
+              {updateCategory.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Category Confirmation */}
+      <AlertDialog open={!!categoryToDelete} onOpenChange={(open) => !open && setCategoryToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer la categorie</AlertDialogTitle>
+            <AlertDialogDescription>
+              Etes-vous sur de vouloir supprimer la categorie "{categoryToDelete?.name}" ?
+              Les tickets associes ne seront pas supprimes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCategory}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteCategory.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Tag Confirmation */}
+      <AlertDialog open={!!tagToDelete} onOpenChange={(open) => !open && setTagToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer le tag</AlertDialogTitle>
+            <AlertDialogDescription>
+              Etes-vous sur de vouloir supprimer le tag "{tagToDelete?.name}" ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteTag}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteTag.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Canned Response Confirmation */}
+      <AlertDialog open={!!responseToDelete} onOpenChange={(open) => !open && setResponseToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer la reponse</AlertDialogTitle>
+            <AlertDialogDescription>
+              Etes-vous sur de vouloir supprimer la reponse "{responseToDelete?.name}" ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCannedResponse}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteCannedResponse.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

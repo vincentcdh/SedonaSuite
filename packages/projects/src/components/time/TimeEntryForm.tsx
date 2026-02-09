@@ -47,7 +47,7 @@ export function TimeEntryForm({
   onCancel,
   isLoading = false,
 }: TimeEntryFormProps) {
-  const [taskId, setTaskId] = useState(editEntry?.taskId || initialTaskId || '')
+  const [taskId, setTaskId] = useState(editEntry?.taskId || initialTaskId || '__none__')
   const [date, setDate] = useState(
     editEntry
       ? format(new Date(editEntry.startTime), 'yyyy-MM-dd')
@@ -85,7 +85,7 @@ export function TimeEntryForm({
 
     onSubmit({
       projectId,
-      taskId: taskId || undefined,
+      taskId: taskId && taskId !== '__none__' ? taskId : undefined,
       description: description || undefined,
       startTime: startTime.toISOString(),
       durationMinutes,
@@ -105,7 +105,7 @@ export function TimeEntryForm({
               <SelectValue placeholder="Sélectionner une tâche" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Aucune tâche</SelectItem>
+              <SelectItem value="__none__">Aucune tâche</SelectItem>
               {tasks.map((task) => (
                 <SelectItem key={task.id} value={task.id}>
                   {task.title}

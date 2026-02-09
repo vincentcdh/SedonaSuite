@@ -122,6 +122,51 @@ export async function getHrStats(organizationId: string): Promise<HrStats> {
     averageTenureMonths = Math.round(totalMonths / employeesWithStart.length)
   }
 
+  // Get leave days this month (approved leave requests)
+  const { data: leaveRequests } = await getSupabaseClient()
+    .from('hr_leave_requests')
+    .select('days_count')
+    .eq('organization_id', organizationId)
+    .eq('status', 'approved')
+    .is('deleted_at', null)
+    .or(`start_date.gte.${firstDayOfMonth.toISOString().split('T')[0]},end_date.gte.${firstDayOfMonth.toISOString().split('T')[0]}`)
+    .lte('start_date', lastDayOfMonth.toISOString().split('T')[0])
+
+  const leaveDaysThisMonth = leaveRequests?.reduce((sum: number, r: any) => sum + (r.days_count || 0), 0) || 0
+
+  // Get overdue professional interviews (employees without professional interview in last 2 years)
+  const twoYearsAgo = new Date(now.getTime() - 2 * 365 * 24 * 60 * 60 * 1000)
+
+  // Get all active employees
+  const { data: allActiveEmployees } = await getSupabaseClient()
+    .from('hr_employees')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .eq('status', 'active')
+    .is('deleted_at', null)
+
+  let overdueInterviews = 0
+  if (allActiveEmployees && allActiveEmployees.length > 0) {
+    const employeeIds = allActiveEmployees.map((e: any) => e.id)
+
+    // Get employees with professional interview in last 2 years
+    const { data: recentInterviews } = await getSupabaseClient()
+      .from('hr_interviews')
+      .select('employee_id')
+      .eq('organization_id', organizationId)
+      .eq('type', 'professional')
+      .eq('status', 'completed')
+      .is('deleted_at', null)
+      .gte('completed_date', twoYearsAgo.toISOString().split('T')[0])
+      .in('employee_id', employeeIds)
+
+    const employeesWithRecentInterview = new Set((recentInterviews || []).map((i: any) => i.employee_id))
+    overdueInterviews = employeeIds.filter((id: string) => !employeesWithRecentInterview.has(id)).length
+  }
+
+  // Calculate turnover rate (left this month / average headcount * 100)
+  const turnoverRate = activeEmployees > 0 ? ((leftThisMonth || 0) / activeEmployees) * 100 : null
+
   return {
     totalEmployees,
     activeEmployees,
@@ -134,6 +179,9 @@ export async function getHrStats(organizationId: string): Promise<HrStats> {
     contractEndingSoon: contractEndingSoon || 0,
     absenteeismRate,
     averageTenureMonths,
+    leaveDaysThisMonth,
+    overdueInterviews,
+    turnoverRate,
   }
 }
 
@@ -275,7 +323,7 @@ export async function getHrAlerts(organizationId: string): Promise<HrAlert[]> {
 
   // Documents expiring in next 30 days
   const { data: expiringDocs } = await getSupabaseClient()
-    .from('hr_employee_documents')
+    .from('hr_documents')
     .select('id, employee_id, name, valid_until')
     .eq('organization_id', organizationId)
     .is('deleted_at', null)

@@ -22,35 +22,59 @@ export type InterviewStatus = 'scheduled' | 'completed' | 'canceled'
 export interface HrSettings {
   id: string
   organizationId: string
+  // Leave configuration
   annualLeaveDaysPerYear: number
   rttDaysPerYear: number
   leaveYearStartMonth: number
+  // Work time configuration
   defaultWorkHoursPerWeek: number
   workDays: string[]
+  // Alert configuration
   alertTrialEndDays: number
   alertContractEndDays: number
-  alertInterviewDays: number
+  alertInterviewMonths: number
+  alertDocumentExpiryDays: number
+  // Time tracking configuration
+  timeTrackingEnabled: boolean
+  employeesCanClockInOut: boolean
+  autoClockOutTime: string | null
+  requireClockInNotes: boolean
+  // Employee portal configuration
   employeeSelfServiceEnabled: boolean
   employeesCanRequestLeaves: boolean
   employeesCanViewDirectory: boolean
   employeesCanEditProfile: boolean
+  employeesCanViewPayslips: boolean
+  employeesCanViewContracts: boolean
   createdAt: string
   updatedAt: string
 }
 
 export interface UpdateHrSettingsInput {
+  // Leave configuration
   annualLeaveDaysPerYear?: number
   rttDaysPerYear?: number
   leaveYearStartMonth?: number
+  // Work time configuration
   defaultWorkHoursPerWeek?: number
   workDays?: string[]
+  // Alert configuration
   alertTrialEndDays?: number
   alertContractEndDays?: number
-  alertInterviewDays?: number
+  alertInterviewMonths?: number
+  alertDocumentExpiryDays?: number
+  // Time tracking configuration
+  timeTrackingEnabled?: boolean
+  employeesCanClockInOut?: boolean
+  autoClockOutTime?: string | null
+  requireClockInNotes?: boolean
+  // Employee portal configuration
   employeeSelfServiceEnabled?: boolean
   employeesCanRequestLeaves?: boolean
   employeesCanViewDirectory?: boolean
   employeesCanEditProfile?: boolean
+  employeesCanViewPayslips?: boolean
+  employeesCanViewContracts?: boolean
 }
 
 // ===========================================
@@ -631,6 +655,9 @@ export interface HrStats {
   contractEndingSoon: number
   absenteeismRate: number | null
   averageTenureMonths: number | null
+  leaveDaysThisMonth: number
+  overdueInterviews: number
+  turnoverRate: number | null
 }
 
 export interface EmployeeCountByDepartment {
@@ -665,4 +692,71 @@ export interface HrAlert {
   dueDate: string
   daysRemaining: number
   message: string
+}
+
+// ===========================================
+// BADGES (Time Tracking)
+// ===========================================
+
+export type BadgeType = 'clock_in' | 'clock_out' | 'break_start' | 'break_end'
+
+export interface Badge {
+  id: string
+  organizationId: string
+  employeeId: string
+  badgeType: BadgeType
+  badgeTime: string
+  badgeDate: string
+  latitude: number | null
+  longitude: number | null
+  locationName: string | null
+  deviceType: string | null
+  ipAddress: string | null
+  notes: string | null
+  createdBy: string | null
+  createdAt: string
+}
+
+export interface BadgeWithEmployee extends Badge {
+  employee?: Pick<Employee, 'id' | 'firstName' | 'lastName' | 'photoUrl'>
+}
+
+export interface EmployeeBadgeStatus {
+  employeeId: string
+  organizationId: string
+  firstName: string
+  lastName: string
+  lastBadgeType: BadgeType | null
+  lastBadgeTime: string | null
+  badgeDate: string | null
+  isClockedIn: boolean
+  isOnBreak: boolean
+}
+
+export interface DailyWorkSummary {
+  totalHours: number
+  breakHours: number
+  workHours: number
+  firstClockIn: string | null
+  lastClockOut: string | null
+}
+
+export const createBadgeSchema = z.object({
+  employeeId: z.string().uuid('ID employé invalide'),
+  badgeType: z.enum(['clock_in', 'clock_out', 'break_start', 'break_end']),
+  badgeTime: z.string().optional(), // If not provided, uses current time
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
+  locationName: z.string().max(255).optional().nullable(),
+  deviceType: z.string().max(50).optional().nullable(),
+  notes: z.string().optional().nullable(),
+})
+
+export type CreateBadgeInput = z.infer<typeof createBadgeSchema>
+
+export interface BadgeFilters {
+  employeeId?: string
+  badgeType?: BadgeType | BadgeType[]
+  dateFrom?: string
+  dateTo?: string
 }

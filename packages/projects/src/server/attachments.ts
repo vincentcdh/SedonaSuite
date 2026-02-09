@@ -36,16 +36,19 @@ export async function createTaskAttachment(
   input: CreateTaskAttachmentInput,
   userId?: string
 ): Promise<TaskAttachment> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
+    task_id: input.taskId,
+    file_name: input.fileName,
+    file_size: input.fileSize,
+    file_type: input.fileType,
+    storage_path: input.storagePath,
+    uploaded_by: userId,
+  }
+
   const { data, error } = await getClient()
     .from('projects_task_attachments')
-    .insert({
-      task_id: input.taskId,
-      file_name: input.fileName,
-      file_size: input.fileSize,
-      file_type: input.fileType,
-      storage_path: input.storagePath,
-      uploaded_by: userId,
-    })
+    .insert(insertData)
     .select()
     .single()
 
@@ -62,16 +65,18 @@ export async function deleteTaskAttachment(id: string): Promise<void> {
   // Get attachment to delete from storage
   const { data: attachment } = await getClient()
     .from('projects_task_attachments')
-    .select('storage_path')
+    .select('*')
     .eq('id', id)
     .single()
 
-  if (attachment?.storage_path) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const attachmentData = attachment as any
+  if (attachmentData?.storage_path) {
     // Delete from Supabase Storage
     await getSupabaseClient()
       .storage
       .from('project-attachments')
-      .remove([attachment.storage_path])
+      .remove([attachmentData.storage_path])
   }
 
   const { error } = await getClient()
@@ -99,15 +104,16 @@ export async function getAttachmentUrl(storagePath: string): Promise<string> {
 // HELPERS
 // ===========================================
 
-function mapAttachmentFromDb(data: Record<string, unknown>): TaskAttachment {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapAttachmentFromDb(data: any): TaskAttachment {
   return {
-    id: data.id as string,
-    taskId: data.task_id as string,
-    fileName: data.file_name as string,
-    fileSize: data.file_size as number,
-    fileType: data.file_type as string | null,
-    storagePath: data.storage_path as string,
-    uploadedBy: data.uploaded_by as string | null,
-    uploadedAt: data.uploaded_at as string,
+    id: data['id'] as string,
+    taskId: data['task_id'] as string,
+    fileName: data['file_name'] as string,
+    fileSize: data['file_size'] as number,
+    fileType: data['file_type'] as string | null,
+    storagePath: data['storage_path'] as string,
+    uploadedBy: data['uploaded_by'] as string | null,
+    uploadedAt: data['uploaded_at'] as string,
   }
 }

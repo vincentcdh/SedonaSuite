@@ -68,16 +68,19 @@ export async function logActivity(
   const supabase = getSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
+    project_id: projectId,
+    action,
+    task_id: options?.taskId || null,
+    user_id: user?.id,
+    details: options?.details || {},
+    visible_to_client: options?.visibleToClient ?? true,
+  }
+
   const { data, error } = await getClient()
     .from('projects_activity_log')
-    .insert({
-      project_id: projectId,
-      action,
-      task_id: options?.taskId || null,
-      user_id: user?.id,
-      details: options?.details || {},
-      visible_to_client: options?.visibleToClient ?? true,
-    })
+    .insert(insertData)
     .select(`
       *,
       user:user_id (
@@ -106,16 +109,19 @@ export async function logClientActivity(
     details?: Record<string, unknown>
   }
 ): Promise<ActivityLogEntry> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: any = {
+    project_id: projectId,
+    action,
+    task_id: options?.taskId || null,
+    client_access_id: clientAccessId,
+    details: options?.details || {},
+    visible_to_client: true,
+  }
+
   const { data, error } = await getClient()
     .from('projects_activity_log')
-    .insert({
-      project_id: projectId,
-      action,
-      task_id: options?.taskId || null,
-      client_access_id: clientAccessId,
-      details: options?.details || {},
-      visible_to_client: true,
-    })
+    .insert(insertData)
     .select(`
       *,
       client_access:client_access_id (

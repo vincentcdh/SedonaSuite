@@ -5,19 +5,19 @@ import type { Tag, CreateTagInput, UpdateTagInput } from '../types'
 // TAGS SERVER FUNCTIONS
 // ===========================================
 
-// Helper to get CRM schema client
-function getCrmClient() {
-  return getSupabaseClient().schema('crm')
+// Helper to get Supabase client (CRM tables are in public schema with crm_ prefix)
+function getClient() {
+  return getSupabaseClient()
 }
 
 /**
  * Get all tags for an organization
  */
 export async function getTags(organizationId: string): Promise<Tag[]> {
-  const crm = getCrmClient()
+  const crm = getClient()
 
   const { data, error } = await crm
-    .from('tags')
+    .from('crm_tags')
     .select('*')
     .eq('organization_id', organizationId)
     .order('name', { ascending: true })
@@ -33,10 +33,10 @@ export async function getTags(organizationId: string): Promise<Tag[]> {
  * Get a single tag by ID
  */
 export async function getTag(tagId: string): Promise<Tag | null> {
-  const crm = getCrmClient()
+  const crm = getClient()
 
   const { data, error } = await crm
-    .from('tags')
+    .from('crm_tags')
     .select('*')
     .eq('id', tagId)
     .single()
@@ -56,10 +56,10 @@ export async function createTag(
   organizationId: string,
   input: CreateTagInput
 ): Promise<Tag> {
-  const crm = getCrmClient()
+  const crm = getClient()
 
   const { data, error } = await crm
-    .from('tags')
+    .from('crm_tags')
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -82,7 +82,7 @@ export async function createTag(
  * Update a tag
  */
 export async function updateTag(input: UpdateTagInput): Promise<Tag> {
-  const crm = getCrmClient()
+  const crm = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: Record<string, any> = {}
@@ -91,7 +91,7 @@ export async function updateTag(input: UpdateTagInput): Promise<Tag> {
   if (input.color !== undefined) updateData['color'] = input.color
 
   const { data, error } = await crm
-    .from('tags')
+    .from('crm_tags')
     .update(updateData)
     .eq('id', input.id)
     .select()
@@ -111,11 +111,11 @@ export async function updateTag(input: UpdateTagInput): Promise<Tag> {
  * Delete a tag
  */
 export async function deleteTag(tagId: string): Promise<void> {
-  const crm = getCrmClient()
+  const crm = getClient()
 
   // First, remove the tag from all contacts
   const { data: tag } = await crm
-    .from('tags')
+    .from('crm_tags')
     .select('name, organization_id')
     .eq('id', tagId)
     .single()
@@ -123,7 +123,7 @@ export async function deleteTag(tagId: string): Promise<void> {
   if (tag) {
     // Get all contacts with this tag
     const { data: contacts } = await crm
-      .from('contacts')
+      .from('crm_contacts')
       .select('id, tags')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .eq('organization_id', (tag as any)['organization_id'])
@@ -137,14 +137,14 @@ export async function deleteTag(tagId: string): Promise<void> {
         contacts.map((contact: any) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const tags = (contact['tags'] as string[]).filter((t) => t !== (tag as any)['name'])
-          return crm.from('contacts').update({ tags }).eq('id', contact['id'])
+          return crm.from('crm_contacts').update({ tags }).eq('id', contact['id'])
         })
       )
     }
   }
 
   // Delete the tag
-  const { error } = await crm.from('tags').delete().eq('id', tagId)
+  const { error } = await crm.from('crm_tags').delete().eq('id', tagId)
 
   if (error) {
     throw new Error(`Failed to delete tag: ${error.message}`)
@@ -155,10 +155,10 @@ export async function deleteTag(tagId: string): Promise<void> {
  * Get tag usage count
  */
 export async function getTagUsageCount(tagName: string, organizationId: string): Promise<number> {
-  const crm = getCrmClient()
+  const crm = getClient()
 
   const { count, error } = await crm
-    .from('contacts')
+    .from('crm_contacts')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .contains('tags', [tagName])

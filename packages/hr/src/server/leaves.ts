@@ -856,11 +856,11 @@ function mapLeaveTypeFromDb(data: any): LeaveType {
     name: data.name as string,
     code: data.code as string,
     color: (data.color as string) || '#0c82d6',
-    isPaid: (data.is_paid as boolean) ?? true,
-    requiresApproval: (data.requires_approval as boolean) ?? true,
-    deductsFromBalance: (data.deducts_from_balance as boolean) ?? true,
-    isSystem: (data.is_system as boolean) || false,
-    createdAt: data.created_at as string,
+    isPaid: data.is_paid ?? true,
+    requiresApproval: data.requires_approval ?? true,
+    deductsFromBalance: data.deducts_from_balance ?? true,
+    isSystem: data.is_system ?? false,
+    createdAt: data.created_at || new Date().toISOString(),
   }
 }
 
