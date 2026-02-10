@@ -12,6 +12,7 @@ import {
   Label,
 } from '@sedona/ui'
 import { forgotPasswordSchema, useForgotPassword, type ForgotPasswordFormData } from '@/lib/auth'
+import { Logo } from '@/components/Logo'
 
 export const Route = createFileRoute('/forgot-password')({
   component: ForgotPasswordPage,
@@ -40,7 +41,7 @@ function ForgotPasswordPage() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold font-heading text-primary">Sedona.AI</h1>
+            <Logo size="lg" />
           </div>
 
           <Card>
@@ -73,7 +74,7 @@ function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold font-heading text-primary">Sedona.AI</h1>
+          <Logo size="lg" />
           <p className="text-muted-foreground mt-2">Reinitialisation du mot de passe</p>
         </div>
 

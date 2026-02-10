@@ -13,6 +13,7 @@ import {
   Label,
 } from '@sedona/ui'
 import { resetPasswordSchema, useResetPassword, type ResetPasswordFormData } from '@/lib/auth'
+import { Logo } from '@/components/Logo'
 
 export const Route = createFileRoute('/reset-password')({
   component: ResetPasswordPage,
@@ -47,7 +48,7 @@ function ResetPasswordPage() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold font-heading text-primary">Sedona.AI</h1>
+            <Logo size="lg" />
           </div>
 
           <Card>
@@ -79,7 +80,7 @@ function ResetPasswordPage() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold font-heading text-primary">Sedona.AI</h1>
+            <Logo size="lg" />
           </div>
 
           <Card>
@@ -109,7 +110,7 @@ function ResetPasswordPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold font-heading text-primary">Sedona.AI</h1>
+          <Logo size="lg" />
           <p className="text-muted-foreground mt-2">Nouveau mot de passe</p>
         </div>
 

@@ -56,12 +56,162 @@ import {
   useAllEmployeesBadgeStatus,
   useClockIn,
   useClockOut,
+  type Badge as HrBadge,
 } from '@sedona/hr'
 import { useOrganization, useAuth } from '@/lib/auth'
 
 export const Route = createFileRoute('/_authenticated/hr/time-tracking/')({
   component: HRTimeTrackingPage,
 })
+
+// ===========================================
+// TIMELINE BAR COMPONENT
+// ===========================================
+// Shows worked periods (green) and gaps (gray) on a 24h timeline
+
+interface TimelineBarProps {
+  badges: HrBadge[]
+  isClockedIn: boolean
+}
+
+function TimelineBar({ badges, isClockedIn }: TimelineBarProps) {
+  // Working hours: 6h to 22h (16 hours displayed)
+  const startHour = 6
+  const endHour = 22
+  const totalHours = endHour - startHour
+
+  // Parse time string (HH:MM:SS or HH:MM) to minutes since midnight
+  const parseTimeToMinutes = (timeStr: string): number => {
+    const parts = timeStr.split(':').map(Number)
+    return (parts[0] || 0) * 60 + (parts[1] || 0)
+  }
+
+  // Convert minutes since midnight to percentage position on timeline
+  const minutesToPercent = (minutes: number): number => {
+    const startMinutes = startHour * 60
+    const endMinutes = endHour * 60
+    const clampedMinutes = Math.max(startMinutes, Math.min(endMinutes, minutes))
+    return ((clampedMinutes - startMinutes) / (totalHours * 60)) * 100
+  }
+
+  // Build work periods from badges
+  const workPeriods: { start: number; end: number }[] = []
+  let clockInMinutes: number | null = null
+
+  for (const badge of badges) {
+    const badgeMinutes = parseTimeToMinutes(badge.badgeTime)
+
+    if (badge.badgeType === 'clock_in') {
+      clockInMinutes = badgeMinutes
+    } else if (badge.badgeType === 'clock_out' && clockInMinutes !== null) {
+      workPeriods.push({ start: clockInMinutes, end: badgeMinutes })
+      clockInMinutes = null
+    }
+  }
+
+  // If still clocked in, add period until now
+  if (isClockedIn && clockInMinutes !== null) {
+    const now = new Date()
+    const nowMinutes = now.getHours() * 60 + now.getMinutes()
+    workPeriods.push({ start: clockInMinutes, end: nowMinutes })
+  }
+
+  // Generate hour markers
+  const hourMarkers = []
+  for (let h = startHour; h <= endHour; h += 2) {
+    hourMarkers.push(h)
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Timeline bar */}
+      <div className="relative h-6 bg-muted rounded-md overflow-hidden">
+        {/* Work periods (green bars) */}
+        {workPeriods.map((period, idx) => {
+          const leftPercent = minutesToPercent(period.start)
+          const rightPercent = minutesToPercent(period.end)
+          const widthPercent = rightPercent - leftPercent
+
+          return (
+            <div
+              key={idx}
+              className={cn(
+                "absolute top-0 h-full rounded-sm",
+                isClockedIn && idx === workPeriods.length - 1
+                  ? "bg-green-500 animate-pulse"
+                  : "bg-green-500"
+              )}
+              style={{
+                left: `${leftPercent}%`,
+                width: `${Math.max(widthPercent, 0.5)}%`,
+              }}
+              title={`${Math.floor(period.start / 60)}:${String(period.start % 60).padStart(2, '0')} - ${Math.floor(period.end / 60)}:${String(period.end % 60).padStart(2, '0')}`}
+            />
+          )
+        })}
+
+        {/* Current time indicator (red line) */}
+        {(() => {
+          const now = new Date()
+          const nowMinutes = now.getHours() * 60 + now.getMinutes()
+          const nowPercent = minutesToPercent(nowMinutes)
+          if (nowPercent > 0 && nowPercent < 100) {
+            return (
+              <div
+                className="absolute top-0 h-full w-0.5 bg-red-500 z-10"
+                style={{ left: `${nowPercent}%` }}
+                title={`Maintenant: ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`}
+              />
+            )
+          }
+          return null
+        })()}
+      </div>
+
+      {/* Hour labels */}
+      <div className="relative h-4">
+        {hourMarkers.map((hour) => {
+          const percent = ((hour - startHour) / totalHours) * 100
+          return (
+            <span
+              key={hour}
+              className="absolute text-[10px] text-muted-foreground transform -translate-x-1/2"
+              style={{ left: `${percent}%` }}
+            >
+              {hour}h
+            </span>
+          )
+        })}
+      </div>
+
+      {/* Badge list below timeline */}
+      {badges.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {badges.map((badge) => (
+            <Badge
+              key={badge.id}
+              variant={badge.badgeType === 'clock_in' ? 'default' : 'secondary'}
+              className="gap-1 text-[10px] px-1.5 py-0"
+            >
+              {badge.badgeType === 'clock_in' ? (
+                <LogIn className="h-2.5 w-2.5" />
+              ) : (
+                <LogOut className="h-2.5 w-2.5" />
+              )}
+              {badge.badgeTime.substring(0, 5)}
+            </Badge>
+          ))}
+          {isClockedIn && (
+            <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0 animate-pulse border-green-500 text-green-600">
+              <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              En cours
+            </Badge>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // PRO features to display in upgrade card
 const hrTimeFeatures = [
@@ -206,7 +356,7 @@ function HRTimeTrackingContent() {
     if (!currentUserEmployee) return
 
     const status = badgeStatusMap.get(currentUserEmployee.id)
-    const isClockIn = !status?.isClocked
+    const isClockIn = !status?.isClockedIn
 
     try {
       if (isClockIn) {
@@ -224,7 +374,7 @@ function HRTimeTrackingContent() {
   const currentUserBadgeStatus = currentUserEmployee
     ? badgeStatusMap.get(currentUserEmployee.id)
     : null
-  const isCurrentUserClocked = currentUserBadgeStatus?.isClocked || false
+  const isCurrentUserClocked = currentUserBadgeStatus?.isClockedIn || false
 
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0]}${lastName[0]}`.toUpperCase()
@@ -248,7 +398,7 @@ function HRTimeTrackingContent() {
   }
 
   // Count active employees (clocked in)
-  const activeCount = (badgeStatuses || []).filter(s => s.isClocked).length
+  const activeCount = (badgeStatuses || []).filter(s => s.isClockedIn).length
 
   return (
     <div className="p-6 space-y-6">
@@ -370,7 +520,7 @@ function HRTimeTrackingContent() {
             <div className="space-y-4">
               {employees.map((employee) => {
                 const badgeStatus = badgeStatusMap.get(employee.id)
-                const isClocked = badgeStatus?.isClocked || false
+                const isClockedIn = badgeStatus?.isClockedIn || false
                 const totalMinutes = badgeStatus?.totalWorkedMinutes || 0
                 const badges = badgeStatus?.todayBadges || []
 
@@ -385,7 +535,7 @@ function HRTimeTrackingContent() {
                           <Avatar>
                             <AvatarFallback>{getInitials(employee.firstName, employee.lastName)}</AvatarFallback>
                           </Avatar>
-                          {isClocked && (
+                          {isClockedIn && (
                             <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-green-500 border-2 border-white flex items-center justify-center">
                               <Play className="h-2 w-2 text-white fill-white" />
                             </div>
@@ -411,14 +561,14 @@ function HRTimeTrackingContent() {
                         </div>
                         <Button
                           size="sm"
-                          variant={isClocked ? 'destructive' : 'default'}
-                          onClick={() => handleBadge(employee.id, !isClocked)}
+                          variant={isClockedIn ? 'destructive' : 'default'}
+                          onClick={() => handleBadge(employee.id, !isClockedIn)}
                           disabled={clockInMutation.isPending || clockOutMutation.isPending}
                           className="gap-1"
                         >
                           {(clockInMutation.isPending || clockOutMutation.isPending) ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : isClocked ? (
+                          ) : isClockedIn ? (
                             <>
                               <Square className="h-3 w-3 fill-current" />
                               Sortie
@@ -433,48 +583,8 @@ function HRTimeTrackingContent() {
                       </div>
                     </div>
 
-                    {/* Progress bar */}
-                    <div className="space-y-1">
-                      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={cn(
-                            "h-full rounded-full transition-all duration-500",
-                            isClocked ? "bg-green-500" : "bg-blue-500"
-                          )}
-                          style={{ width: `${progressPercent}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>0h</span>
-                        <span>8h</span>
-                      </div>
-                    </div>
-
-                    {/* Timeline of badges */}
-                    {badges.length > 0 && (
-                      <div className="flex flex-wrap gap-2 pt-2 border-t">
-                        {badges.map((badge, idx) => (
-                          <Badge
-                            key={badge.id}
-                            variant={badge.type === 'in' ? 'default' : 'secondary'}
-                            className="gap-1 text-xs"
-                          >
-                            {badge.type === 'in' ? (
-                              <LogIn className="h-3 w-3" />
-                            ) : (
-                              <LogOut className="h-3 w-3" />
-                            )}
-                            {badge.badgeTime}
-                          </Badge>
-                        ))}
-                        {isClocked && (
-                          <Badge variant="outline" className="gap-1 text-xs animate-pulse">
-                            <div className="h-2 w-2 rounded-full bg-green-500" />
-                            En cours...
-                          </Badge>
-                        )}
-                      </div>
-                    )}
+                    {/* Visual Timeline - shows worked periods */}
+                    <TimelineBar badges={badges} isClockedIn={isClockedIn} />
                   </div>
                 )
               })}

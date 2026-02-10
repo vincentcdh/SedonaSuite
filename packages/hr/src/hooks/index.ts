@@ -11,6 +11,7 @@ export {
   useDepartments,
   useEmployeeCount,
   useCreateEmployee,
+  useCreateEmployeeWithUser,
   useUpdateEmployee,
   useDeleteEmployee,
   useRestoreEmployee,

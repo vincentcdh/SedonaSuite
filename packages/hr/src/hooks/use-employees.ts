@@ -8,6 +8,7 @@ import {
   getEmployeeById,
   getEmployeeByUserId,
   createEmployee,
+  createEmployeeWithUser,
   updateEmployee,
   deleteEmployee,
   restoreEmployee,
@@ -94,6 +95,19 @@ export function useCreateEmployee(organizationId: string) {
 
   return useMutation({
     mutationFn: (input: CreateEmployeeInput) => createEmployee(organizationId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: employeeKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: employeeKeys.count(organizationId) })
+      queryClient.invalidateQueries({ queryKey: employeeKeys.departments(organizationId) })
+    },
+  })
+}
+
+export function useCreateEmployeeWithUser(organizationId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: CreateEmployeeInput) => createEmployeeWithUser(organizationId, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: employeeKeys.lists() })
       queryClient.invalidateQueries({ queryKey: employeeKeys.count(organizationId) })

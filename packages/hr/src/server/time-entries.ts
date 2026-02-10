@@ -592,16 +592,18 @@ export async function getBadges(
     query = query.eq('employee_id', filters.employeeId)
   }
   if (filters.dateFrom) {
-    query = query.gte('badge_date', filters.dateFrom)
+    query = query.gte('date', filters.dateFrom)
   }
   if (filters.dateTo) {
-    query = query.lte('badge_date', filters.dateTo)
+    query = query.lte('date', filters.dateTo)
   }
   if (filters.badgeType) {
+    // Map badge types to db values: clock_in -> in, clock_out -> out, break_start -> break_start, break_end -> break_end
+    const mapType = (t: string) => t === 'clock_in' ? 'in' : t === 'clock_out' ? 'out' : t
     if (Array.isArray(filters.badgeType)) {
-      query = query.in('badge_type', filters.badgeType)
+      query = query.in('type', filters.badgeType.map(mapType))
     } else {
-      query = query.eq('badge_type', filters.badgeType)
+      query = query.eq('type', mapType(filters.badgeType))
     }
   }
 
@@ -620,7 +622,7 @@ export async function getBadgesByEmployee(
     .from('hr_badges')
     .select('*')
     .eq('employee_id', employeeId)
-    .eq('badge_date', date)
+    .eq('date', date)
     .order('badge_time', { ascending: true })
 
   if (error) throw error
@@ -647,6 +649,9 @@ export async function getEmployeeBadgeStatus(
   const isClockedIn = lastBadge?.badgeType === 'clock_in' || lastBadge?.badgeType === 'break_end'
   const isOnBreak = lastBadge?.badgeType === 'break_start'
 
+  // Calculate total worked minutes
+  const totalWorkedMinutes = calculateWorkedMinutesFromBadges(badges, isClockedIn)
+
   return {
     employeeId,
     organizationId: employeeData?.organization_id || '',
@@ -657,6 +662,8 @@ export async function getEmployeeBadgeStatus(
     badgeDate: date,
     isClockedIn,
     isOnBreak,
+    totalWorkedMinutes,
+    todayBadges: badges,
   }
 }
 
@@ -682,7 +689,7 @@ export async function getAllEmployeesBadgeStatus(
     .from('hr_badges')
     .select('*')
     .in('employee_id', employeeIds)
-    .eq('badge_date', date)
+    .eq('date', date)
     .order('badge_time', { ascending: true })
 
   // Group badges by employee
@@ -705,6 +712,9 @@ export async function getAllEmployeesBadgeStatus(
     const isClockedIn = lastBadge?.badgeType === 'clock_in' || lastBadge?.badgeType === 'break_end'
     const isOnBreak = lastBadge?.badgeType === 'break_start'
 
+    // Calculate total worked minutes from badges
+    const totalWorkedMinutes = calculateWorkedMinutesFromBadges(empBadges, isClockedIn)
+
     return {
       employeeId: emp.id,
       organizationId: emp.organization_id,
@@ -715,8 +725,62 @@ export async function getAllEmployeesBadgeStatus(
       badgeDate: date,
       isClockedIn,
       isOnBreak,
+      totalWorkedMinutes,
+      todayBadges: empBadges,
     }
   })
+}
+
+// Calculate worked minutes from a list of badges
+function calculateWorkedMinutesFromBadges(badges: Badge[], stillClockedIn: boolean): number {
+  let totalMinutes = 0
+  let clockInTime: Date | null = null
+  let breakMinutes = 0
+  let breakStartTime: Date | null = null
+
+  for (const badge of badges) {
+    // Parse time from badge (format: HH:MM:SS or full ISO)
+    const badgeDateTime = parseBadgeTime(badge.badgeDate, badge.badgeTime)
+
+    switch (badge.badgeType) {
+      case 'clock_in':
+        clockInTime = badgeDateTime
+        break
+      case 'clock_out':
+        if (clockInTime) {
+          totalMinutes += (badgeDateTime.getTime() - clockInTime.getTime()) / (1000 * 60)
+          clockInTime = null
+        }
+        break
+      case 'break_start':
+        breakStartTime = badgeDateTime
+        break
+      case 'break_end':
+        if (breakStartTime) {
+          breakMinutes += (badgeDateTime.getTime() - breakStartTime.getTime()) / (1000 * 60)
+          breakStartTime = null
+        }
+        break
+    }
+  }
+
+  // If still clocked in, add time until now
+  if (stillClockedIn && clockInTime) {
+    const now = new Date()
+    totalMinutes += (now.getTime() - clockInTime.getTime()) / (1000 * 60)
+  }
+
+  // Subtract break time
+  return Math.max(0, Math.floor(totalMinutes - breakMinutes))
+}
+
+// Parse badge time into a Date object
+function parseBadgeTime(badgeDate: string, badgeTime: string): Date {
+  // badgeTime could be "HH:MM:SS" or a full ISO string
+  if (badgeTime.includes('T') || badgeTime.includes('-')) {
+    return new Date(badgeTime)
+  }
+  return new Date(`${badgeDate}T${badgeTime}`)
 }
 
 export async function getDailyWorkSummary(
@@ -790,17 +854,17 @@ export async function createBadge(
 ): Promise<Badge> {
   const badgeTime = input.badgeTime || new Date().toISOString()
 
+  // Map badge types: clock_in -> in, clock_out -> out
+  const dbType = input.badgeType === 'clock_in' ? 'in' : input.badgeType === 'clock_out' ? 'out' : input.badgeType
+
   const { data, error } = await getSupabaseClient()
     .from('hr_badges')
     .insert({
       organization_id: organizationId,
       employee_id: input.employeeId,
-      badge_type: input.badgeType,
-      badge_time: badgeTime,
-      latitude: input.latitude,
-      longitude: input.longitude,
-      location_name: input.locationName,
-      device_type: input.deviceType || 'web',
+      type: dbType,
+      date: badgeTime.split('T')[0],
+      badge_time: badgeTime.split('T')[1]?.substring(0, 8) || '00:00:00',
       notes: input.notes,
     })
     .select()
@@ -873,20 +937,27 @@ export async function deleteBadge(id: string): Promise<void> {
 }
 
 function mapBadgeFromDb(data: any): Badge {
+  // Map db type to badge type: in -> clock_in, out -> clock_out
+  const mapType = (t: string): BadgeType => {
+    if (t === 'in') return 'clock_in'
+    if (t === 'out') return 'clock_out'
+    return t as BadgeType
+  }
+
   return {
     id: data.id as string,
     organizationId: data.organization_id as string,
     employeeId: data.employee_id as string,
-    badgeType: data.badge_type as BadgeType,
+    badgeType: mapType(data.type as string),
     badgeTime: data.badge_time as string,
-    badgeDate: data.badge_date as string,
-    latitude: data.latitude as number | null,
-    longitude: data.longitude as number | null,
-    locationName: data.location_name as string | null,
-    deviceType: data.device_type as string | null,
-    ipAddress: data.ip_address as string | null,
+    badgeDate: data.date as string,
+    latitude: null,
+    longitude: null,
+    locationName: null,
+    deviceType: null,
+    ipAddress: null,
     notes: data.notes as string | null,
-    createdBy: data.created_by as string | null,
+    createdBy: null,
     createdAt: data.created_at as string,
   }
 }

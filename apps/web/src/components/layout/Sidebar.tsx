@@ -19,6 +19,7 @@ import { Button, Separator, Badge } from '@sedona/ui'
 import { cn } from '@sedona/ui'
 import { useSession, useOrganization } from '@/lib/auth'
 import { useTicketStats } from '@sedona/tickets'
+import { Logo, LogoIcon } from '@/components/Logo'
 
 interface NavItem {
   label: string
@@ -96,18 +97,13 @@ export const Sidebar: FC<SidebarProps> = ({ collapsed = false, onToggle }) => {
       {/* Logo */}
       <div className="flex items-center justify-between h-header px-4 border-b border-sidebar-border">
         {!collapsed && (
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-white font-bold text-sm">S</span>
-            </div>
-            <span className="font-heading font-semibold text-lg">Sedona.AI</span>
+          <Link to="/dashboard">
+            <Logo size="sm" />
           </Link>
         )}
         {collapsed && (
           <Link to="/dashboard" className="mx-auto">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-white font-bold text-sm">S</span>
-            </div>
+            <LogoIcon className="h-8 w-8 text-primary" />
           </Link>
         )}
         {onToggle && !collapsed && (

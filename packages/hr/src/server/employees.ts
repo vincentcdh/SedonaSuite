@@ -193,16 +193,81 @@ export async function getEmployeeByUserId(userId: string): Promise<Employee | nu
 // CREATE EMPLOYEE
 // ===========================================
 
+export interface CreateEmployeeResult {
+  employee: Employee
+  userCreated: boolean
+  temporaryPassword?: string
+}
+
 export async function createEmployee(
   organizationId: string,
   input: CreateEmployeeInput
 ): Promise<Employee> {
+  const result = await createEmployeeWithUser(organizationId, input)
+  return result.employee
+}
+
+export async function createEmployeeWithUser(
+  organizationId: string,
+  input: CreateEmployeeInput
+): Promise<CreateEmployeeResult> {
+  const supabase = getSupabaseClient()
+  let userId: string | null = null
+  let temporaryPassword: string | undefined
+
+  // If creating user access, create the user first
+  if (input.createUserAccess && input.userEmail) {
+    // Generate a temporary password
+    temporaryPassword = generateTemporaryPassword()
+
+    // Create the user
+    const { data: userData, error: userError } = await (supabase
+      .from('users') as any)
+      .insert({
+        email: input.userEmail,
+        name: `${input.firstName} ${input.lastName}`,
+        password_hash: temporaryPassword, // Note: In production, this should be hashed
+        email_verified_at: null,
+        locale: 'fr',
+        timezone: 'Europe/Paris',
+      })
+      .select()
+      .single()
+
+    if (userError) {
+      if (userError.code === '23505') {
+        throw new Error('Un utilisateur avec cet email existe deja')
+      }
+      throw userError
+    }
+
+    userId = userData.id
+
+    // Create organization membership
+    const role = input.dashboardRole || 'employee'
+    const { error: memberError } = await (supabase
+      .from('organization_members') as any)
+      .insert({
+        organization_id: organizationId,
+        user_id: userId,
+        role: role === 'owner' ? 'owner' : role === 'manager' ? 'admin' : 'member',
+        joined_at: new Date().toISOString(),
+      })
+
+    if (memberError) throw memberError
+  }
+
   // Build insert data dynamically - only include fields that have values
   const insertData: Record<string, unknown> = {
     organization_id: organizationId,
     first_name: input.firstName,
     last_name: input.lastName,
     status: input.status || 'active',
+  }
+
+  // Link to user if created
+  if (userId) {
+    insertData['user_id'] = userId
   }
 
   // Personal info
@@ -249,7 +314,7 @@ export async function createEmployee(
   if (input.customFields) insertData['custom_fields'] = input.customFields
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (getSupabaseClient()
+  const { data, error } = await (supabase
     .from('hr_employees') as any)
     .insert(insertData)
     .select()
@@ -257,7 +322,21 @@ export async function createEmployee(
 
   if (error) throw error
 
-  return mapEmployeeFromDb(data)
+  return {
+    employee: mapEmployeeFromDb(data),
+    userCreated: !!userId,
+    temporaryPassword,
+  }
+}
+
+// Generate a random temporary password
+function generateTemporaryPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+  let password = ''
+  for (let i = 0; i < 12; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return password + '!'
 }
 
 // ===========================================

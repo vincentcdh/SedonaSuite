@@ -13,6 +13,7 @@ import {
   Label,
 } from '@sedona/ui'
 import { signInSchema, useSignIn, type SignInFormData } from '@/lib/auth'
+import { Logo } from '@/components/Logo'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -49,8 +50,8 @@ function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold font-heading text-primary">Sedona.AI</h1>
+        <div className="flex flex-col items-center mb-8">
+          <Logo size="lg" />
           <p className="text-muted-foreground mt-2">Suite SaaS pour TPE francaises</p>
         </div>
 

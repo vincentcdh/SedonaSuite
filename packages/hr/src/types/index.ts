@@ -183,6 +183,10 @@ export const createEmployeeSchema = z.object({
   // Metadata
   notes: z.string().optional().nullable(),
   customFields: z.record(z.unknown()).optional(),
+  // User account creation
+  createUserAccess: z.boolean().optional().default(false),
+  dashboardRole: z.enum(['owner', 'manager', 'employee']).optional().default('employee'),
+  userEmail: z.string().email('Email invalide').optional().nullable(),
 })
 
 export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>
@@ -731,6 +735,8 @@ export interface EmployeeBadgeStatus {
   badgeDate: string | null
   isClockedIn: boolean
   isOnBreak: boolean
+  totalWorkedMinutes: number
+  todayBadges: Badge[]
 }
 
 export interface DailyWorkSummary {

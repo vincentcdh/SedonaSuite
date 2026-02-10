@@ -8,6 +8,8 @@ export {
   getEmployeeById,
   getEmployeeByUserId,
   createEmployee,
+  createEmployeeWithUser,
+  type CreateEmployeeResult,
   updateEmployee,
   deleteEmployee,
   restoreEmployee,

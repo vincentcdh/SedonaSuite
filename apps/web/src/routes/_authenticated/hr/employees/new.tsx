@@ -2,6 +2,7 @@
 // NEW EMPLOYEE PAGE
 // ===========================================
 
+import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -14,6 +15,9 @@ import {
   FileText,
   DollarSign,
   Loader2,
+  KeyRound,
+  Copy,
+  Check,
 } from 'lucide-react'
 import {
   Button,
@@ -29,8 +33,15 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  Switch,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from '@sedona/ui'
-import { createEmployeeSchema, type CreateEmployeeInput, useCreateEmployee } from '@sedona/hr'
+import { createEmployeeSchema, type CreateEmployeeInput, useCreateEmployeeWithUser } from '@sedona/hr'
 import { useOrganization } from '@/lib/auth'
 
 export const Route = createFileRoute('/_authenticated/hr/employees/new')({
@@ -42,7 +53,11 @@ function NewEmployeePage() {
   const { organization } = useOrganization()
   const organizationId = organization?.id || ''
 
-  const createEmployee = useCreateEmployee(organizationId)
+  const [showCredentialsDialog, setShowCredentialsDialog] = useState(false)
+  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const createEmployee = useCreateEmployeeWithUser(organizationId)
 
   const {
     register,
@@ -57,19 +72,44 @@ function NewEmployeePage() {
       nationality: 'Francaise',
       salaryCurrency: 'EUR',
       status: 'active',
+      createUserAccess: false,
+      dashboardRole: 'employee',
     },
   })
 
   const contractType = watch('contractType')
+  const createUserAccess = watch('createUserAccess')
 
   const onSubmit = async (data: CreateEmployeeInput) => {
     try {
-      await createEmployee.mutateAsync(data)
-      navigate({ to: '/hr' })
+      const result = await createEmployee.mutateAsync(data)
+      if (result.userCreated && result.temporaryPassword && data.userEmail) {
+        setCredentials({
+          email: data.userEmail,
+          password: result.temporaryPassword,
+        })
+        setShowCredentialsDialog(true)
+      } else {
+        navigate({ to: '/hr' })
+      }
     } catch (err) {
       console.error('Error creating employee:', err)
       alert(`Erreur: ${err instanceof Error ? err.message : JSON.stringify(err)}`)
     }
+  }
+
+  const handleCopyCredentials = () => {
+    if (credentials) {
+      const text = `Email: ${credentials.email}\nMot de passe: ${credentials.password}`
+      navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleCloseDialog = () => {
+    setShowCredentialsDialog(false)
+    navigate({ to: '/hr' })
   }
 
   return (
@@ -421,6 +461,69 @@ function NewEmployeePage() {
           </CardContent>
         </Card>
 
+        {/* Dashboard Access */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5" />
+              Acces au Dashboard
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Creer un acces utilisateur</Label>
+                <p className="text-sm text-muted-foreground">
+                  Permet a l'employe de se connecter au dashboard
+                </p>
+              </div>
+              <Switch
+                checked={createUserAccess}
+                onCheckedChange={(checked) => setValue('createUserAccess', checked)}
+              />
+            </div>
+
+            {createUserAccess && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                <div className="space-y-2">
+                  <Label htmlFor="userEmail">Email de connexion *</Label>
+                  <Input
+                    id="userEmail"
+                    type="email"
+                    {...register('userEmail')}
+                    placeholder="employe@entreprise.fr"
+                  />
+                  {errors.userEmail && (
+                    <p className="text-sm text-destructive">{errors.userEmail.message}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    L'employe utilisera cet email pour se connecter
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Role dans le dashboard</Label>
+                  <Select
+                    defaultValue="employee"
+                    onValueChange={(value) => setValue('dashboardRole', value as CreateEmployeeInput['dashboardRole'])}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="employee">Employe</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="owner">Dirigeant</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Determine les permissions d'acces
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Notes */}
         <Card>
           <CardHeader>
@@ -446,6 +549,58 @@ function NewEmployeePage() {
           </Button>
         </div>
       </form>
+
+      {/* Credentials Dialog */}
+      <Dialog open={showCredentialsDialog} onOpenChange={setShowCredentialsDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Compte utilisateur cree</DialogTitle>
+            <DialogDescription>
+              Voici les identifiants de connexion pour le nouvel employe.
+              Conservez ces informations en lieu sur et transmettez-les a l'employe.
+            </DialogDescription>
+          </DialogHeader>
+          {credentials && (
+            <div className="space-y-4">
+              <div className="bg-muted p-4 rounded-lg space-y-2 font-mono text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Email:</span>
+                  <span className="font-medium">{credentials.email}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Mot de passe:</span>
+                  <span className="font-medium">{credentials.password}</span>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleCopyCredentials}
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Copie !
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copier les identifiants
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                L'employe devra changer son mot de passe a la premiere connexion.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={handleCloseDialog}>
+              Terminer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
