@@ -1,22 +1,24 @@
 // ===========================================
-// MOCK AUTH - DEVELOPMENT ONLY
+// AUTH - DEVELOPMENT MODE
 // ===========================================
-// TEMPORARY: Mock auth for development without Supabase
-// TODO: Re-enable real auth when Supabase is configured
+// Authentication linked to HR employees
+// TODO: Connect to Supabase Auth in production
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { getSupabaseClient } from '@sedona/database'
 import {
   TEST_ACCOUNTS,
   validateTestCredentials,
   getDefaultTestAccount,
   type TestAccount,
 } from './test-accounts'
+import type { Organization } from '@sedona/auth'
 
 // ===========================================
 // CURRENT USER STATE (persisted in localStorage)
 // ===========================================
 
-const STORAGE_KEY = 'sedona_test_account'
+const STORAGE_KEY = 'sedona_auth_session'
 
 function getCurrentAccount(): TestAccount {
   if (typeof window === 'undefined') {
@@ -39,15 +41,14 @@ function getCurrentAccount(): TestAccount {
 function setCurrentAccount(account: TestAccount) {
   if (typeof window !== 'undefined') {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(account.email))
-    // Dispatch event to notify other components
-    window.dispatchEvent(new CustomEvent('auth-account-changed', { detail: account }))
+    window.dispatchEvent(new CustomEvent('auth-changed', { detail: account }))
   }
 }
 
 function clearCurrentAccount() {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(STORAGE_KEY)
-    window.dispatchEvent(new CustomEvent('auth-account-changed', { detail: null }))
+    window.dispatchEvent(new CustomEvent('auth-changed', { detail: null }))
   }
 }
 
@@ -65,9 +66,9 @@ export function useSession() {
       setAccount(e.detail || getCurrentAccount())
     }
 
-    window.addEventListener('auth-account-changed', handleChange as EventListener)
+    window.addEventListener('auth-changed', handleChange as EventListener)
     return () => {
-      window.removeEventListener('auth-account-changed', handleChange as EventListener)
+      window.removeEventListener('auth-changed', handleChange as EventListener)
     }
   }, [])
 
@@ -88,41 +89,121 @@ export function useAuth() {
       setAccount(e.detail || getCurrentAccount())
     }
 
-    window.addEventListener('auth-account-changed', handleChange as EventListener)
+    window.addEventListener('auth-changed', handleChange as EventListener)
     return () => {
-      window.removeEventListener('auth-account-changed', handleChange as EventListener)
+      window.removeEventListener('auth-changed', handleChange as EventListener)
     }
   }, [])
 
   return {
     user: account?.user || null,
+    employeeId: account?.employeeId || null,
     isAuthenticated: !!account,
     isLoading: false,
   }
 }
 
+// ===========================================
+// ORGANIZATION HOOK - Fetches plan from Supabase
+// ===========================================
+
 export function useOrganization() {
-  const [account, setAccount] = useState<TestAccount | null>(null)
+  const [account, setAccountState] = useState<TestAccount | null>(null)
+  const [organization, setOrganization] = useState<Organization | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    setAccount(getCurrentAccount())
+  // Fetch organization from Supabase to get current plan
+  const fetchOrganization = useCallback(async (orgId: string, fallbackOrg: Organization) => {
+    try {
+      const supabase = getSupabaseClient()
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', orgId)
+        .single()
 
-    const handleChange = (e: CustomEvent<TestAccount | null>) => {
-      setAccount(e.detail || getCurrentAccount())
-    }
+      if (error) {
+        console.error('Error fetching organization:', error)
+        return fallbackOrg
+      }
 
-    window.addEventListener('auth-account-changed', handleChange as EventListener)
-    return () => {
-      window.removeEventListener('auth-account-changed', handleChange as EventListener)
+      // Map Supabase data to Organization type
+      const org: Organization = {
+        id: data.id,
+        name: data.name,
+        slug: data.slug,
+        logo: data.logo_url,
+        siret: data.siret,
+        siren: data.siren,
+        vatNumber: data.vat_number,
+        legalName: data.legal_name,
+        addressStreet: data.address_line1,
+        addressComplement: data.address_line2,
+        addressPostalCode: data.postal_code,
+        addressCity: data.city,
+        addressCountry: data.country,
+        phone: data.phone,
+        email: data.email,
+        website: data.website,
+        subscriptionPlan: (data.subscription_plan?.toUpperCase() || 'FREE') as 'FREE' | 'PRO' | 'ENTERPRISE',
+        subscriptionStatus: data.subscription_status || 'active',
+        createdAt: new Date(data.created_at),
+        updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
+      }
+
+      return org
+    } catch (err) {
+      console.error('Error fetching organization:', err)
+      return fallbackOrg
     }
   }, [])
 
+  useEffect(() => {
+    const currentAccount = getCurrentAccount()
+    setAccountState(currentAccount)
+
+    // Fetch organization from Supabase
+    if (currentAccount?.organization?.id) {
+      fetchOrganization(currentAccount.organization.id, currentAccount.organization).then((org) => {
+        setOrganization(org)
+        setIsLoading(false)
+      })
+    } else {
+      setIsLoading(false)
+    }
+
+    const handleChange = (e: CustomEvent<TestAccount | null>) => {
+      const newAccount = e.detail || getCurrentAccount()
+      setAccountState(newAccount)
+
+      if (newAccount?.organization?.id) {
+        setIsLoading(true)
+        fetchOrganization(newAccount.organization.id, newAccount.organization).then((org) => {
+          setOrganization(org)
+          setIsLoading(false)
+        })
+      }
+    }
+
+    window.addEventListener('auth-changed', handleChange as EventListener)
+    return () => {
+      window.removeEventListener('auth-changed', handleChange as EventListener)
+    }
+  }, [fetchOrganization])
+
   return {
-    organization: account?.organization || null,
+    organization,
     role: account?.role || null,
-    isLoading: false,
+    isLoading,
     createOrganization: async (_name: string) => {
-      console.log('Mock create organization')
+      console.log('Create organization - not implemented in dev mode')
+    },
+    // Expose refetch for manual refresh
+    refetch: async () => {
+      if (account?.organization?.id) {
+        const org = await fetchOrganization(account.organization.id, account.organization)
+        setOrganization(org)
+      }
     },
   }
 }
@@ -161,7 +242,6 @@ export function useSignOut() {
       try {
         await new Promise((resolve) => setTimeout(resolve, 300))
         clearCurrentAccount()
-        // Redirect to login
         window.location.href = '/login'
       } finally {
         setIsLoading(false)
@@ -179,9 +259,8 @@ export function useSignUp() {
       setIsLoading(true)
       try {
         await new Promise((resolve) => setTimeout(resolve, 500))
-        console.log('Mock sign up - In test mode, use existing test accounts')
         throw new Error(
-          'En mode test, veuillez utiliser un compte de test existant. Voir la liste dans le selecteur de compte.'
+          'Inscription non disponible en mode developpement. Contactez un administrateur.'
         )
       } finally {
         setIsLoading(false)
@@ -245,36 +324,6 @@ export function useTwoFactor() {
 }
 
 // ===========================================
-// TEST ACCOUNT SWITCHER HOOK
-// ===========================================
-
-export function useTestAccountSwitcher() {
-  const [account, setAccount] = useState<TestAccount | null>(null)
-
-  useEffect(() => {
-    setAccount(getCurrentAccount())
-
-    const handleChange = (e: CustomEvent<TestAccount | null>) => {
-      setAccount(e.detail || getCurrentAccount())
-    }
-
-    window.addEventListener('auth-account-changed', handleChange as EventListener)
-    return () => {
-      window.removeEventListener('auth-account-changed', handleChange as EventListener)
-    }
-  }, [])
-
-  return {
-    currentAccount: account,
-    allAccounts: TEST_ACCOUNTS,
-    switchAccount: (newAccount: TestAccount) => {
-      setCurrentAccount(newAccount)
-      setAccount(newAccount)
-    },
-  }
-}
-
-// ===========================================
 // RE-EXPORT SCHEMAS
 // ===========================================
 
@@ -289,6 +338,6 @@ export {
   type ResetPasswordFormData,
 } from '@sedona/auth'
 
-// Re-export test account types for convenience
+// Re-export types
 export type { TestAccount } from './test-accounts'
 export { TEST_ACCOUNTS } from './test-accounts'
