@@ -1,6 +1,6 @@
 import { type FC, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@sedona/ui'
-import { Plus, MoreHorizontal, GripVertical } from 'lucide-react'
+import { Plus, MoreHorizontal } from 'lucide-react'
 import type { Pipeline, PipelineStage, Deal } from '../../types'
 import { DealCard } from './DealCard'
 

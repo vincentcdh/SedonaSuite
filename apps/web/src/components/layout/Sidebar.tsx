@@ -18,6 +18,7 @@ import {
 import { Button, Separator, Badge } from '@sedona/ui'
 import { cn } from '@sedona/ui'
 import { useSession, useOrganization } from '@/lib/auth'
+import { getInitials } from '@/lib/utils'
 import { useTicketStats } from '@sedona/tickets'
 import { Logo, LogoIcon } from '@/components/Logo'
 
@@ -32,16 +33,6 @@ const bottomNavItems: NavItem[] = [
   { label: 'Paramètres', href: '/settings', icon: Settings },
   { label: 'Aide', href: '/help', icon: HelpCircle },
 ]
-
-function getInitials(name: string | null | undefined): string {
-  if (!name) return '?'
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
 
 function getPlanInfo(plan: string | undefined): { label: string; color: string } {
   switch (plan) {

@@ -11,8 +11,6 @@ import {
   CreditCard,
   Building2,
   ChevronRight,
-  Plus,
-  Check,
   Bell,
   Shield,
 } from 'lucide-react'
@@ -25,28 +23,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuGroup,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
   Badge,
 } from '@sedona/ui'
 import { useSession, useSignOut, useOrganization } from '@/lib/auth'
-
-function getInitials(name: string | null | undefined): string {
-  if (!name) return '?'
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
-
-// Mock organizations - replace with real data
-const mockOrganizations = [
-  { id: '1', name: 'Mon Entreprise', role: 'owner' as const },
-  { id: '2', name: 'Startup XYZ', role: 'member' as const },
-]
+import { getInitials } from '@/lib/utils'
 
 interface UserDropdownProps {
   showName?: boolean
@@ -64,11 +44,6 @@ export const UserDropdown: FC<UserDropdownProps> = ({ showName = true }) => {
   const handleSignOut = async () => {
     await signOut()
     navigate({ to: '/login' })
-  }
-
-  const handleSwitchOrganization = (orgId: string) => {
-    // TODO: Implement organization switch
-    console.log('Switching to organization:', orgId)
   }
 
   return (
@@ -107,45 +82,16 @@ export const UserDropdown: FC<UserDropdownProps> = ({ showName = true }) => {
 
         <DropdownMenuSeparator />
 
-        {/* Organization Switcher */}
-        <DropdownMenuGroup>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="cursor-pointer">
-              <Building2 className="h-4 w-4 mr-2" />
-              <span className="flex-1 truncate">{organization?.name || 'Mon Organisation'}</span>
-              <Badge variant="outline" className="ml-2 text-[10px] px-1.5">
-                {plan}
-              </Badge>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-56">
-              <DropdownMenuLabel className="text-xs text-muted-foreground">
-                Mes organisations
-              </DropdownMenuLabel>
-              {mockOrganizations.map((org) => (
-                <DropdownMenuItem
-                  key={org.id}
-                  className="cursor-pointer"
-                  onClick={() => handleSwitchOrganization(org.id)}
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <div className="w-6 h-6 rounded bg-muted flex items-center justify-center shrink-0">
-                      <Building2 className="h-3 w-3 text-muted-foreground" />
-                    </div>
-                    <span className="truncate">{org.name}</span>
-                  </div>
-                  {org.id === '1' && (
-                    <Check className="h-4 w-4 text-primary shrink-0" />
-                  )}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer">
-                <Plus className="h-4 w-4 mr-2" />
-                <span>Creer une organisation</span>
-              </DropdownMenuItem>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        </DropdownMenuGroup>
+        {/* Organization Info */}
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <span className="flex-1 truncate text-sm">{organization?.name || 'Mon Organisation'}</span>
+            <Badge variant="outline" className="text-[10px] px-1.5">
+              {plan}
+            </Badge>
+          </div>
+        </DropdownMenuLabel>
 
         <DropdownMenuSeparator />
 

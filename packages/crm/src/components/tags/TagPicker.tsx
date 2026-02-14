@@ -22,7 +22,6 @@ export const TagPicker: FC<TagPickerProps> = ({
   isCreating,
 }) => {
   const [search, setSearch] = useState('')
-  const [isAddingNew, setIsAddingNew] = useState(false)
 
   const filteredTags = tags.filter((tag) =>
     tag.name.toLowerCase().includes(search.toLowerCase())
@@ -36,7 +35,6 @@ export const TagPicker: FC<TagPickerProps> = ({
     if (!onCreateTag || !search) return
     await onCreateTag(search)
     setSearch('')
-    setIsAddingNew(false)
   }
 
   return (
