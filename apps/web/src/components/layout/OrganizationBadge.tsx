@@ -1,14 +1,14 @@
 // ===========================================
-// USER INFO DISPLAY - DEVELOPMENT MODE
+// ORGANIZATION BADGE
 // ===========================================
-// Shows current user info (linked to HR employee)
+// Shows current organization info in the header
 
 import { type FC } from 'react'
 import { Crown, Building2 } from 'lucide-react'
 import { Badge } from '@sedona/ui'
 import { useAuth, useOrganization } from '@/lib/auth'
 
-export const TestAccountSwitcher: FC = () => {
+export const OrganizationBadge: FC = () => {
   const { user } = useAuth()
   const { organization, role } = useOrganization()
 

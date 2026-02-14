@@ -1,9 +1,12 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
+const STORAGE_KEY = 'sedona_auth_session'
+
 export const Route = createFileRoute('/')({
   beforeLoad: async () => {
-    // TODO: Check authentication status with Better Auth
-    const isAuthenticated = true // Placeholder
+    // Check if user is authenticated via localStorage
+    const isAuthenticated =
+      typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEY) !== null
 
     if (isAuthenticated) {
       throw redirect({
@@ -15,5 +18,5 @@ export const Route = createFileRoute('/')({
       })
     }
   },
-  component: () => null, // Will never render due to redirect
+  component: () => null,
 })

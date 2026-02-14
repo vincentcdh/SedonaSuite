@@ -125,12 +125,9 @@ function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">Pas encore de compte ? </span>
-              <Link to="/signup" className="text-primary hover:underline font-medium">
-                Creer un compte
-              </Link>
-            </div>
+            <p className="mt-6 text-center text-xs text-muted-foreground">
+              Contactez votre administrateur si vous n'avez pas de compte.
+            </p>
           </CardContent>
         </Card>
       </div>

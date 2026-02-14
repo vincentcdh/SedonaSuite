@@ -195,10 +195,6 @@ export function useOrganization() {
     organization,
     role: account?.role || null,
     isLoading,
-    createOrganization: async (_name: string) => {
-      console.log('Create organization - not implemented in dev mode')
-    },
-    // Expose refetch for manual refresh
     refetch: async () => {
       if (account?.organization?.id) {
         const org = await fetchOrganization(account.organization.id, account.organization)

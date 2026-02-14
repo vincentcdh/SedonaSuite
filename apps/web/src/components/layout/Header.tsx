@@ -14,30 +14,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Badge,
 } from '@sedona/ui'
 import { useTheme } from '@/lib/theme'
-import { useOrganization } from '@/lib/auth'
 import { UserDropdown } from './UserDropdown'
-import { TestAccountSwitcher } from './TestAccountSwitcher'
-
-function getPlanLabel(plan: string | undefined): string {
-  switch (plan) {
-    case 'PRO':
-      return 'Plan Pro'
-    case 'ENTERPRISE':
-      return 'Plan Enterprise'
-    default:
-      return 'Plan Free'
-  }
-}
+import { OrganizationBadge } from './OrganizationBadge'
 
 export const Header: FC = () => {
   const { resolvedTheme, toggleTheme } = useTheme()
   const isDarkMode = resolvedTheme === 'dark'
-
-  const { organization } = useOrganization()
-  const plan = organization?.subscriptionPlan
 
   return (
     <header className="flex items-center justify-between h-header px-6 bg-background border-b">
@@ -58,13 +42,8 @@ export const Header: FC = () => {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
-        {/* Test Account Switcher - DEV ONLY */}
-        <TestAccountSwitcher />
-
-        {/* Plan Badge */}
-        <Badge variant="outline" className="hidden sm:flex">
-          {getPlanLabel(plan)}
-        </Badge>
+        {/* Organization Badge */}
+        <OrganizationBadge />
 
         {/* Theme Toggle */}
         <Button
