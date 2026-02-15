@@ -1,13 +1,11 @@
 // ===========================================
 // LOCAL STORAGE FOR ORGANIZATIONS
 // ===========================================
-// In production, this would be a database
 
 import type { Organization, CreateOrganizationInput } from './types'
 import { v4 as uuidv4 } from 'uuid'
 
 const STORAGE_KEY = 'sedona_admin_organizations'
-const BASE_PORT = 4000
 
 export function getOrganizations(): Organization[] {
   if (typeof window === 'undefined') return []
@@ -25,13 +23,6 @@ export function saveOrganizations(orgs: Organization[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(orgs))
 }
 
-export function getNextPort(): number {
-  const orgs = getOrganizations()
-  if (orgs.length === 0) return BASE_PORT
-  const maxPort = Math.max(...orgs.map((o) => o.port))
-  return maxPort + 1
-}
-
 export function createOrganization(input: CreateOrganizationInput): Organization {
   const orgs = getOrganizations()
 
@@ -44,12 +35,10 @@ export function createOrganization(input: CreateOrganizationInput): Organization
     id: uuidv4(),
     name: input.name,
     slug: input.slug,
-    domain: input.domain,
     adminEmail: input.adminEmail,
     adminPassword: input.adminPassword,
     plan: input.plan,
     status: 'pending',
-    port: getNextPort(),
     createdAt: new Date().toISOString(),
   }
 
