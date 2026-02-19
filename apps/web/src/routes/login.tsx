@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
@@ -12,16 +12,36 @@ import {
   Input,
   Label,
 } from '@sedona/ui'
-import { signInSchema, useSignIn, type SignInFormData } from '@/lib/auth'
+import { signInSchema, type SignInFormData } from '@/lib/auth'
 import { Logo } from '@/components/Logo'
+import { getSupabaseClient } from '@sedona/database'
+
+const SETUP_STORAGE_KEY = 'sedona_setup_complete'
 
 export const Route = createFileRoute('/login')({
+  beforeLoad: async () => {
+    if (typeof window === 'undefined') return
+
+    const supabase = getSupabaseClient()
+    const { data: { session } } = await supabase.auth.getSession()
+
+    // If already logged in, redirect to dashboard
+    if (session) {
+      throw redirect({ to: '/dashboard' })
+    }
+
+    // If setup not complete, redirect to setup
+    const setupComplete = localStorage.getItem(SETUP_STORAGE_KEY) !== null
+    if (!setupComplete) {
+      throw redirect({ to: '/setup' })
+    }
+  },
   component: LoginPage,
 })
 
 function LoginPage() {
   const navigate = useNavigate()
-  const { signIn, isLoading: isSigningIn } = useSignIn()
+  const [isSigningIn, setIsSigningIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const {
@@ -37,12 +57,34 @@ function LoginPage() {
 
   const onSubmit = async (data: SignInFormData) => {
     setError(null)
+    setIsSigningIn(true)
 
     try {
-      await signIn(data.email, data.password, data.rememberMe)
+      const supabase = getSupabaseClient()
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      })
+
+      if (authError) {
+        throw new Error(authError.message === 'Invalid login credentials'
+          ? 'Email ou mot de passe incorrect'
+          : authError.message
+        )
+      }
+
+      // Check if email is confirmed
+      if (authData.user && !authData.user.email_confirmed_at) {
+        // Redirect to email verification page
+        navigate({ to: '/verify-email' })
+        return
+      }
+
       navigate({ to: '/dashboard' })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Une erreur est survenue')
+    } finally {
+      setIsSigningIn(false)
     }
   }
 

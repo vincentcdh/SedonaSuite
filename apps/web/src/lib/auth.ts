@@ -1,208 +1,492 @@
 // ===========================================
-// AUTH - DEVELOPMENT MODE
+// AUTH - SUPABASE AUTH MODE
 // ===========================================
-// Authentication linked to HR employees
-// TODO: Connect to Supabase Auth in production
+// Authentication using Supabase Auth
+// RLS policies use auth.uid() from Supabase session
 
 import { useState, useEffect, useCallback } from 'react'
 import { getSupabaseClient } from '@sedona/database'
-import {
-  TEST_ACCOUNTS,
-  validateTestCredentials,
-  getDefaultTestAccount,
-  type TestAccount,
-} from './test-accounts'
-import type { Organization } from '@sedona/auth'
+import type { User, Session } from '@supabase/supabase-js'
+import type { Organization, OrganizationAddress } from '@sedona/auth'
 
 // ===========================================
-// CURRENT USER STATE (persisted in localStorage)
+// CONSTANTS
 // ===========================================
 
-const STORAGE_KEY = 'sedona_auth_session'
+const CURRENT_ORG_STORAGE_KEY = 'sedona-current-org-id'
 
-function getCurrentAccount(): TestAccount {
-  if (typeof window === 'undefined') {
-    return getDefaultTestAccount()
-  }
+// ===========================================
+// TYPES
+// ===========================================
 
-  const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored) {
-    try {
-      const email = JSON.parse(stored)
-      const account = TEST_ACCOUNTS.find((a) => a.email === email)
-      if (account) return account
-    } catch {
-      // Invalid stored value, use default
-    }
-  }
-  return getDefaultTestAccount()
+export interface AuthUser {
+  id: string
+  name: string | null
+  email: string
+  emailVerified: boolean
+  image: string | null
 }
 
-function setCurrentAccount(account: TestAccount) {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(account.email))
-    window.dispatchEvent(new CustomEvent('auth-changed', { detail: account }))
-  }
+export interface AuthState {
+  user: AuthUser | null
+  session: Session | null
+  isLoading: boolean
+  isAuthenticated: boolean
 }
 
-function clearCurrentAccount() {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(STORAGE_KEY)
-    window.dispatchEvent(new CustomEvent('auth-changed', { detail: null }))
-  }
+export interface CreateOrganizationInput {
+  name: string
+  slug: string
+  industry?: string
+  siret?: string
+  siren?: string
+  vatNumber?: string
+  address?: OrganizationAddress
+  phone?: string
+  email?: string
 }
 
 // ===========================================
 // AUTH HOOKS
 // ===========================================
 
-export function useSession() {
-  const [account, setAccount] = useState<TestAccount | null>(null)
+/**
+ * Main auth hook - uses Supabase session
+ */
+export function useAuth() {
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    session: null,
+    isLoading: true,
+    isAuthenticated: false,
+  })
 
   useEffect(() => {
-    setAccount(getCurrentAccount())
+    const supabase = getSupabaseClient()
 
-    const handleChange = (e: CustomEvent<TestAccount | null>) => {
-      setAccount(e.detail || getCurrentAccount())
-    }
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setState({
+          user: mapSupabaseUser(session.user),
+          session,
+          isLoading: false,
+          isAuthenticated: true,
+        })
+      } else {
+        setState({
+          user: null,
+          session: null,
+          isLoading: false,
+          isAuthenticated: false,
+        })
+      }
+    })
 
-    window.addEventListener('auth-changed', handleChange as EventListener)
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) {
+          setState({
+            user: mapSupabaseUser(session.user),
+            session,
+            isLoading: false,
+            isAuthenticated: true,
+          })
+        } else {
+          setState({
+            user: null,
+            session: null,
+            isLoading: false,
+            isAuthenticated: false,
+          })
+        }
+      }
+    )
+
     return () => {
-      window.removeEventListener('auth-changed', handleChange as EventListener)
+      subscription.unsubscribe()
     }
   }, [])
 
+  return state
+}
+
+/**
+ * Session hook for compatibility
+ */
+export function useSession() {
+  const auth = useAuth()
+
   return {
-    data: account ? { user: account.user } : null,
-    isLoading: false,
+    data: auth.user ? { user: auth.user } : null,
+    isLoading: auth.isLoading,
     error: null,
   }
 }
 
-export function useAuth() {
-  const [account, setAccount] = useState<TestAccount | null>(null)
-
-  useEffect(() => {
-    setAccount(getCurrentAccount())
-
-    const handleChange = (e: CustomEvent<TestAccount | null>) => {
-      setAccount(e.detail || getCurrentAccount())
-    }
-
-    window.addEventListener('auth-changed', handleChange as EventListener)
-    return () => {
-      window.removeEventListener('auth-changed', handleChange as EventListener)
-    }
-  }, [])
+/**
+ * Helper function to map database organization to Organization type
+ */
+function mapOrganization(org: Record<string, unknown>): Organization {
+  // Parse address JSONB if available
+  const addressData = org.address as OrganizationAddress | null
 
   return {
-    user: account?.user || null,
-    employeeId: account?.employeeId || null,
-    isAuthenticated: !!account,
-    isLoading: false,
+    id: org.id as string,
+    name: org.name as string,
+    slug: org.slug as string,
+    logo: org.logo_url as string | undefined,
+    industry: org.industry as string | undefined,
+    siret: org.siret as string | undefined,
+    siren: org.siren as string | undefined,
+    vatNumber: org.vat_number as string | undefined,
+    legalName: org.legal_name as string | undefined,
+    // New JSONB address
+    address: addressData || undefined,
+    // Legacy address fields (fallback)
+    addressStreet: org.address_street as string | undefined,
+    addressComplement: org.address_complement as string | undefined,
+    addressPostalCode: org.address_postal_code as string | undefined,
+    addressCity: org.address_city as string | undefined,
+    addressCountry: org.address_country as string | undefined,
+    phone: org.phone as string | undefined,
+    email: org.email as string | undefined,
+    website: org.website as string | undefined,
+    createdBy: org.created_by as string | undefined,
+    onboardingCompleted: org.onboarding_completed as boolean | undefined,
+    // Subscription fields - default to FREE during transition
+    subscriptionPlan: 'FREE' as const,
+    subscriptionStatus: 'active',
+    createdAt: new Date(org.created_at as string),
+    updatedAt: org.updated_at ? new Date(org.updated_at as string) : undefined,
   }
 }
 
-// ===========================================
-// ORGANIZATION HOOK - Fetches plan from Supabase
-// ===========================================
-
+/**
+ * Organization hook - fetches ALL user organizations from Supabase
+ * Returns current organization, list of all orgs, and role in current org
+ */
 export function useOrganization() {
-  const [account, setAccountState] = useState<TestAccount | null>(null)
+  const auth = useAuth()
   const [organization, setOrganization] = useState<Organization | null>(null)
+  const [organizations, setOrganizations] = useState<Organization[]>([])
+  const [role, setRole] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Fetch organization from Supabase to get current plan
-  const fetchOrganization = useCallback(async (orgId: string, fallbackOrg: Organization) => {
+  const fetchOrganizations = useCallback(async () => {
+    if (!auth.user?.id) {
+      setOrganization(null)
+      setOrganizations([])
+      setRole(null)
+      setIsLoading(false)
+      return
+    }
+
     try {
       const supabase = getSupabaseClient()
-      const { data, error } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('id', orgId)
-        .single()
 
-      if (error) {
-        console.error('Error fetching organization:', error)
-        return fallbackOrg
-      }
+      // Get ALL user's organization memberships
+      const { data: memberships, error: memberError } = await supabase
+        .from('organization_members')
+        .select(`
+          role,
+          organization:organizations(*)
+        `)
+        .eq('user_id', auth.user.id)
 
-      // Map Supabase data to Organization type
-      const org: Organization = {
-        id: data.id,
-        name: data.name,
-        slug: data.slug,
-        logo: data.logo_url,
-        siret: data.siret,
-        siren: data.siren,
-        vatNumber: data.vat_number,
-        legalName: data.legal_name,
-        addressStreet: data.address_line1,
-        addressComplement: data.address_line2,
-        addressPostalCode: data.postal_code,
-        addressCity: data.city,
-        addressCountry: data.country,
-        phone: data.phone,
-        email: data.email,
-        website: data.website,
-        subscriptionPlan: (data.subscription_plan?.toUpperCase() || 'FREE') as 'FREE' | 'PRO' | 'ENTERPRISE',
-        subscriptionStatus: data.subscription_status || 'active',
-        createdAt: new Date(data.created_at),
-        updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
-      }
-
-      return org
-    } catch (err) {
-      console.error('Error fetching organization:', err)
-      return fallbackOrg
-    }
-  }, [])
-
-  useEffect(() => {
-    const currentAccount = getCurrentAccount()
-    setAccountState(currentAccount)
-
-    // Fetch organization from Supabase
-    if (currentAccount?.organization?.id) {
-      fetchOrganization(currentAccount.organization.id, currentAccount.organization).then((org) => {
-        setOrganization(org)
+      if (memberError || !memberships) {
+        console.error('Error fetching organizations:', memberError)
+        setOrganization(null)
+        setOrganizations([])
+        setRole(null)
         setIsLoading(false)
-      })
-    } else {
+        return
+      }
+
+      // Map all organizations
+      const orgs = memberships
+        .filter(m => m.organization !== null)
+        .map(m => mapOrganization(m.organization as Record<string, unknown>))
+
+      setOrganizations(orgs)
+
+      // Determine current organization
+      // 1. Check localStorage for saved preference
+      const savedOrgId = localStorage.getItem(CURRENT_ORG_STORAGE_KEY)
+
+      // 2. Find the saved org or fall back to first org
+      let currentOrg = savedOrgId
+        ? orgs.find(o => o.id === savedOrgId)
+        : null
+
+      // 3. If no saved preference or saved org not found, use first org
+      if (!currentOrg && orgs.length > 0) {
+        currentOrg = orgs[0]
+        // Save this as the current org
+        localStorage.setItem(CURRENT_ORG_STORAGE_KEY, currentOrg.id)
+      }
+
+      if (currentOrg) {
+        setOrganization(currentOrg)
+        // Get role for current organization
+        const membership = memberships.find(
+          m => (m.organization as Record<string, unknown>)?.id === currentOrg?.id
+        )
+        setRole(membership?.role || null)
+      } else {
+        setOrganization(null)
+        setRole(null)
+      }
+    } catch (err) {
+      console.error('Error fetching organizations:', err)
+      setOrganization(null)
+      setOrganizations([])
+      setRole(null)
+    } finally {
       setIsLoading(false)
     }
+  }, [auth.user?.id])
 
-    const handleChange = (e: CustomEvent<TestAccount | null>) => {
-      const newAccount = e.detail || getCurrentAccount()
-      setAccountState(newAccount)
-
-      if (newAccount?.organization?.id) {
-        setIsLoading(true)
-        fetchOrganization(newAccount.organization.id, newAccount.organization).then((org) => {
-          setOrganization(org)
-          setIsLoading(false)
-        })
-      }
+  useEffect(() => {
+    if (!auth.isLoading) {
+      fetchOrganizations()
     }
-
-    window.addEventListener('auth-changed', handleChange as EventListener)
-    return () => {
-      window.removeEventListener('auth-changed', handleChange as EventListener)
-    }
-  }, [fetchOrganization])
+  }, [auth.isLoading, auth.user?.id, fetchOrganizations])
 
   return {
     organization,
-    role: account?.role || null,
-    isLoading,
-    refetch: async () => {
-      if (account?.organization?.id) {
-        const org = await fetchOrganization(account.organization.id, account.organization)
-        setOrganization(org)
-      }
-    },
+    organizations,
+    role,
+    isLoading: auth.isLoading || isLoading,
+    refetch: fetchOrganizations,
   }
 }
+
+/**
+ * Hook to switch between organizations
+ */
+export function useSwitchOrganization() {
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  const switchOrganization = useCallback(async (organizationId: string) => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const supabase = getSupabaseClient()
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        throw new Error('Vous devez être connecté')
+      }
+
+      // Verify user is a member of this organization
+      const { data: membership, error: memberError } = await supabase
+        .from('organization_members')
+        .select('id, role')
+        .eq('organization_id', organizationId)
+        .eq('user_id', user.id)
+        .single()
+
+      if (memberError || !membership) {
+        throw new Error('Vous n\'êtes pas membre de cette organisation')
+      }
+
+      // Save to localStorage
+      localStorage.setItem(CURRENT_ORG_STORAGE_KEY, organizationId)
+
+      // Reload the page to refresh all data with new org context
+      window.location.reload()
+
+      return { success: true }
+    } catch (err) {
+      const error = err as Error
+      setError(error)
+      return { success: false, error: error.message }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  return { switchOrganization, isLoading, error }
+}
+
+/**
+ * Hook to create a new organization
+ */
+export function useCreateOrganization() {
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  const createOrganization = useCallback(async (input: CreateOrganizationInput) => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const supabase = getSupabaseClient()
+
+      // Call the RPC function
+      const { data, error: rpcError } = await supabase.rpc('create_organization_with_owner', {
+        p_name: input.name,
+        p_slug: input.slug,
+        p_industry: input.industry || null,
+        p_siret: input.siret || null,
+        p_siren: input.siren || null,
+        p_vat_number: input.vatNumber || null,
+        p_address: input.address || {},
+        p_phone: input.phone || null,
+        p_email: input.email || null,
+      })
+
+      if (rpcError) {
+        throw new Error(rpcError.message)
+      }
+
+      const result = data as { success: boolean; error?: string; organization?: Record<string, unknown> }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Erreur lors de la création de l\'organisation')
+      }
+
+      // Switch to the new organization
+      if (result.organization?.id) {
+        localStorage.setItem(CURRENT_ORG_STORAGE_KEY, result.organization.id as string)
+      }
+
+      return {
+        success: true,
+        organization: result.organization ? mapOrganization(result.organization) : null,
+      }
+    } catch (err) {
+      const error = err as Error
+      setError(error)
+      return { success: false, error: error.message }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  return { createOrganization, isLoading, error }
+}
+
+// ===========================================
+// ORGANIZATION HEALTH TYPES
+// ===========================================
+
+export interface ModuleHealth {
+  provisioned: boolean
+  items_count: number
+  details?: Record<string, unknown>
+}
+
+export interface OrganizationHealthStatus {
+  organization_id: string
+  is_fully_provisioned: boolean
+  modules: {
+    crm: ModuleHealth
+    invoice: ModuleHealth
+    tickets: ModuleHealth
+    hr: ModuleHealth
+  }
+  checked_at: string
+}
+
+/**
+ * Hook to check organization provisioning health
+ * Calls the check_organization_provisioned RPC function
+ */
+export function useOrganizationHealth(organizationId: string | undefined) {
+  const [health, setHealth] = useState<OrganizationHealthStatus | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  const checkHealth = useCallback(async () => {
+    if (!organizationId) {
+      setHealth(null)
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const supabase = getSupabaseClient()
+
+      const { data, error: rpcError } = await supabase.rpc('check_organization_provisioned', {
+        p_org_id: organizationId,
+      })
+
+      if (rpcError) {
+        throw new Error(rpcError.message)
+      }
+
+      setHealth(data as OrganizationHealthStatus)
+    } catch (err) {
+      const error = err as Error
+      setError(error)
+      console.error('Error checking organization health:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [organizationId])
+
+  // Check health on mount and when organizationId changes
+  useEffect(() => {
+    checkHealth()
+  }, [checkHealth])
+
+  const reprovision = useCallback(async () => {
+    if (!organizationId) return { success: false, error: 'No organization ID' }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const supabase = getSupabaseClient()
+
+      const { data, error: rpcError } = await supabase.rpc('provision_organization', {
+        p_org_id: organizationId,
+      })
+
+      if (rpcError) {
+        throw new Error(rpcError.message)
+      }
+
+      const result = data as { success: boolean; error?: string }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Erreur lors du provisionnement')
+      }
+
+      // Refresh health status
+      await checkHealth()
+
+      return { success: true }
+    } catch (err) {
+      const error = err as Error
+      setError(error)
+      return { success: false, error: error.message }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [organizationId, checkHealth])
+
+  return {
+    health,
+    isLoading,
+    error,
+    refetch: checkHealth,
+    reprovision,
+  }
+}
+
+// ===========================================
+// AUTH ACTIONS
+// ===========================================
 
 export function useSignIn() {
   const [isLoading, setIsLoading] = useState(false)
@@ -211,16 +495,21 @@ export function useSignIn() {
     signIn: async (email: string, password: string, _rememberMe?: boolean) => {
       setIsLoading(true)
       try {
-        // Simulate network delay
-        await new Promise((resolve) => setTimeout(resolve, 500))
+        const supabase = getSupabaseClient()
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
 
-        const account = validateTestCredentials(email, password)
-        if (account) {
-          setCurrentAccount(account)
-          return { success: true }
-        } else {
-          throw new Error('Email ou mot de passe incorrect')
+        if (error) {
+          throw new Error(
+            error.message === 'Invalid login credentials'
+              ? 'Email ou mot de passe incorrect'
+              : error.message
+          )
         }
+
+        return { success: true }
       } finally {
         setIsLoading(false)
       }
@@ -236,8 +525,8 @@ export function useSignOut() {
     signOut: async () => {
       setIsLoading(true)
       try {
-        await new Promise((resolve) => setTimeout(resolve, 300))
-        clearCurrentAccount()
+        const supabase = getSupabaseClient()
+        await supabase.auth.signOut()
         window.location.href = '/login'
       } finally {
         setIsLoading(false)
@@ -251,13 +540,30 @@ export function useSignUp() {
   const [isLoading, setIsLoading] = useState(false)
 
   return {
-    signUp: async (_email: string, _password: string, _name: string) => {
+    signUp: async (email: string, password: string, name: string) => {
       setIsLoading(true)
       try {
-        await new Promise((resolve) => setTimeout(resolve, 500))
-        throw new Error(
-          'Inscription non disponible en mode developpement. Contactez un administrateur.'
-        )
+        const supabase = getSupabaseClient()
+
+        // Get the redirect URL for email confirmation
+        const emailRedirectTo = typeof window !== 'undefined'
+          ? `${window.location.origin}/verify-email`
+          : undefined
+
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { name },
+            emailRedirectTo,
+          },
+        })
+
+        if (error) {
+          throw new Error(error.message)
+        }
+
+        return { success: true }
       } finally {
         setIsLoading(false)
       }
@@ -272,11 +578,25 @@ export function useForgotPassword() {
   const [error, setError] = useState<Error | null>(null)
 
   return {
-    forgotPassword: async (_email: string) => {
+    forgotPassword: async (email: string) => {
       setIsLoading(true)
       setError(null)
       try {
-        await new Promise((resolve) => setTimeout(resolve, 500))
+        const supabase = getSupabaseClient()
+
+        // Get the current origin for redirect URL
+        const redirectUrl = typeof window !== 'undefined'
+          ? `${window.location.origin}/reset-password`
+          : undefined
+
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: redirectUrl,
+        })
+
+        if (resetError) {
+          throw new Error(resetError.message)
+        }
+
         setSuccess(true)
         return { success: true }
       } catch (err) {
@@ -294,14 +614,26 @@ export function useForgotPassword() {
 
 export function useResetPassword() {
   const [isLoading, setIsLoading] = useState(false)
-  const [error] = useState<Error | null>(null)
+  const [error, setError] = useState<Error | null>(null)
 
   return {
-    resetPassword: async (_token: string, _password: string) => {
+    resetPassword: async (_token: string, password: string) => {
       setIsLoading(true)
+      setError(null)
       try {
-        await new Promise((resolve) => setTimeout(resolve, 500))
+        const supabase = getSupabaseClient()
+        const { error: updateError } = await supabase.auth.updateUser({
+          password,
+        })
+
+        if (updateError) {
+          throw new Error(updateError.message)
+        }
+
         return true
+      } catch (err) {
+        setError(err as Error)
+        throw err
       } finally {
         setIsLoading(false)
       }
@@ -320,6 +652,20 @@ export function useTwoFactor() {
 }
 
 // ===========================================
+// HELPER FUNCTIONS
+// ===========================================
+
+function mapSupabaseUser(user: User): AuthUser {
+  return {
+    id: user.id,
+    name: user.user_metadata?.name || user.email?.split('@')[0] || null,
+    email: user.email || '',
+    emailVerified: !!user.email_confirmed_at,
+    image: user.user_metadata?.avatar_url || null,
+  }
+}
+
+// ===========================================
 // RE-EXPORT SCHEMAS
 // ===========================================
 
@@ -333,7 +679,3 @@ export {
   type ForgotPasswordFormData,
   type ResetPasswordFormData,
 } from '@sedona/auth'
-
-// Re-export types
-export type { TestAccount } from './test-accounts'
-export { TEST_ACCOUNTS } from './test-accounts'

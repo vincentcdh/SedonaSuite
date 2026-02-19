@@ -6,8 +6,8 @@ project_id = "sedona-crm"
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "graphql_public", "hr", "docs"]
-extra_search_path = ["public", "extensions", "hr", "docs"]
+schemas = ["public", "graphql_public", "crm", "invoice", "hr"]
+extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
 [db]
@@ -57,7 +57,7 @@ enable_anonymous_sign_ins = false
 
 [auth.email]
 enable_signup = true
-double_confirm_changes = true
+double_confirm_changes = false
 enable_confirmations = true
 secure_password_change = true
 
@@ -84,4 +84,8 @@ enabled = false
 enabled = true
 policy = "per_worker"
 inspector_port = 8083
+
+[functions]
+# Edge functions configuration
+# verify_jwt = { enabled = true }
 
