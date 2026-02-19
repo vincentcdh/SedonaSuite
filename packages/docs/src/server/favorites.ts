@@ -21,7 +21,7 @@ export async function getFavorites(
 ): Promise<{ files: DocFile[]; folders: Folder[] }> {
   // Get favorite file IDs
   const { data: fileFavorites } = await getSupabaseClient()
-    .from('docs.favorites')
+    .from('docs_favorites')
     .select('file_id')
     .eq('user_id', userId)
     .not('file_id', 'is', null)
@@ -29,7 +29,7 @@ export async function getFavorites(
 
   // Get favorite folder IDs
   const { data: folderFavorites } = await getSupabaseClient()
-    .from('docs.favorites')
+    .from('docs_favorites')
     .select('folder_id')
     .eq('user_id', userId)
     .not('folder_id', 'is', null)
@@ -43,7 +43,7 @@ export async function getFavorites(
 
   if (fileIds.length > 0) {
     const { data: filesData } = await getSupabaseClient()
-      .from('docs.files')
+      .from('docs_files')
       .select('*')
       .in('id', fileIds)
       .is('deleted_at', null)
@@ -53,7 +53,7 @@ export async function getFavorites(
 
   if (folderIds.length > 0) {
     const { data: foldersData } = await getSupabaseClient()
-      .from('docs.folders')
+      .from('docs_folders')
       .select('*')
       .in('id', folderIds)
       .is('deleted_at', null)
@@ -70,7 +70,7 @@ export async function getFavorites(
 
 export async function addFileToFavorites(userId: string, fileId: string): Promise<Favorite> {
   const { data, error } = await getSupabaseClient()
-    .from('docs.favorites')
+    .from('docs_favorites')
     .insert({
       user_id: userId,
       file_id: fileId,
@@ -85,7 +85,7 @@ export async function addFileToFavorites(userId: string, fileId: string): Promis
 
 export async function addFolderToFavorites(userId: string, folderId: string): Promise<Favorite> {
   const { data, error } = await getSupabaseClient()
-    .from('docs.favorites')
+    .from('docs_favorites')
     .insert({
       user_id: userId,
       folder_id: folderId,
@@ -104,7 +104,7 @@ export async function addFolderToFavorites(userId: string, folderId: string): Pr
 
 export async function removeFileFromFavorites(userId: string, fileId: string): Promise<void> {
   const { error } = await getSupabaseClient()
-    .from('docs.favorites')
+    .from('docs_favorites')
     .delete()
     .eq('user_id', userId)
     .eq('file_id', fileId)
@@ -114,7 +114,7 @@ export async function removeFileFromFavorites(userId: string, fileId: string): P
 
 export async function removeFolderFromFavorites(userId: string, folderId: string): Promise<void> {
   const { error } = await getSupabaseClient()
-    .from('docs.favorites')
+    .from('docs_favorites')
     .delete()
     .eq('user_id', userId)
     .eq('folder_id', folderId)
@@ -128,7 +128,7 @@ export async function removeFolderFromFavorites(userId: string, folderId: string
 
 export async function isFileFavorite(userId: string, fileId: string): Promise<boolean> {
   const { count } = await getSupabaseClient()
-    .from('docs.favorites')
+    .from('docs_favorites')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('file_id', fileId)
@@ -138,7 +138,7 @@ export async function isFileFavorite(userId: string, fileId: string): Promise<bo
 
 export async function isFolderFavorite(userId: string, folderId: string): Promise<boolean> {
   const { count } = await getSupabaseClient()
-    .from('docs.favorites')
+    .from('docs_favorites')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('folder_id', folderId)
@@ -166,14 +166,14 @@ function mapFileFromDb(data: any): DocFile {
     organizationId: data.organization_id as string,
     folderId: data.folder_id as string | null,
     name: data.name as string,
-    originalName: data.original_name as string,
+    originalName: (data.original_name as string) ?? (data.name as string),
     extension: data.extension as string | null,
     mimeType: data.mime_type as string | null,
     fileType: data.file_type as DocFile['fileType'],
     storagePath: data.storage_path as string,
-    sizeBytes: data.size_bytes as number,
-    currentVersion: data.current_version as number,
-    isLocked: data.is_locked as boolean,
+    sizeBytes: (data.file_size as number) ?? (data.size_bytes as number) ?? 0,
+    currentVersion: (data.current_version as number) ?? 1,
+    isLocked: (data.is_locked as boolean) ?? false,
     lockedBy: data.locked_by as string | null,
     lockedAt: data.locked_at as string | null,
     description: data.description as string | null,
@@ -181,9 +181,16 @@ function mapFileFromDb(data: any): DocFile {
     contentText: data.content_text as string | null,
     linkedEntityType: data.linked_entity_type as string | null,
     linkedEntityId: data.linked_entity_id as string | null,
-    downloadCount: data.download_count as number,
+    downloadCount: (data.download_count as number) ?? 0,
     lastAccessedAt: data.last_accessed_at as string | null,
     uploadedBy: data.uploaded_by as string | null,
+    checksum: data.checksum as string | null,
+    width: data.width as number | null,
+    height: data.height as number | null,
+    durationSeconds: data.duration_seconds as number | null,
+    pageCount: data.page_count as number | null,
+    previewUrl: data.preview_url as string | null,
+    canPreview: (data.can_preview as boolean) ?? false,
     createdAt: data.created_at as string,
     updatedAt: data.updated_at as string,
     deletedAt: data.deleted_at as string | null,
@@ -196,10 +203,12 @@ function mapFolderFromDb(data: any): Folder {
     organizationId: data.organization_id as string,
     name: data.name as string,
     parentId: data.parent_id as string | null,
-    path: data.path as string,
-    depth: data.depth as number,
+    path: (data.path as string) ?? '',
+    depth: (data.depth as number) ?? 0,
     color: data.color as string | null,
     icon: data.icon as string | null,
+    totalSizeBytes: (data.total_size_bytes as number) ?? 0,
+    fileCount: (data.file_count as number) ?? 0,
     createdBy: data.created_by as string | null,
     createdAt: data.created_at as string,
     updatedAt: data.updated_at as string,

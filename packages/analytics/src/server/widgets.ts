@@ -2,35 +2,30 @@
 // WIDGETS SERVER FUNCTIONS
 // ===========================================
 
-import { getSupabaseClient } from '@sedona/database'
-import type {
-  Widget,
-  WidgetData,
-  CreateWidgetInput,
-  UpdateWidgetInput,
-  MetricFilters,
-} from '../types'
-import { getMetricDefinition } from '../metrics/definitions'
+import { getSupabaseClient, validateOrganizationId } from '@sedona/database'
+import { assertWidgetLimit, isCustomWidgetsEnabled } from '@sedona/billing/server'
+import type { Widget, WidgetData, CreateWidgetInput, UpdateWidgetInput, MetricFilters } from '../types'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseClientAny = any
 
 // ===========================================
 // GET WIDGETS
 // ===========================================
 
-export async function getWidgetsByDashboard(
-  dashboardId: string
-): Promise<Widget[]> {
-  const client = getSupabaseClient()
+export async function getWidgetsByDashboard(dashboardId: string): Promise<Widget[]> {
+  const supabase = getSupabaseClient() as SupabaseClientAny
 
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('analytics_widgets')
     .select('*')
     .eq('dashboard_id', dashboardId)
     .order('grid_y', { ascending: true })
     .order('grid_x', { ascending: true })
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to fetch widgets: ${error.message}`)
 
-  return (data || []).map(mapWidget)
+  return (data ?? []).map(mapWidgetFromDb)
 }
 
 // ===========================================
@@ -38,9 +33,9 @@ export async function getWidgetsByDashboard(
 // ===========================================
 
 export async function getWidgetById(widgetId: string): Promise<Widget | null> {
-  const client = getSupabaseClient()
+  const supabase = getSupabaseClient() as SupabaseClientAny
 
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('analytics_widgets')
     .select('*')
     .eq('id', widgetId)
@@ -48,41 +43,54 @@ export async function getWidgetById(widgetId: string): Promise<Widget | null> {
 
   if (error) {
     if (error.code === 'PGRST116') return null
-    throw error
+    throw new Error(`Failed to fetch widget: ${error.message}`)
   }
 
-  return mapWidget(data)
+  return mapWidgetFromDb(data)
 }
 
 // ===========================================
 // CREATE WIDGET
 // ===========================================
 
-export async function createWidget(input: CreateWidgetInput): Promise<Widget> {
-  const client = getSupabaseClient()
+export async function createWidget(
+  organizationId: string,
+  input: CreateWidgetInput
+): Promise<Widget> {
+  const validOrgId = validateOrganizationId(organizationId)
+  const supabase = getSupabaseClient() as SupabaseClientAny
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const insertData: any = {
+  // Check widget limit
+  await assertWidgetLimit(validOrgId)
+
+  // Check if custom widgets are enabled (paid feature)
+  const customEnabled = await isCustomWidgetsEnabled(validOrgId)
+  if (!customEnabled) {
+    throw new Error('Les widgets personnalises sont disponibles avec le plan Pro')
+  }
+
+  const insertData: Record<string, unknown> = {
     dashboard_id: input.dashboardId,
     title: input.title,
     widget_type: input.widgetType,
     metric_source: input.metricSource,
-    config: input.config || {},
-    position_x: input.gridX || 0,
-    position_y: input.gridY || 0,
-    width: input.gridW || 4,
-    height: input.gridH || 2,
+    metric_key: input.metricKey,
+    config: input.config ?? {},
+    grid_x: input.gridX ?? 0,
+    grid_y: input.gridY ?? 0,
+    grid_w: input.gridW ?? 4,
+    grid_h: input.gridH ?? 2,
   }
 
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('analytics_widgets')
     .insert(insertData)
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to create widget: ${error.message}`)
 
-  return mapWidget(data)
+  return mapWidgetFromDb(data)
 }
 
 // ===========================================
@@ -93,28 +101,29 @@ export async function updateWidget(
   widgetId: string,
   input: UpdateWidgetInput
 ): Promise<Widget> {
-  const client = getSupabaseClient()
+  const supabase = getSupabaseClient() as SupabaseClientAny
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
-  const updateData: any = {}
-  if (input.title !== undefined) updateData.title = input.title
-  if (input.widgetType !== undefined) updateData.widget_type = input.widgetType
-  if (input.metricSource !== undefined) updateData.metric_source = input.metricSource
-  if (input.config !== undefined) updateData.config = input.config
-  if (input.gridX !== undefined) updateData.position_x = input.gridX
-  if (input.gridY !== undefined) updateData.position_y = input.gridY
-  if (input.gridW !== undefined) updateData.width = input.gridW
-  if (input.gridH !== undefined) updateData.height = input.gridH
+  if (input.title !== undefined) updateData['title'] = input.title
+  if (input.widgetType !== undefined) updateData['widget_type'] = input.widgetType
+  if (input.metricSource !== undefined) updateData['metric_source'] = input.metricSource
+  if (input.metricKey !== undefined) updateData['metric_key'] = input.metricKey
+  if (input.config !== undefined) updateData['config'] = input.config
+  if (input.gridX !== undefined) updateData['grid_x'] = input.gridX
+  if (input.gridY !== undefined) updateData['grid_y'] = input.gridY
+  if (input.gridW !== undefined) updateData['grid_w'] = input.gridW
+  if (input.gridH !== undefined) updateData['grid_h'] = input.gridH
 
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('analytics_widgets')
     .update(updateData)
     .eq('id', widgetId)
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to update widget: ${error.message}`)
 
-  return mapWidget(data)
+  return mapWidgetFromDb(data)
 }
 
 // ===========================================
@@ -122,14 +131,42 @@ export async function updateWidget(
 // ===========================================
 
 export async function deleteWidget(widgetId: string): Promise<void> {
-  const client = getSupabaseClient()
+  const supabase = getSupabaseClient() as SupabaseClientAny
 
-  const { error } = await client
+  const { error } = await supabase
     .from('analytics_widgets')
     .delete()
     .eq('id', widgetId)
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to delete widget: ${error.message}`)
+}
+
+// ===========================================
+// UPDATE WIDGET POSITION
+// ===========================================
+
+export async function updateWidgetPosition(
+  widgetId: string,
+  position: { x: number; y: number; w: number; h: number }
+): Promise<Widget> {
+  const supabase = getSupabaseClient() as SupabaseClientAny
+
+  const { data, error } = await supabase
+    .from('analytics_widgets')
+    .update({
+      grid_x: position.x,
+      grid_y: position.y,
+      grid_w: position.w,
+      grid_h: position.h,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', widgetId)
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to update widget position: ${error.message}`)
+
+  return mapWidgetFromDb(data)
 }
 
 // ===========================================
@@ -141,115 +178,21 @@ export async function getWidgetData(
   organizationId: string,
   filters: MetricFilters
 ): Promise<WidgetData> {
-  const metricDef = getMetricDefinition(widget.metricSource, widget.metricKey)
+  // This is a placeholder implementation
+  // In a real implementation, this would fetch data from the appropriate module
+  // based on widget.metricSource and widget.metricKey
+  const validOrgId = validateOrganizationId(organizationId)
 
-  // Check cache first
-  const cachedData = await getCachedMetric(
-    organizationId,
-    widget.metricSource,
-    widget.metricKey,
-    filters
-  )
-
-  if (cachedData) {
-    return formatWidgetData(cachedData, filters, metricDef?.format || 'number')
-  }
-
-  // Compute metric (in a real implementation, this would query the actual data)
-  const computedData = await computeMetric(
-    organizationId,
-    widget.metricSource,
-    widget.metricKey,
-    filters
-  )
-
-  // Cache the result
-  await cacheMetric(
-    organizationId,
-    widget.metricSource,
-    widget.metricKey,
-    filters,
-    computedData
-  )
-
-  return formatWidgetData(computedData, filters, metricDef?.format || 'number')
-}
-
-// ===========================================
-// CACHE FUNCTIONS
-// ===========================================
-
-async function getCachedMetric(
-  _organizationId: string,
-  _source: string,
-  _key: string,
-  _filters: MetricFilters
-): Promise<any | null> {
-  // Note: analytics_metrics_cache table doesn't exist in schema
-  // Caching is disabled for now
-  return null
-}
-
-async function cacheMetric(
-  _organizationId: string,
-  _source: string,
-  _key: string,
-  _filters: MetricFilters,
-  _data: any
-): Promise<void> {
-  // Note: analytics_metrics_cache table doesn't exist in schema
-  // Caching is disabled for now
-}
-
-async function computeMetric(
-  organizationId: string,
-  source: string,
-  key: string,
-  filters: MetricFilters
-): Promise<any> {
-  // This is a placeholder - in a real implementation, this would query
-  // the actual data from each module's tables based on the metric definition
-  // For now, return mock data
-
-  const mockValue = Math.floor(Math.random() * 10000) / 100
-  const previousValue = mockValue * (0.8 + Math.random() * 0.4)
-
+  // For now, return placeholder data
+  // The actual implementation would call module-specific stats functions
   return {
-    value: mockValue,
-    previousValue,
-    metadata: {
-      source,
-      key,
-      filters,
-    },
-  }
-}
-
-function formatWidgetData(
-  data: any,
-  filters: MetricFilters,
-  format: string
-): WidgetData {
-  const value = data.value || 0
-  const previousValue = data.previousValue || data.metadata?.previousValue
-  const change = previousValue ? value - previousValue : undefined
-  const changePercent = previousValue ? ((value - previousValue) / previousValue) * 100 : undefined
-
-  let trend: 'up' | 'down' | 'stable' | undefined
-  if (changePercent !== undefined) {
-    if (changePercent > 1) trend = 'up'
-    else if (changePercent < -1) trend = 'down'
-    else trend = 'stable'
-  }
-
-  return {
-    value,
-    previousValue,
-    change,
-    changePercent,
-    trend,
-    series: data.metadata?.series,
-    breakdown: data.metadata?.breakdown,
+    value: 0,
+    previousValue: 0,
+    change: 0,
+    changePercent: 0,
+    trend: 'stable',
+    series: [],
+    breakdown: [],
   }
 }
 
@@ -257,20 +200,20 @@ function formatWidgetData(
 // HELPERS
 // ===========================================
 
-function mapWidget(row: any): Widget {
+function mapWidgetFromDb(row: Record<string, unknown>): Widget {
   return {
-    id: row.id,
-    dashboardId: row.dashboard_id,
-    title: row.title,
-    widgetType: row.widget_type,
-    metricSource: row.metric_source,
-    metricKey: row.metric_key,
-    config: row.config || {},
-    gridX: row.grid_x,
-    gridY: row.grid_y,
-    gridW: row.grid_w,
-    gridH: row.grid_h,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    id: row['id'] as string,
+    dashboardId: row['dashboard_id'] as string,
+    title: row['title'] as string,
+    widgetType: row['widget_type'] as Widget['widgetType'],
+    metricSource: row['metric_source'] as Widget['metricSource'],
+    metricKey: row['metric_key'] as string,
+    config: (row['config'] as Widget['config']) ?? {},
+    gridX: (row['grid_x'] as number) ?? 0,
+    gridY: (row['grid_y'] as number) ?? 0,
+    gridW: (row['grid_w'] as number) ?? 4,
+    gridH: (row['grid_h'] as number) ?? 2,
+    createdAt: row['created_at'] as string,
+    updatedAt: row['updated_at'] as string,
   }
 }

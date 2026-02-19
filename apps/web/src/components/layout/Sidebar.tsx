@@ -14,36 +14,30 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  Shield,
 } from 'lucide-react'
-import { Button, Separator, Badge } from '@sedona/ui'
+import { Button, Separator, Badge, ModuleStatusBadge } from '@sedona/ui'
 import { cn } from '@sedona/ui'
 import { useSession, useOrganization } from '@/lib/auth'
 import { getInitials } from '@/lib/utils'
 import { useTicketStats } from '@sedona/tickets'
 import { Logo, LogoIcon } from '@/components/Logo'
+import { useAllModulesAccess, type ModuleId } from '@/hooks/useModuleAccess'
 
 interface NavItem {
   label: string
   href: string
   icon: React.ComponentType<{ className?: string }>
   badge?: string
+  moduleId?: ModuleId  // Link nav item to module for status badge
 }
 
 const bottomNavItems: NavItem[] = [
-  { label: 'Paramètres', href: '/settings', icon: Settings },
+  { label: 'Console Admin', href: '/admin', icon: Shield },
+  { label: 'Parametres', href: '/settings', icon: Settings },
   { label: 'Aide', href: '/help', icon: HelpCircle },
 ]
 
-function getPlanInfo(plan: string | undefined): { label: string; color: string } {
-  switch (plan) {
-    case 'PRO':
-      return { label: 'Pro', color: 'bg-primary text-primary-foreground' }
-    case 'ENTERPRISE':
-      return { label: 'Enterprise', color: 'bg-purple-500 text-white' }
-    default:
-      return { label: 'Gratuit', color: 'bg-muted text-muted-foreground' }
-  }
-}
 
 interface SidebarProps {
   collapsed?: boolean
@@ -58,23 +52,32 @@ export const Sidebar: FC<SidebarProps> = ({ collapsed = false, onToggle }) => {
   // Fetch ticket stats for badge
   const { data: ticketStats } = useTicketStats(organization?.id || '')
 
+  // Fetch module access info for all modules
+  const { modules: moduleAccess } = useAllModulesAccess()
+  const moduleAccessMap = useMemo(() => {
+    const map = new Map<ModuleId, boolean>()
+    moduleAccess.forEach(m => map.set(m.moduleId, m.isPaid))
+    return map
+  }, [moduleAccess])
+
   const user = session?.user
-  const plan = organization?.subscriptionPlan
-  const planInfo = getPlanInfo(plan)
-  const showUpgrade = !plan || plan === 'FREE'
+
+  // Show upgrade CTA if any module is not paid
+  const hasAnyFreeModule = moduleAccess.some(m => !m.isPaid)
+  const showUpgrade = hasAnyFreeModule
 
   // Build navigation items with dynamic badges
   const mainNavItems: NavItem[] = useMemo(() => {
     const openTickets = ticketStats?.openTickets || 0
     return [
       { label: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'CRM', href: '/crm', icon: Users },
-      { label: 'Facturation', href: '/invoices', icon: FileText },
-      { label: 'Projets', href: '/projects', icon: FolderKanban },
-      { label: 'Tickets', href: '/tickets', icon: Ticket, badge: openTickets > 0 ? String(openTickets) : undefined },
-      { label: 'RH', href: '/hr', icon: UserCircle },
-      { label: 'Documents', href: '/docs', icon: FileStack },
-      { label: 'Analytics', href: '/analytics', icon: BarChart3 },
+      { label: 'CRM', href: '/crm', icon: Users, moduleId: 'crm' },
+      { label: 'Facturation', href: '/invoices', icon: FileText, moduleId: 'invoice' },
+      { label: 'Projets', href: '/projects', icon: FolderKanban, moduleId: 'projects' },
+      { label: 'Tickets', href: '/tickets', icon: Ticket, badge: openTickets > 0 ? String(openTickets) : undefined, moduleId: 'tickets' },
+      { label: 'RH', href: '/hr', icon: UserCircle, moduleId: 'hr' },
+      { label: 'Documents', href: '/docs', icon: FileStack, moduleId: 'docs' },
+      { label: 'Analytics', href: '/analytics', icon: BarChart3, moduleId: 'analytics' },
     ]
   }, [ticketStats])
 
@@ -109,7 +112,12 @@ export const Sidebar: FC<SidebarProps> = ({ collapsed = false, onToggle }) => {
         <ul className="space-y-1">
           {mainNavItems.map((item) => (
             <li key={item.href}>
-              <NavLink item={item} collapsed={collapsed} isActive={location.pathname.startsWith(item.href)} />
+              <NavLink
+                item={item}
+                collapsed={collapsed}
+                isActive={location.pathname.startsWith(item.href)}
+                isPaid={item.moduleId ? moduleAccessMap.get(item.moduleId) : undefined}
+              />
             </li>
           ))}
         </ul>
@@ -147,7 +155,7 @@ export const Sidebar: FC<SidebarProps> = ({ collapsed = false, onToggle }) => {
           <p className="text-xs text-muted-foreground mb-3">
             Debloquez toutes les fonctionnalites
           </p>
-          <Link to="/settings/billing">
+          <Link to="/settings/modules">
             <Button size="sm" className="w-full">
               Voir les plans
             </Button>
@@ -165,12 +173,7 @@ export const Sidebar: FC<SidebarProps> = ({ collapsed = false, onToggle }) => {
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-medium truncate">{user?.name || 'Utilisateur'}</p>
-                <Badge variant="secondary" className={cn('text-[10px] px-1.5 py-0', planInfo.color)}>
-                  {planInfo.label}
-                </Badge>
-              </div>
+              <p className="text-sm font-medium truncate">{user?.name || 'Utilisateur'}</p>
               <p className="text-xs text-muted-foreground truncate">
                 {organization?.name || 'Mon Organisation'}
               </p>
@@ -186,9 +189,10 @@ interface NavLinkProps {
   item: NavItem
   collapsed: boolean
   isActive: boolean
+  isPaid?: boolean  // Module paid status
 }
 
-const NavLink: FC<NavLinkProps> = ({ item, collapsed, isActive }) => {
+const NavLink: FC<NavLinkProps> = ({ item, collapsed, isActive, isPaid }) => {
   return (
     <Link
       to={item.href}
@@ -203,6 +207,11 @@ const NavLink: FC<NavLinkProps> = ({ item, collapsed, isActive }) => {
       {!collapsed && (
         <>
           <span className="flex-1">{item.label}</span>
+          {/* Show module status badge if this nav item has a moduleId */}
+          {item.moduleId && isPaid !== undefined && (
+            <ModuleStatusBadge isPaid={isPaid} size="sm" />
+          )}
+          {/* Show ticket count badge */}
           {item.badge && (
             <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-primary text-primary-foreground">
               {item.badge}

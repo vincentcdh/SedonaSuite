@@ -17,6 +17,7 @@
     "lint:fix": "eslint src --ext .ts,.tsx --fix"
   },
   "dependencies": {
+    "@sedona/billing": "workspace:*",
     "@sedona/core": "workspace:*",
     "@sedona/database": "workspace:*",
     "@sedona/ui": "workspace:*",

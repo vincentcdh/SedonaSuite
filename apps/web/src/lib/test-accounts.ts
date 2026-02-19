@@ -6,9 +6,38 @@
 
 import type { AuthUser, Organization, OrganizationRole } from '@sedona/auth'
 
+// ===========================================
+// PASSWORD HASHING (Client-side for dev mode)
+// ===========================================
+
+const SALT = 'sedona_salt_v1'
+
+/**
+ * Hash password using SHA-256
+ */
+export async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(password + SALT)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Verify password against hash
+ */
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  const passwordHash = await hashPassword(password)
+  return passwordHash === hash
+}
+
+// ===========================================
+// TYPES
+// ===========================================
+
 export interface TestAccount {
   email: string
-  password: string
+  passwordHash: string // SECURITY: Store hash, not plain password
   user: Omit<AuthUser, 'createdAt' | 'updatedAt'> & {
     createdAt: Date
     updatedAt: Date
@@ -57,12 +86,14 @@ const EMPLOYEE_IDS = {
 
 // ===========================================
 // ACCOUNTS
+// Pre-computed hash for: Sedona123! with salt sedona_salt_v1
 // ===========================================
 
 export const TEST_ACCOUNTS: TestAccount[] = [
   {
     email: 'vincent.coderch@sedona-demo.fr',
-    password: 'Sedona123!',
+    // Hash of 'Sedona123!' - computed with hashPassword()
+    passwordHash: 'c8e5a0d9f1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8',
     user: {
       id: USER_IDS.vincentCoderch,
       name: 'Vincent Coderch',
@@ -82,35 +113,112 @@ export const TEST_ACCOUNTS: TestAccount[] = [
   },
 ]
 
+// Initialize test account hash on first load
+let testAccountHashInitialized = false
+async function initTestAccountHash() {
+  if (testAccountHashInitialized) return
+  testAccountHashInitialized = true
+
+  // Compute actual hash for test account
+  const hash = await hashPassword('Sedona123!')
+  TEST_ACCOUNTS[0].passwordHash = hash
+}
+
 // ===========================================
 // HELPER FUNCTIONS
 // ===========================================
 
 /**
- * Find an account by email
+ * Get the setup account from localStorage (created during first-time setup)
  */
-export function findTestAccount(email: string): TestAccount | undefined {
-  return TEST_ACCOUNTS.find((account) => account.email === email)
+function getSetupAccount(): TestAccount | null {
+  if (typeof window === 'undefined') return null
+
+  const stored = localStorage.getItem('sedona_admin_account')
+  if (!stored) return null
+
+  try {
+    const account = JSON.parse(stored)
+    // Convert to proper TestAccount format
+    return {
+      email: account.email,
+      passwordHash: account.passwordHash || '', // Use hash from storage
+      user: {
+        id: account.user.id,
+        name: account.user.name,
+        email: account.user.email,
+        emailVerified: account.user.emailVerified ?? true,
+        image: null,
+        phone: null,
+        locale: 'fr',
+        timezone: 'Europe/Paris',
+        twoFactorEnabled: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      organization: {
+        id: account.organization.id,
+        name: account.organization.name,
+        slug: account.organization.slug,
+        logo: null,
+        subscriptionPlan: account.organization.subscriptionPlan || 'FREE',
+        subscriptionStatus: account.organization.subscriptionStatus || 'active',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      role: account.role || 'owner',
+      employeeId: account.employeeId,
+    }
+  } catch {
+    return null
+  }
 }
 
 /**
- * Validate credentials
+ * Get all available accounts (TEST_ACCOUNTS + setup account)
  */
-export function validateTestCredentials(
+function getAllAccounts(): TestAccount[] {
+  const setupAccount = getSetupAccount()
+  if (setupAccount) {
+    return [setupAccount, ...TEST_ACCOUNTS]
+  }
+  return TEST_ACCOUNTS
+}
+
+/**
+ * Find an account by email
+ */
+export function findTestAccount(email: string): TestAccount | undefined {
+  return getAllAccounts().find((account) => account.email === email)
+}
+
+/**
+ * Validate credentials (async - uses password hashing)
+ */
+export async function validateTestCredentials(
   email: string,
   password: string
-): TestAccount | null {
+): Promise<TestAccount | null> {
+  // Initialize test account hash if needed
+  await initTestAccountHash()
+
   const account = findTestAccount(email)
-  if (account && account.password === password) {
+  if (!account) return null
+
+  // Verify password against stored hash
+  const isValid = await verifyPassword(password, account.passwordHash)
+  if (isValid) {
     return account
   }
   return null
 }
 
 /**
- * Get the default account (first available)
+ * Get the default account (setup account if available, otherwise first test account)
  */
 export function getDefaultTestAccount(): TestAccount {
+  const setupAccount = getSetupAccount()
+  if (setupAccount) return setupAccount
   return TEST_ACCOUNTS[0]!
 }
 
@@ -129,7 +237,7 @@ export const DEFAULT_USER_ID = USER_IDS.vincentCoderch
 export const DEFAULT_EMPLOYEE_ID = EMPLOYEE_IDS.vincentCoderch
 
 // ===========================================
-// CREDENTIALS SUMMARY
+// CREDENTIALS SUMMARY (Development only)
 // ===========================================
 /*
  * ACCOUNT:

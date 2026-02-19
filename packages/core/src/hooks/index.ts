@@ -1,2 +1,2 @@
 export * from './use-debounce'
-export * from './use-feature-limit'
+export * from './use-module-limits'

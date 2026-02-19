@@ -13,7 +13,8 @@ import {
   Zap,
   Lock,
 } from 'lucide-react'
-import { usePlan } from '@/hooks/usePlan'
+import { useOrganization } from '@/lib/auth'
+import { useIsModulePaid } from '@sedona/billing'
 
 export const Route = createFileRoute('/_authenticated/tickets')({
   component: TicketsLayout,
@@ -30,8 +31,9 @@ const navItems = [
 
 function TicketsLayout() {
   const location = useLocation()
-  const { hasAccess } = usePlan()
-  const hasPro = hasAccess('PRO')
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
+  const { isPaid: hasPro } = useIsModulePaid(organizationId, 'tickets')
 
   return (
     <div className="flex flex-col h-full">

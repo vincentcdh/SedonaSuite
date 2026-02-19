@@ -48,11 +48,23 @@ export const ROLE_MIGRATION_MAP: Record<LegacyOrganizationRole, OrganizationRole
   member: 'employee',
 }
 
+// Address structure for organization
+export interface OrganizationAddress {
+  street?: string
+  complement?: string
+  postalCode?: string
+  city?: string
+  country?: string
+}
+
 export interface Organization {
   id: string
   name: string
   slug: string
   logo?: string | null
+
+  // Industry sector
+  industry?: string | null
 
   // French business info (custom metadata)
   siret?: string | null
@@ -60,7 +72,10 @@ export interface Organization {
   vatNumber?: string | null
   legalName?: string | null
 
-  // Address (custom metadata)
+  // Address as JSONB (new format)
+  address?: OrganizationAddress | null
+
+  // Legacy address fields (deprecated, kept for migration)
   addressStreet?: string | null
   addressComplement?: string | null
   addressPostalCode?: string | null
@@ -72,7 +87,14 @@ export interface Organization {
   email?: string | null
   website?: string | null
 
-  // Subscription
+  // Who created this organization
+  createdBy?: string | null
+
+  // Onboarding status
+  onboardingCompleted?: boolean
+
+  // Subscription (deprecated - moving to module level in Phase 2)
+  // Kept for backward compatibility during transition
   subscriptionPlan?: 'FREE' | 'PRO' | 'ENTERPRISE'
   subscriptionStatus?: 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete'
 

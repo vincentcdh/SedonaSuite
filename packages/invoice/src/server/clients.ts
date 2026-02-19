@@ -2,7 +2,9 @@
 // CLIENT SERVER FUNCTIONS
 // ===========================================
 
-import { getSupabaseClient } from '@sedona/database'
+import { getSupabaseClient, validateOrganizationId } from '@sedona/database'
+import { assertInvoiceClientLimit } from '@sedona/billing/server'
+import type { Json } from '@sedona/database'
 import type {
   InvoiceClient,
   CreateClientInput,
@@ -18,7 +20,7 @@ function getClient() {
 }
 
 // ===========================================
-// GET CLIENTS (with pagination)
+// GET CLIENTS
 // ===========================================
 
 export async function getClients(
@@ -26,7 +28,7 @@ export async function getClients(
   filters: ClientFilters = {},
   pagination: PaginationParams = {}
 ): Promise<PaginatedResult<InvoiceClient>> {
-  const { page = 1, pageSize = 20, sortBy = 'name', sortOrder = 'asc' } = pagination
+  const { page = 1, pageSize = 50, sortBy = 'name', sortOrder = 'asc' } = pagination
   const offset = (page - 1) * pageSize
 
   let query = getClient()
@@ -40,8 +42,9 @@ export async function getClients(
     query = query.or(`name.ilike.%${filters.search}%,legal_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`)
   }
 
-  // Sorting
-  query = query.order(toSnakeCase(sortBy), { ascending: sortOrder === 'asc' })
+  // Sorting - map camelCase to snake_case for DB column names
+  const sortColumn = sortBy === 'billingEmail' ? 'email' : toSnakeCase(sortBy)
+  query = query.order(sortColumn, { ascending: sortOrder === 'asc' })
 
   // Pagination
   query = query.range(offset, offset + pageSize - 1)
@@ -87,32 +90,36 @@ export async function createClient(
   organizationId: string,
   input: CreateClientInput
 ): Promise<InvoiceClient> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const insertData: any = {
-    organization_id: organizationId,
-    name: input.name,
-    legal_name: input.legalName,
-    siret: input.siret,
-    vat_number: input.vatNumber,
-    address_line1: input.billingAddressLine1,
-    address_line2: input.billingAddressLine2,
-    city: input.billingCity,
-    postal_code: input.billingPostalCode,
-    country: input.billingCountry || 'France',
-    email: input.billingEmail,
-    phone: input.billingPhone,
-    contact_name: input.contactName,
-    payment_terms: input.paymentTerms || 30,
-    default_payment_method: input.paymentMethod || 'transfer',
-    crm_company_id: input.crmCompanyId,
-    crm_contact_id: input.crmContactId,
-    notes: input.notes,
-    custom_fields: input.customFields || {},
-  }
+  // Validate organization ID
+  const validOrgId = validateOrganizationId(organizationId)
+
+  // Check module limit before creating
+  await assertInvoiceClientLimit(validOrgId)
 
   const { data, error } = await getClient()
     .from('invoice_clients')
-    .insert(insertData)
+    .insert({
+      organization_id: validOrgId,
+      name: input.name,
+      legal_name: input.legalName,
+      siret: input.siret,
+      vat_number: input.vatNumber,
+      // Map billing fields to actual DB columns
+      address_line1: input.billingAddressLine1,
+      address_line2: input.billingAddressLine2,
+      city: input.billingCity,
+      postal_code: input.billingPostalCode,
+      country: input.billingCountry || 'France',
+      email: input.billingEmail,
+      phone: input.billingPhone,
+      contact_name: input.contactName,
+      payment_terms: input.paymentTerms ?? 30,
+      default_payment_method: input.paymentMethod || 'bank_transfer',
+      crm_company_id: input.crmCompanyId,
+      crm_contact_id: input.crmContactId,
+      notes: input.notes,
+      custom_fields: (input.customFields || null) as Json,
+    })
     .select()
     .single()
 
@@ -133,6 +140,7 @@ export async function updateClient(input: UpdateClientInput): Promise<InvoiceCli
   if (input.legalName !== undefined) updateData['legal_name'] = input.legalName
   if (input.siret !== undefined) updateData['siret'] = input.siret
   if (input.vatNumber !== undefined) updateData['vat_number'] = input.vatNumber
+  // Map billing fields to actual DB columns
   if (input.billingAddressLine1 !== undefined) updateData['address_line1'] = input.billingAddressLine1
   if (input.billingAddressLine2 !== undefined) updateData['address_line2'] = input.billingAddressLine2
   if (input.billingCity !== undefined) updateData['city'] = input.billingCity
@@ -186,7 +194,8 @@ function mapClientFromDb(row: any): InvoiceClient {
     legalName: row.legal_name,
     siret: row.siret,
     vatNumber: row.vat_number,
-    legalForm: null, // Not in database schema
+    legalForm: null, // Not in DB schema
+    // Map DB columns to billing fields
     billingAddressLine1: row.address_line1,
     billingAddressLine2: row.address_line2,
     billingCity: row.city,
@@ -195,9 +204,9 @@ function mapClientFromDb(row: any): InvoiceClient {
     billingEmail: row.email,
     billingPhone: row.phone,
     contactName: row.contact_name,
-    paymentTerms: row.payment_terms || 30,
-    paymentMethod: row.default_payment_method || 'transfer',
-    defaultCurrency: 'EUR', // Not in database schema
+    paymentTerms: row.payment_terms ?? 30,
+    paymentMethod: row.default_payment_method || 'bank_transfer',
+    defaultCurrency: 'EUR', // Default (not in DB schema)
     crmCompanyId: row.crm_company_id,
     crmContactId: row.crm_contact_id,
     notes: row.notes,

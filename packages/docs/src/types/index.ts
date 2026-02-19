@@ -46,7 +46,6 @@ export interface Folder {
 
 export interface FolderWithChildren extends Folder {
   children: FolderWithChildren[]
-  fileCount?: number
 }
 
 export interface FolderBreadcrumb {

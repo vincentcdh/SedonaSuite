@@ -1,5 +1,5 @@
 // ===========================================
-// KNOWLEDGE BASE PAGE (PRO FEATURE)
+// KNOWLEDGE BASE PAGE (PRO FEATURE - tickets module)
 // ===========================================
 
 import { useState } from 'react'
@@ -49,9 +49,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  ModulePaidGuard,
 } from '@sedona/ui'
-import { ProFeatureMask } from '@/components/pro'
 import { useOrganization, useSession } from '@/lib/auth'
+import { useModuleAccess, useUpgradeModule } from '@/hooks/useModuleAccess'
 import {
   useKbArticles,
   useKbCategories,
@@ -67,24 +68,25 @@ export const Route = createFileRoute('/_authenticated/tickets/knowledge-base/')(
   component: KnowledgeBasePage,
 })
 
-// PRO features to display in upgrade card
-const kbFeatures = [
-  { icon: BookOpen, label: 'Articles illimites' },
-  { icon: FolderOpen, label: 'Categories personnalisees' },
-  { icon: Search, label: 'Recherche intelligente' },
-  { icon: Eye, label: 'Statistiques de consultation' },
-]
-
 function KnowledgeBasePage() {
+  const { isPaid, isLoading: isLoadingAccess } = useModuleAccess('tickets')
+  const { upgrade } = useUpgradeModule()
+
+  const handleUpgrade = async () => {
+    await upgrade('tickets', 'monthly')
+  }
+
   return (
-    <ProFeatureMask
-      requiredPlan="PRO"
+    <ModulePaidGuard
+      moduleId="tickets"
+      isPaid={isPaid}
+      isLoading={isLoadingAccess}
       title="Base de connaissances"
       description="La base de connaissances vous permet de creer des articles d'aide pour reduire le volume de tickets et ameliorer la satisfaction client."
-      features={kbFeatures}
+      onUpgrade={handleUpgrade}
     >
       <KnowledgeBaseContent />
-    </ProFeatureMask>
+    </ModulePaidGuard>
   )
 }
 

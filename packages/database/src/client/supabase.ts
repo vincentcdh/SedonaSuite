@@ -33,6 +33,17 @@ function getEnvVar(key: string): string | undefined {
 const supabaseUrl = getEnvVar('VITE_SUPABASE_URL')
 const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY')
 
+/**
+ * Get the Supabase project URL
+ * Used for calling Edge Functions
+ */
+export function getSupabaseUrl(): string {
+  if (!supabaseUrl) {
+    throw new Error('Missing VITE_SUPABASE_URL environment variable')
+  }
+  return supabaseUrl
+}
+
 let supabaseInstance: SupabaseClient<Database> | null = null
 
 /**

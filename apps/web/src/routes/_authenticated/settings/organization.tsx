@@ -13,8 +13,11 @@ import {
   Input,
   Label,
   Separator,
+  Badge,
+  Spinner,
+  toast,
 } from '@sedona/ui'
-import { useOrganization } from '@/lib/auth'
+import { useOrganization, useOrganizationHealth } from '@/lib/auth'
 import {
   Building2,
   Globe,
@@ -23,6 +26,13 @@ import {
   ArrowRightLeft,
   Trash2,
   CheckCircle2,
+  XCircle,
+  RefreshCw,
+  Activity,
+  Users,
+  FileText,
+  Ticket,
+  UserCircle,
 } from 'lucide-react'
 import { useSession } from '@/lib/auth'
 
@@ -48,13 +58,34 @@ type OrganizationFormData = z.infer<typeof organizationSchema>
 function OrganizationSettingsPage() {
   const { data: session } = useSession()
   const { organization } = useOrganization()
+  const { health, isLoading: healthLoading, reprovision, refetch: refetchHealth } = useOrganizationHealth(organization?.id)
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [isReprovisioning, setIsReprovisioning] = useState(false)
 
   // Mock - in reality would come from organization membership
   const isOwner = true
+
+  const handleReprovision = async () => {
+    setIsReprovisioning(true)
+    const result = await reprovision()
+    setIsReprovisioning(false)
+
+    if (result.success) {
+      toast({
+        title: 'Provisionnement termine',
+        description: 'Tous les modules ont ete initialises avec succes',
+      })
+    } else {
+      toast({
+        title: 'Erreur',
+        description: result.error || 'Erreur lors du provisionnement',
+        variant: 'destructive',
+      })
+    }
+  }
 
   const {
     register,
@@ -278,6 +309,132 @@ function OrganizationSettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Organization Health / Provisioning Status */}
+      {isOwner && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Etat de sante
+                </CardTitle>
+                <CardDescription>
+                  Statut du provisionnement des modules de l'organisation
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchHealth()}
+                  disabled={healthLoading}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${healthLoading ? 'animate-spin' : ''}`} />
+                  Actualiser
+                </Button>
+                {health && !health.is_fully_provisioned && (
+                  <Button
+                    size="sm"
+                    onClick={handleReprovision}
+                    disabled={isReprovisioning}
+                  >
+                    {isReprovisioning ? (
+                      <Spinner className="h-4 w-4 mr-2" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Reprovisionner
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {healthLoading && !health ? (
+              <div className="flex items-center justify-center py-8">
+                <Spinner className="h-6 w-6" />
+              </div>
+            ) : health ? (
+              <div className="space-y-4">
+                {/* Overall Status */}
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  {health.is_fully_provisioned ? (
+                    <>
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                      <div>
+                        <p className="font-medium text-green-700">Tous les modules sont configures</p>
+                        <p className="text-sm text-muted-foreground">
+                          L'organisation est prete a l'emploi
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-5 w-5 text-amber-500" />
+                      <div>
+                        <p className="font-medium text-amber-700">Configuration incomplete</p>
+                        <p className="text-sm text-muted-foreground">
+                          Certains modules necessitent un provisionnement
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Module Details */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <ModuleStatusCard
+                    icon={Users}
+                    title="CRM"
+                    description="Pipeline et etapes de vente"
+                    provisioned={health.modules.crm.provisioned}
+                    itemsCount={health.modules.crm.items_count}
+                    itemsLabel="etapes"
+                  />
+                  <ModuleStatusCard
+                    icon={FileText}
+                    title="Facturation"
+                    description="Parametres et taux de TVA"
+                    provisioned={health.modules.invoice.provisioned}
+                    itemsCount={health.modules.invoice.items_count}
+                    itemsLabel="taux TVA"
+                  />
+                  <ModuleStatusCard
+                    icon={Ticket}
+                    title="Tickets"
+                    description="SLA et categories"
+                    provisioned={health.modules.tickets.provisioned}
+                    itemsCount={health.modules.tickets.items_count}
+                    itemsLabel="categories"
+                  />
+                  <ModuleStatusCard
+                    icon={UserCircle}
+                    title="RH"
+                    description="Types de conges"
+                    provisioned={health.modules.hr.provisioned}
+                    itemsCount={health.modules.hr.items_count}
+                    itemsLabel="types de conges"
+                  />
+                </div>
+
+                {/* Last Checked */}
+                <p className="text-xs text-muted-foreground text-right">
+                  Derniere verification: {new Date(health.checked_at).toLocaleString('fr-FR')}
+                </p>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Impossible de verifier l'etat de sante</p>
+                <Button variant="link" onClick={() => refetchHealth()}>
+                  Reessayer
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Danger Zone - Owner only */}
       {isOwner && (
         <Card className="border-destructive/50">
@@ -376,6 +533,58 @@ function OrganizationSettingsPage() {
           </CardContent>
         </Card>
       )}
+    </div>
+  )
+}
+
+// ===========================================
+// MODULE STATUS CARD COMPONENT
+// ===========================================
+
+interface ModuleStatusCardProps {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  description: string
+  provisioned: boolean
+  itemsCount: number
+  itemsLabel: string
+}
+
+function ModuleStatusCard({
+  icon: Icon,
+  title,
+  description,
+  provisioned,
+  itemsCount,
+  itemsLabel,
+}: ModuleStatusCardProps) {
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-lg border bg-card">
+      <div className={`p-2 rounded-md ${provisioned ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="font-medium">{title}</p>
+          {provisioned ? (
+            <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Configure
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="bg-red-100 text-red-700 text-xs">
+              <XCircle className="h-3 w-3 mr-1" />
+              Non configure
+            </Badge>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">{description}</p>
+        {provisioned && itemsCount > 0 && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {itemsCount} {itemsLabel}
+          </p>
+        )}
+      </div>
     </div>
   )
 }

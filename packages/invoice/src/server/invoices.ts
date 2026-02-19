@@ -2,7 +2,8 @@
 // INVOICE SERVER FUNCTIONS
 // ===========================================
 
-import { getSupabaseClient } from '@sedona/database'
+import { getSupabaseClient, validateOrganizationId } from '@sedona/database'
+import { assertInvoiceLimit } from '@sedona/billing/server'
 import type {
   Invoice,
   CreateInvoiceInput,
@@ -130,11 +131,17 @@ export async function createInvoice(
   input: CreateInvoiceInput,
   userId?: string
 ): Promise<Invoice> {
+  // Validate organization ID
+  const validOrgId = validateOrganizationId(organizationId)
+
+  // Check module limit before creating
+  await assertInvoiceLimit(validOrgId)
+
   // Generate invoice number (simple generation without RPC)
   const { data: lastInvoice } = await getClient()
     .from('invoice_invoices')
     .select('invoice_number')
-    .eq('organization_id', organizationId)
+    .eq('organization_id', validOrgId)
     .order('created_at', { ascending: false })
     .limit(1)
 
@@ -169,7 +176,7 @@ export async function createInvoice(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const insertData: any = {
-    organization_id: organizationId,
+    organization_id: validOrgId,
     client_id: input.clientId,
     invoice_number: invoiceNumber,
     status: 'draft',

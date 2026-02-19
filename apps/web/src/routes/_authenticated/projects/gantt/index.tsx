@@ -1,19 +1,14 @@
 // ===========================================
-// GANTT VIEW PAGE (PRO FEATURE)
+// GANTT VIEW PAGE (PRO FEATURE - projects module)
 // ===========================================
 
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import {
-  Calendar,
-  GitBranch,
-  MousePointer,
-  Layers,
-  Loader2,
-} from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { GanttChart, type TaskWithRelations, type TaskStatus } from '@sedona/projects'
-import { ProFeatureMask } from '@/components/pro'
+import { ModulePaidGuard } from '@sedona/ui'
 import { useOrganization } from '@/lib/auth'
+import { useModuleAccess, useUpgradeModule } from '@/hooks/useModuleAccess'
 import { useProjects, useTasks, useTaskStatuses } from '@sedona/projects'
 import {
   Select,
@@ -27,24 +22,25 @@ export const Route = createFileRoute('/_authenticated/projects/gantt/')({
   component: GanttPage,
 })
 
-// PRO features to display in upgrade card
-const ganttFeatures = [
-  { icon: Calendar, label: 'Timeline interactive' },
-  { icon: GitBranch, label: 'Dependances entre taches' },
-  { icon: MousePointer, label: 'Drag & drop pour modifier les dates' },
-  { icon: Layers, label: 'Vue semaine/mois/trimestre' },
-]
-
 function GanttPage() {
+  const { isPaid, isLoading: isLoadingAccess } = useModuleAccess('projects')
+  const { upgrade } = useUpgradeModule()
+
+  const handleUpgrade = async () => {
+    await upgrade('projects', 'monthly')
+  }
+
   return (
-    <ProFeatureMask
-      requiredPlan="PRO"
+    <ModulePaidGuard
+      moduleId="projects"
+      isPaid={isPaid}
+      isLoading={isLoadingAccess}
       title="Vue Gantt"
       description="La vue Gantt vous permet de visualiser et planifier vos projets avec une timeline interactive et des dependances entre taches."
-      features={ganttFeatures}
+      onUpgrade={handleUpgrade}
     >
       <GanttContent />
-    </ProFeatureMask>
+    </ModulePaidGuard>
   )
 }
 

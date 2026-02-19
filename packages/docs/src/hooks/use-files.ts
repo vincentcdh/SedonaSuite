@@ -204,11 +204,11 @@ export function useEmptyTrash(organizationId: string) {
   })
 }
 
-export function useLockFile(userId: string) {
+export function useLockFile(userId: string, organizationId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (fileId: string) => lockFile(fileId, userId),
+    mutationFn: (fileId: string) => lockFile(fileId, userId, organizationId),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: fileKeys.detail(data.id) })
       queryClient.invalidateQueries({ queryKey: fileKeys.lists() })

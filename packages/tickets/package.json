@@ -22,6 +22,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@sedona/billing": "workspace:*",
     "@sedona/core": "workspace:*",
     "@sedona/database": "workspace:*",
     "@sedona/ui": "workspace:*",

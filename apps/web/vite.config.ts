@@ -1,10 +1,53 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 import path from 'path'
 
+// ===========================================
+// SECURITY HEADERS PLUGIN
+// ===========================================
+function securityHeadersPlugin(): Plugin {
+  return {
+    name: 'security-headers',
+    configureServer(server) {
+      server.middlewares.use((_req, res, next) => {
+        // Prevent clickjacking
+        res.setHeader('X-Frame-Options', 'DENY')
+        // Prevent MIME type sniffing
+        res.setHeader('X-Content-Type-Options', 'nosniff')
+        // XSS protection (legacy browsers)
+        res.setHeader('X-XSS-Protection', '1; mode=block')
+        // Referrer policy
+        res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+        // Permissions policy
+        res.setHeader(
+          'Permissions-Policy',
+          'camera=(), microphone=(), geolocation=(), payment=()'
+        )
+        // Content Security Policy (relaxed for dev)
+        res.setHeader(
+          'Content-Security-Policy',
+          [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Required for Vite HMR
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "img-src 'self' data: blob: https:",
+            "font-src 'self' data: https://fonts.gstatic.com",
+            "connect-src 'self' ws: wss: http://localhost:* http://127.0.0.1:* https://*.supabase.co",
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+          ].join('; ')
+        )
+        next()
+      })
+    },
+  }
+}
+
 export default defineConfig({
   plugins: [
+    securityHeadersPlugin(),
     TanStackRouterVite({
       routesDirectory: './src/routes',
       generatedRouteTree: './src/routeTree.gen.ts',

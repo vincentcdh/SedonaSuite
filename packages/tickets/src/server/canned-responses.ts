@@ -2,7 +2,8 @@
 // CANNED RESPONSES SERVER FUNCTIONS
 // ===========================================
 
-import { getSupabaseClient } from '@sedona/database'
+import { getSupabaseClient, validateOrganizationId } from '@sedona/database'
+import { assertCannedResponseLimit } from '@sedona/billing/server'
 import type {
   CannedResponse,
   CreateCannedResponseInput,
@@ -155,9 +156,13 @@ export async function createCannedResponse(
   input: CreateCannedResponseInput,
   userId?: string
 ): Promise<CannedResponse> {
+  // Validate organization ID and check canned response limit
+  const validOrgId = validateOrganizationId(organizationId)
+  await assertCannedResponseLimit(validOrgId)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const insertData: any = {
-    organization_id: organizationId,
+    organization_id: validOrgId,
     title: input.name, // DB uses 'title' instead of 'name'
     content: input.content,
     category: input.category,

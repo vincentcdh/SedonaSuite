@@ -2,7 +2,12 @@
 // DASHBOARDS SERVER FUNCTIONS
 // ===========================================
 
-import { getSupabaseClient } from '@sedona/database'
+import { getSupabaseClient, validateOrganizationId } from '@sedona/database'
+import {
+  assertDashboardLimit,
+  isCustomDashboardsEnabled,
+  getAnalyticsModuleAvailability,
+} from '@sedona/billing/server'
 import type {
   Dashboard,
   DashboardWithWidgets,
@@ -115,7 +120,19 @@ export async function createDashboard(
   userId: string,
   input: CreateDashboardInput
 ): Promise<Dashboard> {
+  const validOrgId = validateOrganizationId(organizationId)
   const client = getSupabaseClient()
+
+  // Check dashboard limit before creating
+  await assertDashboardLimit(validOrgId)
+
+  // For non-default dashboards, check if custom dashboards feature is enabled
+  if (!input.isDefault) {
+    const customEnabled = await isCustomDashboardsEnabled(validOrgId)
+    if (!customEnabled) {
+      throw new Error('Les tableaux de bord personnalises sont disponibles avec le plan Pro')
+    }
+  }
 
   const { data, error } = await client
     .from('analytics_dashboards')
@@ -321,4 +338,48 @@ function mapWidget(row: any): any {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
+}
+
+// ===========================================
+// INTER-MODULE ANALYTICS
+// ===========================================
+
+export interface ModuleAnalyticsAvailability {
+  moduleId: string
+  moduleName: string
+  available: boolean
+  isPaid: boolean
+  notice?: string
+}
+
+/**
+ * Get analytics availability for all modules
+ * Returns inter-module notices for the analytics dashboard
+ */
+export async function getModulesAnalyticsAvailability(
+  organizationId: string
+): Promise<ModuleAnalyticsAvailability[]> {
+  const validOrgId = validateOrganizationId(organizationId)
+  const availability = await getAnalyticsModuleAvailability(validOrgId)
+
+  const moduleNames: Record<string, string> = {
+    crm: 'CRM',
+    invoice: 'Facturation',
+    projects: 'Projets',
+    tickets: 'Tickets',
+    hr: 'RH',
+    docs: 'Documents',
+  }
+
+  return Object.entries(availability).map(([moduleId, status]) => ({
+    moduleId,
+    moduleName: moduleNames[moduleId] || moduleId,
+    available: status.available,
+    isPaid: status.isPaid,
+    notice: !status.available
+      ? `Module ${moduleNames[moduleId]} non souscrit - Pas de donnees disponibles`
+      : !status.isPaid
+        ? `Module ${moduleNames[moduleId]} en version gratuite - Donnees limitees`
+        : undefined,
+  }))
 }

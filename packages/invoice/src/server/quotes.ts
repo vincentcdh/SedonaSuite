@@ -2,7 +2,8 @@
 // QUOTE SERVER FUNCTIONS
 // ===========================================
 
-import { getSupabaseClient } from '@sedona/database'
+import { getSupabaseClient, validateOrganizationId } from '@sedona/database'
+import { assertQuoteLimit } from '@sedona/billing/server'
 import type {
   Quote,
   CreateQuoteInput,
@@ -120,13 +121,19 @@ export async function createQuote(
   input: CreateQuoteInput,
   userId?: string
 ): Promise<Quote> {
+  // Validate organization ID
+  const validOrgId = validateOrganizationId(organizationId)
+
+  // Check module limit before creating
+  await assertQuoteLimit(validOrgId)
+
   const client = getClient()
 
   // Generate quote number by querying existing quotes
   const { data: lastQuote } = await client
     .from('invoice_quotes')
     .select('quote_number')
-    .eq('organization_id', organizationId)
+    .eq('organization_id', validOrgId)
     .order('created_at', { ascending: false })
     .limit(1)
     .single()
@@ -153,7 +160,7 @@ export async function createQuote(
   const { data, error } = await client
     .from('invoice_quotes')
     .insert({
-      organization_id: organizationId,
+      organization_id: validOrgId,
       client_id: input.clientId,
       quote_number: quoteNumber,
       status: 'draft',

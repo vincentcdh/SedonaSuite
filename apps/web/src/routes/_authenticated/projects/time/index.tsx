@@ -1,5 +1,5 @@
 // ===========================================
-// TIME TRACKING PAGE (PRO FEATURE)
+// TIME TRACKING PAGE (PRO FEATURE - projects module)
 // ===========================================
 
 import { useState } from 'react'
@@ -9,8 +9,6 @@ import {
   BarChart3,
   Download,
   Plus,
-  Timer,
-  FileSpreadsheet,
   Loader2,
 } from 'lucide-react'
 import {
@@ -30,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  ModulePaidGuard,
 } from '@sedona/ui'
 import {
   TimeTracker,
@@ -37,8 +36,8 @@ import {
   TimeStats,
   TimeEntryForm,
 } from '@sedona/projects'
-import { ProFeatureMask } from '@/components/pro'
 import { useOrganization, useAuth } from '@/lib/auth'
+import { useModuleAccess, useUpgradeModule } from '@/hooks/useModuleAccess'
 import { useProjects, useTasks, useTimeEntries, useRunningTimer, useCreateTimeEntry, useStartTimer, useStopTimer, useDeleteTimeEntry } from '@sedona/projects'
 
 export const Route = createFileRoute('/_authenticated/projects/time/')({
@@ -53,24 +52,25 @@ function formatDuration(minutes: number): string {
   return `${hours}h ${mins}min`
 }
 
-// PRO features to display in upgrade card
-const timeFeatures = [
-  { icon: Timer, label: 'Chronometre integre' },
-  { icon: Clock, label: 'Saisie manuelle du temps' },
-  { icon: BarChart3, label: 'Rapports par projet/membre' },
-  { icon: FileSpreadsheet, label: 'Export CSV/PDF' },
-]
-
 function TimeTrackingPage() {
+  const { isPaid, isLoading: isLoadingAccess } = useModuleAccess('projects')
+  const { upgrade } = useUpgradeModule()
+
+  const handleUpgrade = async () => {
+    await upgrade('projects', 'monthly')
+  }
+
   return (
-    <ProFeatureMask
-      requiredPlan="PRO"
+    <ModulePaidGuard
+      moduleId="projects"
+      isPaid={isPaid}
+      isLoading={isLoadingAccess}
       title="Suivi du temps projet"
       description="Le suivi du temps vous permet de tracker le temps passe sur vos projets, avec chronometre integre et rapports detailles."
-      features={timeFeatures}
+      onUpgrade={handleUpgrade}
     >
       <TimeTrackingContent />
-    </ProFeatureMask>
+    </ModulePaidGuard>
   )
 }
 

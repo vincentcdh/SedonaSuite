@@ -48,8 +48,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@sedona/ui'
-import { ANALYTICS_PLAN_LIMITS } from '@sedona/analytics'
-import { usePlan } from '@/hooks/usePlan'
+import { useOrganization } from '@/lib/auth'
+import { useIsModulePaid } from '@sedona/billing'
 
 export const Route = createFileRoute('/_authenticated/analytics/reports')({
   component: ReportsPage,
@@ -145,7 +145,12 @@ function formatFileSize(bytes: number): string {
 
 function ReportsPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const { isFree } = usePlan()
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
+
+  // Module-based billing: check if analytics is paid
+  const { isPaid: isAnalyticsPaid } = useIsModulePaid(organizationId, 'analytics')
+  const isFree = !isAnalyticsPaid
 
   // Get data based on plan
   const mockReports = isFree ? [] : mockReportsData
@@ -196,7 +201,7 @@ function ReportsPage() {
               </div>
             </div>
 
-            <Link to="/settings/billing">
+            <Link to="/settings/modules">
               <Button size="lg">
                 <Lock className="h-4 w-4 mr-2" />
                 Passer a PRO

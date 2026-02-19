@@ -2,7 +2,12 @@
 // FILE SERVER FUNCTIONS
 // ===========================================
 
-import { getSupabaseClient } from '@sedona/database'
+import { getSupabaseClient, validateOrganizationId } from '@sedona/database'
+import {
+  assertDocsStorageLimit,
+  assertDocsFileSizeLimit,
+  isFileLockingEnabled,
+} from '@sedona/billing/server'
 import type {
   DocFile,
   DocFileWithRelations,
@@ -14,6 +19,9 @@ import type {
   StorageUsage,
 } from '../types'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseClientAny = any
+
 // ===========================================
 // GET FILES
 // ===========================================
@@ -23,13 +31,15 @@ export async function getFiles(
   filters: FileFilters = {},
   pagination: PaginationParams = {}
 ): Promise<PaginatedResult<DocFileWithRelations>> {
+  const validOrgId = validateOrganizationId(organizationId)
   const { page = 1, pageSize = 20, sortBy = 'createdAt', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  let query = getSupabaseClient()
-    .from('docs.files')
+  const supabase = getSupabaseClient() as SupabaseClientAny
+  let query = supabase
+    .from('docs_files')
     .select('*', { count: 'exact' })
-    .eq('organization_id', organizationId)
+    .eq('organization_id', validOrgId)
 
   // Apply filters
   if (!filters.includeDeleted) {
@@ -75,71 +85,22 @@ export async function getFiles(
   }
 
   // Sorting
-  query = query.order(toSnakeCase(sortBy), { ascending: sortOrder === 'asc' })
+  const sortColumn = sortBy.replace(/([A-Z])/g, '_$1').toLowerCase()
+  query = query.order(sortColumn, { ascending: sortOrder === 'asc' })
 
   // Pagination
   query = query.range(offset, offset + pageSize - 1)
 
   const { data, error, count } = await query
 
-  if (error) throw error
-
-  // Get folders
-  const folderIds = [...new Set((data || []).filter((f: any) => f.folder_id).map((f: any) => f.folder_id))]
-
-  let folders: any[] = []
-  if (folderIds.length > 0) {
-    const { data: folderData } = await getSupabaseClient()
-      .from('docs.folders')
-      .select('id, name, path')
-      .in('id', folderIds)
-    folders = folderData || []
-  }
-
-  const folderMap: Record<string, any> = {}
-  folders.forEach((f: any) => {
-    folderMap[f.id] = f
-  })
-
-  // Get uploaders
-  const uploaderIds = [...new Set((data || []).filter((f: any) => f.uploaded_by).map((f: any) => f.uploaded_by))]
-
-  let uploaders: any[] = []
-  if (uploaderIds.length > 0) {
-    const { data: uploaderData } = await getSupabaseClient()
-      .from('users')
-      .select('id, email, full_name')
-      .in('id', uploaderIds)
-    uploaders = (uploaderData || []) as any[]
-  }
-
-  const uploaderMap: Record<string, any> = {}
-  uploaders.forEach((u: any) => {
-    uploaderMap[u.id] = u
-  })
+  if (error) throw new Error(`Failed to fetch files: ${error.message}`)
 
   return {
-    data: (data || []).map((f: any) => ({
-      ...mapFileFromDb(f),
-      folder: f.folder_id && folderMap[f.folder_id]
-        ? {
-            id: folderMap[f.folder_id].id,
-            name: folderMap[f.folder_id].name,
-            path: folderMap[f.folder_id].path,
-          }
-        : undefined,
-      uploader: f.uploaded_by && uploaderMap[f.uploaded_by]
-        ? {
-            id: uploaderMap[f.uploaded_by].id,
-            email: uploaderMap[f.uploaded_by].email,
-            fullName: uploaderMap[f.uploaded_by].full_name,
-          }
-        : undefined,
-    })),
-    total: count || 0,
+    data: (data ?? []).map(mapFileFromDb),
+    total: count ?? 0,
     page,
     pageSize,
-    totalPages: Math.ceil((count || 0) / pageSize),
+    totalPages: Math.ceil((count ?? 0) / pageSize),
   }
 }
 
@@ -148,72 +109,34 @@ export async function getFiles(
 // ===========================================
 
 export async function getFileById(id: string, userId?: string): Promise<DocFileWithRelations | null> {
-  const { data, error } = await getSupabaseClient()
-    .from('docs.files')
+  const supabase = getSupabaseClient() as SupabaseClientAny
+  const { data, error } = await supabase
+    .from('docs_files')
     .select('*')
     .eq('id', id)
     .single()
 
   if (error) {
     if (error.code === 'PGRST116') return null
-    throw error
+    throw new Error(`Failed to fetch file: ${error.message}`)
   }
 
   const file = mapFileFromDb(data)
 
-  // Get folder
-  let folder = undefined
-  if (file.folderId) {
-    const { data: folderData } = await getSupabaseClient()
-      .from('docs.folders')
-      .select('id, name, path')
-      .eq('id', file.folderId)
-      .single()
-
-    if (folderData) {
-      folder = {
-        id: folderData.id,
-        name: folderData.name,
-        path: folderData.path,
-      }
-    }
-  }
-
-  // Get uploader
-  let uploader = undefined
-  if (file.uploadedBy) {
-    const { data: uploaderData } = await getSupabaseClient()
-      .from('users')
-      .select('id, email, full_name')
-      .eq('id', file.uploadedBy)
-      .single()
-
-    const userData = uploaderData as { id: string; email: string; full_name: string | null } | null
-    if (userData) {
-      uploader = {
-        id: userData.id,
-        email: userData.email,
-        fullName: userData.full_name,
-      }
-    }
-  }
-
   // Check if favorite
   let isFavorite = false
   if (userId) {
-    const { count } = await getSupabaseClient()
-      .from('docs.favorites')
+    const { count } = await supabase
+      .from('docs_favorites')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('file_id', id)
 
-    isFavorite = (count || 0) > 0
+    isFavorite = (count ?? 0) > 0
   }
 
   return {
     ...file,
-    folder,
-    uploader,
     isFavorite,
   }
 }
@@ -227,28 +150,39 @@ export async function createFile(
   input: CreateFileInput,
   userId?: string
 ): Promise<DocFile> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const insertData: any = {
-    organization_id: organizationId,
-    folder_id: input.folderId || null,
+  const validOrgId = validateOrganizationId(organizationId)
+
+  // IMPORTANT: Check storage limit BEFORE upload
+  // This should be called after file is uploaded to storage but before DB record
+  // In the UI, call checkDocsStorageLimit BEFORE initiating upload
+  await assertDocsStorageLimit(validOrgId, input.sizeBytes)
+
+  // Check file size limit
+  await assertDocsFileSizeLimit(validOrgId, input.sizeBytes)
+
+  const supabase = getSupabaseClient() as SupabaseClientAny
+  const insertData: Record<string, unknown> = {
+    organization_id: validOrgId,
+    folder_id: input.folderId ?? null,
     name: input.name,
-    mime_type: input.mimeType || null,
-    file_type: input.fileType || 'other',
+    original_name: input.originalName ?? input.name,
+    mime_type: input.mimeType ?? null,
+    file_type: input.fileType ?? 'other',
     storage_path: input.storagePath,
     file_size: input.sizeBytes,
-    tags: input.tags || [],
-    entity_type: input.linkedEntityType || null,
-    entity_id: input.linkedEntityId || null,
-    uploaded_by: userId || null,
+    tags: input.tags ?? [],
+    linked_entity_type: input.linkedEntityType ?? null,
+    linked_entity_id: input.linkedEntityId ?? null,
+    uploaded_by: userId ?? null,
   }
 
-  const { data, error } = await getSupabaseClient()
-    .from('docs.files')
+  const { data, error } = await supabase
+    .from('docs_files')
     .insert(insertData)
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to create file: ${error.message}`)
 
   return mapFileFromDb(data)
 }
@@ -258,23 +192,24 @@ export async function createFile(
 // ===========================================
 
 export async function updateFile(input: UpdateFileInput): Promise<DocFile> {
-  const updateData: any = {}
+  const supabase = getSupabaseClient() as SupabaseClientAny
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
-  if (input.name !== undefined) updateData.name = input.name
-  if (input.folderId !== undefined) updateData.folder_id = input.folderId
-  if (input.description !== undefined) updateData.description = input.description
-  if (input.tags !== undefined) updateData.tags = input.tags
-  if (input.linkedEntityType !== undefined) updateData.linked_entity_type = input.linkedEntityType
-  if (input.linkedEntityId !== undefined) updateData.linked_entity_id = input.linkedEntityId
+  if (input.name !== undefined) updateData['name'] = input.name
+  if (input.folderId !== undefined) updateData['folder_id'] = input.folderId
+  if (input.description !== undefined) updateData['description'] = input.description
+  if (input.tags !== undefined) updateData['tags'] = input.tags
+  if (input.linkedEntityType !== undefined) updateData['linked_entity_type'] = input.linkedEntityType
+  if (input.linkedEntityId !== undefined) updateData['linked_entity_id'] = input.linkedEntityId
 
-  const { data, error } = await getSupabaseClient()
-    .from('docs.files')
+  const { data, error } = await supabase
+    .from('docs_files')
     .update(updateData)
     .eq('id', input.id)
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to update file: ${error.message}`)
 
   return mapFileFromDb(data)
 }
@@ -284,12 +219,13 @@ export async function updateFile(input: UpdateFileInput): Promise<DocFile> {
 // ===========================================
 
 export async function deleteFile(id: string): Promise<void> {
-  const { error } = await getSupabaseClient()
-    .from('docs.files')
+  const supabase = getSupabaseClient() as SupabaseClientAny
+  const { error } = await supabase
+    .from('docs_files')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to delete file: ${error.message}`)
 }
 
 // ===========================================
@@ -297,14 +233,15 @@ export async function deleteFile(id: string): Promise<void> {
 // ===========================================
 
 export async function restoreFile(id: string): Promise<DocFile> {
-  const { data, error } = await getSupabaseClient()
-    .from('docs.files')
-    .update({ deleted_at: null })
+  const supabase = getSupabaseClient() as SupabaseClientAny
+  const { data, error } = await supabase
+    .from('docs_files')
+    .update({ deleted_at: null, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to restore file: ${error.message}`)
 
   return mapFileFromDb(data)
 }
@@ -314,25 +251,24 @@ export async function restoreFile(id: string): Promise<DocFile> {
 // ===========================================
 
 export async function deleteFilePermanently(id: string): Promise<void> {
+  const supabase = getSupabaseClient() as SupabaseClientAny
+
   // First get the storage path to delete from storage
-  const { data: file } = await getSupabaseClient()
-    .from('docs.files')
+  const { data: file } = await supabase
+    .from('docs_files')
     .select('storage_path')
     .eq('id', id)
     .single()
 
   if (file) {
     // Delete from storage
-    await getSupabaseClient().storage.from('documents').remove([file.storage_path])
+    await supabase.storage.from('documents').remove([file['storage_path']])
   }
 
   // Delete from database
-  const { error } = await getSupabaseClient()
-    .from('docs.files')
-    .delete()
-    .eq('id', id)
+  const { error } = await supabase.from('docs_files').delete().eq('id', id)
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to permanently delete file: ${error.message}`)
 }
 
 // ===========================================
@@ -343,25 +279,29 @@ export async function getDeletedFiles(
   organizationId: string,
   pagination: PaginationParams = {}
 ): Promise<PaginatedResult<DocFile>> {
+  const validOrgId = validateOrganizationId(organizationId)
   const { page = 1, pageSize = 20, sortBy = 'deletedAt', sortOrder = 'desc' } = pagination
   const offset = (page - 1) * pageSize
 
-  const { data, error, count } = await getSupabaseClient()
-    .from('docs.files')
+  const supabase = getSupabaseClient() as SupabaseClientAny
+  const sortColumn = sortBy.replace(/([A-Z])/g, '_$1').toLowerCase()
+
+  const { data, error, count } = await supabase
+    .from('docs_files')
     .select('*', { count: 'exact' })
-    .eq('organization_id', organizationId)
+    .eq('organization_id', validOrgId)
     .not('deleted_at', 'is', null)
-    .order(toSnakeCase(sortBy), { ascending: sortOrder === 'asc' })
+    .order(sortColumn, { ascending: sortOrder === 'asc' })
     .range(offset, offset + pageSize - 1)
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to fetch deleted files: ${error.message}`)
 
   return {
-    data: (data || []).map(mapFileFromDb),
-    total: count || 0,
+    data: (data ?? []).map(mapFileFromDb),
+    total: count ?? 0,
     page,
     pageSize,
-    totalPages: Math.ceil((count || 0) / pageSize),
+    totalPages: Math.ceil((count ?? 0) / pageSize),
   }
 }
 
@@ -370,36 +310,39 @@ export async function getDeletedFiles(
 // ===========================================
 
 export async function emptyTrash(organizationId: string): Promise<void> {
+  const validOrgId = validateOrganizationId(organizationId)
+  const supabase = getSupabaseClient() as SupabaseClientAny
+
   // Get all files to delete from storage
-  const { data: files } = await getSupabaseClient()
-    .from('docs.files')
+  const { data: files } = await supabase
+    .from('docs_files')
     .select('storage_path')
-    .eq('organization_id', organizationId)
+    .eq('organization_id', validOrgId)
     .not('deleted_at', 'is', null)
 
   if (files && files.length > 0) {
     // Delete from storage
-    const paths = files.map((f: any) => f.storage_path)
-    await getSupabaseClient().storage.from('documents').remove(paths)
+    const paths = files.map((f: Record<string, unknown>) => f['storage_path'] as string)
+    await supabase.storage.from('documents').remove(paths)
   }
 
   // Delete files from database
-  const { error: fileError } = await getSupabaseClient()
-    .from('docs.files')
+  const { error: fileError } = await supabase
+    .from('docs_files')
     .delete()
-    .eq('organization_id', organizationId)
+    .eq('organization_id', validOrgId)
     .not('deleted_at', 'is', null)
 
-  if (fileError) throw fileError
+  if (fileError) throw new Error(`Failed to empty trash: ${fileError.message}`)
 
   // Delete folders from database
-  const { error: folderError } = await getSupabaseClient()
-    .from('docs.folders')
+  const { error: folderError } = await supabase
+    .from('docs_folders')
     .delete()
-    .eq('organization_id', organizationId)
+    .eq('organization_id', validOrgId)
     .not('deleted_at', 'is', null)
 
-  if (folderError) throw folderError
+  if (folderError) throw new Error(`Failed to delete trashed folders: ${folderError.message}`)
 }
 
 // ===========================================
@@ -410,17 +353,20 @@ export async function getRecentFiles(
   organizationId: string,
   limit: number = 10
 ): Promise<DocFile[]> {
-  const { data, error } = await getSupabaseClient()
-    .from('docs.files')
+  const validOrgId = validateOrganizationId(organizationId)
+  const supabase = getSupabaseClient() as SupabaseClientAny
+
+  const { data, error } = await supabase
+    .from('docs_files')
     .select('*')
-    .eq('organization_id', organizationId)
+    .eq('organization_id', validOrgId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to fetch recent files: ${error.message}`)
 
-  return (data || []).map(mapFileFromDb)
+  return (data ?? []).map(mapFileFromDb)
 }
 
 // ===========================================
@@ -431,26 +377,37 @@ export async function getFilesByEntity(
   entityType: string,
   entityId: string
 ): Promise<DocFile[]> {
-  const { data, error } = await getSupabaseClient()
-    .from('docs.files')
+  const supabase = getSupabaseClient() as SupabaseClientAny
+
+  const { data, error } = await supabase
+    .from('docs_files')
     .select('*')
     .eq('linked_entity_type', entityType)
     .eq('linked_entity_id', entityId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to fetch files by entity: ${error.message}`)
 
-  return (data || []).map(mapFileFromDb)
+  return (data ?? []).map(mapFileFromDb)
 }
 
 // ===========================================
 // LOCK/UNLOCK FILE (PRO)
 // ===========================================
 
-export async function lockFile(fileId: string, userId: string): Promise<DocFile> {
-  const { data, error } = await getSupabaseClient()
-    .from('docs.files')
+export async function lockFile(fileId: string, userId: string, organizationId: string): Promise<DocFile> {
+  const validOrgId = validateOrganizationId(organizationId)
+
+  // Check if file locking is enabled (paid feature)
+  const enabled = await isFileLockingEnabled(validOrgId)
+  if (!enabled) {
+    throw new Error('Le verrouillage de fichiers est disponible avec le plan Pro')
+  }
+
+  const supabase = getSupabaseClient() as SupabaseClientAny
+  const { data, error } = await supabase
+    .from('docs_files')
     .update({
       is_locked: true,
       locked_by: userId,
@@ -460,14 +417,15 @@ export async function lockFile(fileId: string, userId: string): Promise<DocFile>
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to lock file: ${error.message}`)
 
   return mapFileFromDb(data)
 }
 
 export async function unlockFile(fileId: string): Promise<DocFile> {
-  const { data, error } = await getSupabaseClient()
-    .from('docs.files')
+  const supabase = getSupabaseClient() as SupabaseClientAny
+  const { data, error } = await supabase
+    .from('docs_files')
     .update({
       is_locked: false,
       locked_by: null,
@@ -477,7 +435,7 @@ export async function unlockFile(fileId: string): Promise<DocFile> {
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to unlock file: ${error.message}`)
 
   return mapFileFromDb(data)
 }
@@ -487,18 +445,20 @@ export async function unlockFile(fileId: string): Promise<DocFile> {
 // ===========================================
 
 export async function incrementDownloadCount(fileId: string): Promise<void> {
+  const supabase = getSupabaseClient() as SupabaseClientAny
+
   // Fetch current count and increment
-  const { data: file } = await getSupabaseClient()
-    .from('docs.files')
+  const { data: file } = await supabase
+    .from('docs_files')
     .select('download_count')
     .eq('id', fileId)
     .single()
 
   if (file) {
-    await getSupabaseClient()
-      .from('docs.files')
+    await supabase
+      .from('docs_files')
       .update({
-        download_count: (file.download_count || 0) + 1,
+        download_count: ((file['download_count'] as number) ?? 0) + 1,
       })
       .eq('id', fileId)
   }
@@ -509,17 +469,20 @@ export async function incrementDownloadCount(fileId: string): Promise<void> {
 // ===========================================
 
 export async function getStorageUsage(organizationId: string): Promise<StorageUsage> {
+  const validOrgId = validateOrganizationId(organizationId)
+  const supabase = getSupabaseClient() as SupabaseClientAny
+
   // Get all files with their types and sizes
-  const { data: filesData, error: filesError } = await getSupabaseClient()
-    .from('docs.files')
-    .select('size_bytes, file_type')
-    .eq('organization_id', organizationId)
+  const { data: filesData, error: filesError } = await supabase
+    .from('docs_files')
+    .select('file_size, file_type')
+    .eq('organization_id', validOrgId)
     .is('deleted_at', null)
 
-  if (filesError) throw filesError
+  if (filesError) throw new Error(`Failed to get storage usage: ${filesError.message}`)
 
-  const files = filesData || []
-  const usedBytes = files.reduce((sum: number, f: any) => sum + (f.size_bytes || 0), 0)
+  const files = filesData ?? []
+  const usedBytes = files.reduce((sum: number, f: Record<string, unknown>) => sum + ((f['file_size'] as number) ?? 0), 0)
 
   // Count by file type
   const typeCounts: Record<string, number> = {
@@ -533,30 +496,24 @@ export async function getStorageUsage(organizationId: string): Promise<StorageUs
     presentation: 0,
   }
 
-  files.forEach((f: any) => {
-    const type = f.file_type as string
+  files.forEach((f: Record<string, unknown>) => {
+    const type = f['file_type'] as string
     if (type && typeCounts[type] !== undefined) {
       typeCounts[type]++
     }
   })
 
   // Get folder count
-  const { count: folderCount } = await getSupabaseClient()
-    .from('docs.folders')
+  const { count: folderCount } = await supabase
+    .from('docs_folders')
     .select('*', { count: 'exact', head: true })
-    .eq('organization_id', organizationId)
+    .eq('organization_id', validOrgId)
     .is('deleted_at', null)
 
-  // Default limit: 5GB, can be overridden in settings
-  const defaultLimitBytes = 5 * 1024 * 1024 * 1024 // 5 GB
+  // Default limit: 500MB for free tier
+  const defaultLimitBytes = 500 * 1024 * 1024
 
-  const { data: settings } = await getSupabaseClient()
-    .from('docs.settings')
-    .select('max_storage_bytes')
-    .eq('organization_id', organizationId)
-    .single()
-
-  const limitBytes = settings?.max_storage_bytes || defaultLimitBytes
+  const limitBytes = defaultLimitBytes // This should come from module limits
   const percentage = limitBytes > 0 ? Math.round((usedBytes / limitBytes) * 100) : 0
 
   return {
@@ -564,15 +521,15 @@ export async function getStorageUsage(organizationId: string): Promise<StorageUs
     limitBytes,
     percentage,
     fileCount: files.length,
-    folderCount: folderCount || 0,
-    documentCount: typeCounts.document,
-    imageCount: typeCounts.image,
-    pdfCount: typeCounts.pdf,
-    videoCount: typeCounts.video,
-    audioCount: typeCounts.audio,
-    archiveCount: typeCounts.archive,
-    spreadsheetCount: typeCounts.spreadsheet,
-    presentationCount: typeCounts.presentation,
+    folderCount: folderCount ?? 0,
+    documentCount: typeCounts['document'] ?? 0,
+    imageCount: typeCounts['image'] ?? 0,
+    pdfCount: typeCounts['pdf'] ?? 0,
+    videoCount: typeCounts['video'] ?? 0,
+    audioCount: typeCounts['audio'] ?? 0,
+    archiveCount: typeCounts['archive'] ?? 0,
+    spreadsheetCount: typeCounts['spreadsheet'] ?? 0,
+    presentationCount: typeCounts['presentation'] ?? 0,
   }
 }
 
@@ -585,26 +542,28 @@ export async function searchFiles(
   query: string,
   pagination: PaginationParams = {}
 ): Promise<PaginatedResult<DocFile>> {
+  const validOrgId = validateOrganizationId(organizationId)
   const { page = 1, pageSize = 20 } = pagination
   const offset = (page - 1) * pageSize
 
-  const { data, error, count } = await getSupabaseClient()
-    .from('docs.files')
+  const supabase = getSupabaseClient() as SupabaseClientAny
+  const { data, error, count } = await supabase
+    .from('docs_files')
     .select('*', { count: 'exact' })
-    .eq('organization_id', organizationId)
+    .eq('organization_id', validOrgId)
     .is('deleted_at', null)
     .or(`name.ilike.%${query}%,original_name.ilike.%${query}%,description.ilike.%${query}%`)
     .order('created_at', { ascending: false })
     .range(offset, offset + pageSize - 1)
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to search files: ${error.message}`)
 
   return {
-    data: (data || []).map(mapFileFromDb),
-    total: count || 0,
+    data: (data ?? []).map(mapFileFromDb),
+    total: count ?? 0,
     page,
     pageSize,
-    totalPages: Math.ceil((count || 0) / pageSize),
+    totalPages: Math.ceil((count ?? 0) / pageSize),
   }
 }
 
@@ -612,44 +571,39 @@ export async function searchFiles(
 // HELPERS
 // ===========================================
 
-function mapFileFromDb(data: any): DocFile {
+function mapFileFromDb(row: Record<string, unknown>): DocFile {
   return {
-    id: data.id as string,
-    organizationId: data.organization_id as string,
-    folderId: data.folder_id as string | null,
-    name: data.name as string,
-    originalName: data.original_name as string,
-    extension: data.extension as string | null,
-    mimeType: data.mime_type as string | null,
-    fileType: data.file_type as DocFile['fileType'],
-    storagePath: data.storage_path as string,
-    sizeBytes: data.size_bytes as number,
-    currentVersion: data.current_version as number,
-    isLocked: data.is_locked as boolean,
-    lockedBy: data.locked_by as string | null,
-    lockedAt: data.locked_at as string | null,
-    description: data.description as string | null,
-    tags: (data.tags as string[]) || [],
-    contentText: data.content_text as string | null,
-    linkedEntityType: data.linked_entity_type as string | null,
-    linkedEntityId: data.linked_entity_id as string | null,
-    downloadCount: data.download_count as number,
-    lastAccessedAt: data.last_accessed_at as string | null,
-    uploadedBy: data.uploaded_by as string | null,
-    // Enhanced metadata
-    checksum: data.checksum as string | null,
-    width: data.width as number | null,
-    height: data.height as number | null,
-    durationSeconds: data.duration_seconds as number | null,
-    pageCount: data.page_count as number | null,
-    previewUrl: data.preview_url as string | null,
-    canPreview: (data.can_preview as boolean) || false,
-    createdAt: data.created_at as string,
-    updatedAt: data.updated_at as string,
-    deletedAt: data.deleted_at as string | null,
+    id: row['id'] as string,
+    organizationId: row['organization_id'] as string,
+    folderId: row['folder_id'] as string | null,
+    name: row['name'] as string,
+    originalName: (row['original_name'] as string) ?? (row['name'] as string),
+    extension: row['extension'] as string | null,
+    mimeType: row['mime_type'] as string | null,
+    fileType: row['file_type'] as DocFile['fileType'],
+    storagePath: row['storage_path'] as string,
+    sizeBytes: row['file_size'] as number,
+    currentVersion: (row['current_version'] as number) ?? 1,
+    isLocked: (row['is_locked'] as boolean) ?? false,
+    lockedBy: row['locked_by'] as string | null,
+    lockedAt: row['locked_at'] as string | null,
+    description: row['description'] as string | null,
+    tags: (row['tags'] as string[]) ?? [],
+    contentText: row['content_text'] as string | null,
+    linkedEntityType: row['linked_entity_type'] as string | null,
+    linkedEntityId: row['linked_entity_id'] as string | null,
+    downloadCount: (row['download_count'] as number) ?? 0,
+    lastAccessedAt: row['last_accessed_at'] as string | null,
+    uploadedBy: row['uploaded_by'] as string | null,
+    checksum: row['checksum'] as string | null,
+    width: row['width'] as number | null,
+    height: row['height'] as number | null,
+    durationSeconds: row['duration_seconds'] as number | null,
+    pageCount: row['page_count'] as number | null,
+    previewUrl: row['preview_url'] as string | null,
+    canPreview: (row['can_preview'] as boolean) ?? false,
+    createdAt: row['created_at'] as string,
+    updatedAt: row['updated_at'] as string,
+    deletedAt: row['deleted_at'] as string | null,
   }
-}
-
-function toSnakeCase(str: string): string {
-  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
 }

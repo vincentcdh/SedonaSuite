@@ -19,14 +19,9 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
-import { usePlan } from '@/hooks/usePlan'
 import { useOrganization } from '@/lib/auth'
 import { useContacts, useContactCount, useDeleteContact } from '@sedona/crm'
-
-// Plan limits
-const FREE_PLAN_LIMITS = {
-  contacts: 150,
-}
+import { useModuleLimit, useIsModulePaid } from '@sedona/billing'
 
 export const Route = createFileRoute('/_authenticated/crm/contacts/')({
   component: ContactsPage,
@@ -34,9 +29,12 @@ export const Route = createFileRoute('/_authenticated/crm/contacts/')({
 
 function ContactsPage() {
   const [search, setSearch] = useState('')
-  const { isFree } = usePlan()
   const { organization } = useOrganization()
   const organizationId = organization?.id || ''
+
+  // Module-based billing: check if CRM is paid and get limits
+  const { isPaid: isCrmPaid } = useIsModulePaid(organizationId, 'crm')
+  const { limit, usage: currentCount, isUnlimited } = useModuleLimit(organizationId, 'crm', 'contacts')
 
   // Fetch contacts from Supabase
   const { data: contactsData, isLoading, error } = useContacts(
@@ -45,20 +43,16 @@ function ContactsPage() {
     { page: 1, pageSize: 25 }
   )
 
-  // Fetch total contact count for usage tracking
-  const { data: totalCount = 0 } = useContactCount(organizationId)
-
   // Delete contact mutation
   const deleteContactMutation = useDeleteContact()
 
   const contacts = contactsData?.data || []
 
-  // Usage tracking for FREE plan
-  const currentCount = totalCount
-  const limit = FREE_PLAN_LIMITS.contacts
-  const usagePercent = (currentCount / limit) * 100
-  const isNearLimit = usagePercent >= 80
-  const isAtLimit = currentCount >= limit
+  // Usage tracking (only for free tier)
+  const usagePercent = isUnlimited ? 0 : (currentCount / limit) * 100
+  const isNearLimit = !isUnlimited && usagePercent >= 80
+  const isAtLimit = !isUnlimited && currentCount >= limit
+  const isFree = !isCrmPaid
 
   if (error) {
     return (
@@ -101,7 +95,7 @@ function ContactsPage() {
                   className={`h-1.5 w-24 ${isAtLimit ? '[&>div]:bg-red-500' : isNearLimit ? '[&>div]:bg-orange-500' : ''}`}
                 />
               </div>
-              <Link to="/settings/billing" className="text-xs text-primary hover:underline flex items-center gap-1">
+              <Link to="/settings/modules" className="text-xs text-primary hover:underline flex items-center gap-1">
                 <Sparkles className="h-3 w-3" />
                 Illimite en PRO
               </Link>
@@ -118,7 +112,7 @@ function ContactsPage() {
             Exporter
           </Button>
           {isAtLimit && isFree ? (
-            <Link to="/settings/billing">
+            <Link to="/settings/modules">
               <Button size="sm" variant="default">
                 <Sparkles className="h-4 w-4 mr-2" />
                 Passer en PRO

@@ -30,6 +30,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@sedona/billing": "workspace:*",
     "@sedona/core": "workspace:*",
     "@sedona/database": "workspace:*",
     "@tanstack/react-query": "^5.80.7",

@@ -20,7 +20,8 @@
     "db:seed:local": "psql -d postgres -f supabase/seed.sql && psql -d postgres -f supabase/seed_crm.sql && psql -d postgres -f supabase/seed_invoice.sql && psql -d postgres -f supabase/seed_projects.sql && psql -d postgres -f supabase/seed_tickets.sql && psql -d postgres -f supabase/seed_hr.sql"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.47.10"
+    "@supabase/supabase-js": "^2.47.10",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@sedona/eslint-config": "workspace:*",

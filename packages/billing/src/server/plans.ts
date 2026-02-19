@@ -88,11 +88,11 @@ export const PLANS: Record<PlanId, Plan> = {
     prices: {
       monthly: {
         amount: 2900, // 29 EUR
-        stripePriceId: process.env['STRIPE_PRO_MONTHLY_PRICE_ID'] || 'price_pro_monthly',
+        stripePriceId: 'price_pro_monthly',
       },
       yearly: {
         amount: 29000, // 290 EUR (2 months free)
-        stripePriceId: process.env['STRIPE_PRO_YEARLY_PRICE_ID'] || 'price_pro_yearly',
+        stripePriceId: 'price_pro_yearly',
         savings: 17,
       },
     },
@@ -124,11 +124,11 @@ export const PLANS: Record<PlanId, Plan> = {
     prices: {
       monthly: {
         amount: 9900, // 99 EUR
-        stripePriceId: process.env['STRIPE_ENTERPRISE_MONTHLY_PRICE_ID'] || 'price_enterprise_monthly',
+        stripePriceId: 'price_enterprise_monthly',
       },
       yearly: {
         amount: 99000, // 990 EUR (2 months free)
-        stripePriceId: process.env['STRIPE_ENTERPRISE_YEARLY_PRICE_ID'] || 'price_enterprise_yearly',
+        stripePriceId: 'price_enterprise_yearly',
         savings: 17,
       },
     },

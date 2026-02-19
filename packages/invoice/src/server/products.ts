@@ -2,7 +2,8 @@
 // PRODUCT SERVER FUNCTIONS
 // ===========================================
 
-import { getSupabaseClient } from '@sedona/database'
+import { getSupabaseClient, validateOrganizationId } from '@sedona/database'
+import { assertInvoiceProductLimit } from '@sedona/billing/server'
 import type {
   Product,
   CreateProductInput,
@@ -96,10 +97,16 @@ export async function createProduct(
   organizationId: string,
   input: CreateProductInput
 ): Promise<Product> {
+  // Validate organization ID
+  const validOrgId = validateOrganizationId(organizationId)
+
+  // Check module limit before creating
+  await assertInvoiceProductLimit(validOrgId)
+
   const { data, error } = await getClient()
     .from('invoice_products')
     .insert({
-      organization_id: organizationId,
+      organization_id: validOrgId,
       name: input.name,
       description: input.description,
       sku: input.sku,

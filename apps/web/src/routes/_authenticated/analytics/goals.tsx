@@ -48,8 +48,8 @@ import {
   SelectValue,
 } from '@sedona/ui'
 import { formatCurrency, formatNumber, formatPercentage } from '@sedona/analytics/utils'
-import { ANALYTICS_PLAN_LIMITS } from '@sedona/analytics'
-import { usePlan } from '@/hooks/usePlan'
+import { useOrganization } from '@/lib/auth'
+import { useModuleLimit, useIsModulePaid } from '@sedona/billing'
 import type { MetricSource, PeriodType } from '@sedona/analytics'
 
 export const Route = createFileRoute('/_authenticated/analytics/goals')({
@@ -130,17 +130,20 @@ function getSourceLabel(source: MetricSource): string {
 function GoalsPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('active')
-  const { isFree } = usePlan()
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
 
-  const limits = isFree ? ANALYTICS_PLAN_LIMITS.FREE : ANALYTICS_PLAN_LIMITS.PRO
-  const canCreateMore = mockGoals.length < limits.maxGoals
+  // Module-based billing: check if analytics is paid and get limits
+  const { isPaid: isAnalyticsPaid } = useIsModulePaid(organizationId, 'analytics')
+  const { limit, usage: currentCount, isUnlimited } = useModuleLimit(organizationId, 'analytics', 'goals')
 
-  // Usage tracking for FREE plan
-  const currentCount = mockGoals.length
-  const limit = limits.maxGoals
-  const usagePercent = (currentCount / limit) * 100
-  const isNearLimit = usagePercent >= 80
-  const isAtLimit = currentCount >= limit
+  const isFree = !isAnalyticsPaid
+  const canCreateMore = isUnlimited || mockGoals.length < limit
+
+  // Usage tracking (only for free tier)
+  const usagePercent = isUnlimited ? 0 : (currentCount / limit) * 100
+  const isNearLimit = !isUnlimited && usagePercent >= 80
+  const isAtLimit = !isUnlimited && currentCount >= limit
 
   const filteredGoals = mockGoals.filter((goal) => {
     if (filter === 'active') return goal.isActive
@@ -185,7 +188,7 @@ function GoalsPage() {
                   className={`h-1.5 w-24 ${isAtLimit ? '[&>div]:bg-red-500' : isNearLimit ? '[&>div]:bg-orange-500' : ''}`}
                 />
               </div>
-              <Link to="/settings/billing" className="text-xs text-primary hover:underline flex items-center gap-1">
+              <Link to="/settings/modules" className="text-xs text-primary hover:underline flex items-center gap-1">
                 <Sparkles className="h-3 w-3" />
                 Plus en PRO
               </Link>
@@ -193,7 +196,7 @@ function GoalsPage() {
           )}
         </div>
         {isAtLimit && isFree ? (
-          <Link to="/settings/billing">
+          <Link to="/settings/modules">
             <Button>
               <Sparkles className="h-4 w-4 mr-2" />
               Passer en PRO

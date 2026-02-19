@@ -17,14 +17,9 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
-import { usePlan } from '@/hooks/usePlan'
 import { useOrganization } from '@/lib/auth'
 import { useCompanies, useDeleteCompany } from '@sedona/crm'
-
-// Plan limits
-const FREE_PLAN_LIMITS = {
-  companies: 50,
-}
+import { useModuleLimit, useIsModulePaid } from '@sedona/billing'
 
 export const Route = createFileRoute('/_authenticated/crm/companies/')({
   component: CompaniesPage,
@@ -32,9 +27,12 @@ export const Route = createFileRoute('/_authenticated/crm/companies/')({
 
 function CompaniesPage() {
   const [search, setSearch] = useState('')
-  const { isFree } = usePlan()
   const { organization } = useOrganization()
   const organizationId = organization?.id || ''
+
+  // Module-based billing: check if CRM is paid and get limits
+  const { isPaid: isCrmPaid } = useIsModulePaid(organizationId, 'crm')
+  const { limit, usage: currentCount, isUnlimited } = useModuleLimit(organizationId, 'crm', 'companies')
 
   // Fetch companies from Supabase
   const { data: companiesData, isLoading, error } = useCompanies(
@@ -48,12 +46,11 @@ function CompaniesPage() {
   // Delete company mutation
   const deleteCompanyMutation = useDeleteCompany()
 
-  // Usage tracking for FREE plan
-  const currentCount = companiesData?.total || 0
-  const limit = FREE_PLAN_LIMITS.companies
-  const usagePercent = (currentCount / limit) * 100
-  const isNearLimit = usagePercent >= 80
-  const isAtLimit = currentCount >= limit
+  // Usage tracking (only for free tier)
+  const usagePercent = isUnlimited ? 0 : (currentCount / limit) * 100
+  const isNearLimit = !isUnlimited && usagePercent >= 80
+  const isAtLimit = !isUnlimited && currentCount >= limit
+  const isFree = !isCrmPaid
 
   if (error) {
     return (
@@ -96,7 +93,7 @@ function CompaniesPage() {
                   className={`h-1.5 w-24 ${isAtLimit ? '[&>div]:bg-red-500' : isNearLimit ? '[&>div]:bg-orange-500' : ''}`}
                 />
               </div>
-              <Link to="/settings/billing" className="text-xs text-primary hover:underline flex items-center gap-1">
+              <Link to="/settings/modules" className="text-xs text-primary hover:underline flex items-center gap-1">
                 <Sparkles className="h-3 w-3" />
                 Illimite en PRO
               </Link>
@@ -104,7 +101,7 @@ function CompaniesPage() {
           )}
         </div>
         {isAtLimit && isFree ? (
-          <Link to="/settings/billing">
+          <Link to="/settings/modules">
             <Button size="sm" variant="default">
               <Sparkles className="h-4 w-4 mr-2" />
               Passer en PRO

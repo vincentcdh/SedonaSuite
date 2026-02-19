@@ -1,4 +1,5 @@
-import { getSupabaseClient } from '@sedona/database'
+import { getSupabaseClient, validateOrganizationId } from '@sedona/database'
+import { assertCrmCompanyLimit } from '@sedona/billing/server'
 import type {
   Company,
   CreateCompanyInput,
@@ -150,13 +151,19 @@ export async function createCompany(
   organizationId: string,
   input: CreateCompanyInput
 ): Promise<Company> {
+  // Validate organization ID
+  const validOrgId = validateOrganizationId(organizationId)
+
+  // Check module limit before creating
+  await assertCrmCompanyLimit(validOrgId)
+
   const client = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (client
     .from('crm_companies') as any)
     .insert({
-      organization_id: organizationId,
+      organization_id: validOrgId,
       name: input.name,
       siret: input.siret,
       website: input.website,

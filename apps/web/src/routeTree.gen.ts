@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
@@ -32,7 +33,6 @@ import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects/index'
 import { Route as AuthenticatedInvoicesIndexRouteImport } from './routes/_authenticated/invoices/index'
 import { Route as AuthenticatedHrIndexRouteImport } from './routes/_authenticated/hr/index'
-import { Route as AuthenticatedDocsIndexRouteImport } from './routes/_authenticated/docs/index'
 import { Route as AuthenticatedCrmIndexRouteImport } from './routes/_authenticated/crm/index'
 import { Route as AuthenticatedAnalyticsIndexRouteImport } from './routes/_authenticated/analytics/index'
 import { Route as AuthenticatedTicketsNewRouteImport } from './routes/_authenticated/tickets/new'
@@ -43,6 +43,7 @@ import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_auth
 import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated/settings/preferences'
 import { Route as AuthenticatedSettingsOrganizationRouteImport } from './routes/_authenticated/settings/organization'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
+import { Route as AuthenticatedSettingsModulesRouteImport } from './routes/_authenticated/settings/modules'
 import { Route as AuthenticatedSettingsDataRouteImport } from './routes/_authenticated/settings/data'
 import { Route as AuthenticatedSettingsBillingRouteImport } from './routes/_authenticated/settings/billing'
 import { Route as AuthenticatedProjectsNewRouteImport } from './routes/_authenticated/projects/new'
@@ -81,6 +82,7 @@ import { Route as AuthenticatedCrmPipelineIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedCrmContactsIndexRouteImport } from './routes/_authenticated/crm/contacts/index'
 import { Route as AuthenticatedCrmCompaniesIndexRouteImport } from './routes/_authenticated/crm/companies/index'
 import { Route as AuthenticatedCrmActivitiesIndexRouteImport } from './routes/_authenticated/crm/activities/index'
+import { Route as AuthenticatedSettingsModulesCompareRouteImport } from './routes/_authenticated/settings/modules.compare'
 import { Route as AuthenticatedInvoicesQuotesNewRouteImport } from './routes/_authenticated/invoices/quotes/new'
 import { Route as AuthenticatedInvoicesQuotesQuoteIdRouteImport } from './routes/_authenticated/invoices/quotes/$quoteId'
 import { Route as AuthenticatedInvoicesProductsNewRouteImport } from './routes/_authenticated/invoices/products/new'
@@ -105,6 +107,11 @@ const VerifyEmailRoute = VerifyEmailRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -215,11 +222,6 @@ const AuthenticatedHrIndexRoute = AuthenticatedHrIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedHrRoute,
 } as any)
-const AuthenticatedDocsIndexRoute = AuthenticatedDocsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedDocsRoute,
-} as any)
 const AuthenticatedCrmIndexRoute = AuthenticatedCrmIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -276,6 +278,12 @@ const AuthenticatedSettingsNotificationsRoute =
   AuthenticatedSettingsNotificationsRouteImport.update({
     id: '/notifications',
     path: '/notifications',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsModulesRoute =
+  AuthenticatedSettingsModulesRouteImport.update({
+    id: '/modules',
+    path: '/modules',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedSettingsDataRoute =
@@ -502,6 +510,12 @@ const AuthenticatedCrmActivitiesIndexRoute =
     path: '/activities/',
     getParentRoute: () => AuthenticatedCrmRoute,
   } as any)
+const AuthenticatedSettingsModulesCompareRoute =
+  AuthenticatedSettingsModulesCompareRouteImport.update({
+    id: '/compare',
+    path: '/compare',
+    getParentRoute: () => AuthenticatedSettingsModulesRoute,
+  } as any)
 const AuthenticatedInvoicesQuotesNewRoute =
   AuthenticatedInvoicesQuotesNewRouteImport.update({
     id: '/quotes/new',
@@ -598,6 +612,7 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/setup': typeof SetupRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/analytics': typeof AuthenticatedAnalyticsRouteWithChildren
@@ -628,6 +643,7 @@ export interface FileRoutesByFullPath {
   '/projects/new': typeof AuthenticatedProjectsNewRoute
   '/settings/billing': typeof AuthenticatedSettingsBillingRoute
   '/settings/data': typeof AuthenticatedSettingsDataRoute
+  '/settings/modules': typeof AuthenticatedSettingsModulesRouteWithChildren
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/organization': typeof AuthenticatedSettingsOrganizationRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
@@ -638,7 +654,6 @@ export interface FileRoutesByFullPath {
   '/tickets/new': typeof AuthenticatedTicketsNewRoute
   '/analytics/': typeof AuthenticatedAnalyticsIndexRoute
   '/crm/': typeof AuthenticatedCrmIndexRoute
-  '/docs/': typeof AuthenticatedDocsIndexRoute
   '/hr/': typeof AuthenticatedHrIndexRoute
   '/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
@@ -658,6 +673,7 @@ export interface FileRoutesByFullPath {
   '/invoices/products/new': typeof AuthenticatedInvoicesProductsNewRoute
   '/invoices/quotes/$quoteId': typeof AuthenticatedInvoicesQuotesQuoteIdRoute
   '/invoices/quotes/new': typeof AuthenticatedInvoicesQuotesNewRoute
+  '/settings/modules/compare': typeof AuthenticatedSettingsModulesCompareRoute
   '/crm/activities/': typeof AuthenticatedCrmActivitiesIndexRoute
   '/crm/companies/': typeof AuthenticatedCrmCompaniesIndexRoute
   '/crm/contacts/': typeof AuthenticatedCrmContactsIndexRoute
@@ -686,9 +702,11 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/setup': typeof SetupRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/docs': typeof AuthenticatedDocsRouteWithChildren
   '/client-portal/$token': typeof ClientPortalTokenRoute
   '/client-portal': typeof ClientPortalIndexRoute
   '/analytics/dashboards': typeof AuthenticatedAnalyticsDashboardsRoute
@@ -708,6 +726,7 @@ export interface FileRoutesByTo {
   '/projects/new': typeof AuthenticatedProjectsNewRoute
   '/settings/billing': typeof AuthenticatedSettingsBillingRoute
   '/settings/data': typeof AuthenticatedSettingsDataRoute
+  '/settings/modules': typeof AuthenticatedSettingsModulesRouteWithChildren
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/organization': typeof AuthenticatedSettingsOrganizationRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
@@ -718,7 +737,6 @@ export interface FileRoutesByTo {
   '/tickets/new': typeof AuthenticatedTicketsNewRoute
   '/analytics': typeof AuthenticatedAnalyticsIndexRoute
   '/crm': typeof AuthenticatedCrmIndexRoute
-  '/docs': typeof AuthenticatedDocsIndexRoute
   '/hr': typeof AuthenticatedHrIndexRoute
   '/invoices': typeof AuthenticatedInvoicesIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
@@ -738,6 +756,7 @@ export interface FileRoutesByTo {
   '/invoices/products/new': typeof AuthenticatedInvoicesProductsNewRoute
   '/invoices/quotes/$quoteId': typeof AuthenticatedInvoicesQuotesQuoteIdRoute
   '/invoices/quotes/new': typeof AuthenticatedInvoicesQuotesNewRoute
+  '/settings/modules/compare': typeof AuthenticatedSettingsModulesCompareRoute
   '/crm/activities': typeof AuthenticatedCrmActivitiesIndexRoute
   '/crm/companies': typeof AuthenticatedCrmCompaniesIndexRoute
   '/crm/contacts': typeof AuthenticatedCrmContactsIndexRoute
@@ -768,6 +787,7 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/setup': typeof SetupRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRouteWithChildren
@@ -798,6 +818,7 @@ export interface FileRoutesById {
   '/_authenticated/projects/new': typeof AuthenticatedProjectsNewRoute
   '/_authenticated/settings/billing': typeof AuthenticatedSettingsBillingRoute
   '/_authenticated/settings/data': typeof AuthenticatedSettingsDataRoute
+  '/_authenticated/settings/modules': typeof AuthenticatedSettingsModulesRouteWithChildren
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/settings/organization': typeof AuthenticatedSettingsOrganizationRoute
   '/_authenticated/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
@@ -808,7 +829,6 @@ export interface FileRoutesById {
   '/_authenticated/tickets/new': typeof AuthenticatedTicketsNewRoute
   '/_authenticated/analytics/': typeof AuthenticatedAnalyticsIndexRoute
   '/_authenticated/crm/': typeof AuthenticatedCrmIndexRoute
-  '/_authenticated/docs/': typeof AuthenticatedDocsIndexRoute
   '/_authenticated/hr/': typeof AuthenticatedHrIndexRoute
   '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
@@ -828,6 +848,7 @@ export interface FileRoutesById {
   '/_authenticated/invoices/products/new': typeof AuthenticatedInvoicesProductsNewRoute
   '/_authenticated/invoices/quotes/$quoteId': typeof AuthenticatedInvoicesQuotesQuoteIdRoute
   '/_authenticated/invoices/quotes/new': typeof AuthenticatedInvoicesQuotesNewRoute
+  '/_authenticated/settings/modules/compare': typeof AuthenticatedSettingsModulesCompareRoute
   '/_authenticated/crm/activities/': typeof AuthenticatedCrmActivitiesIndexRoute
   '/_authenticated/crm/companies/': typeof AuthenticatedCrmCompaniesIndexRoute
   '/_authenticated/crm/contacts/': typeof AuthenticatedCrmContactsIndexRoute
@@ -858,6 +879,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/setup'
     | '/signup'
     | '/verify-email'
     | '/analytics'
@@ -888,6 +910,7 @@ export interface FileRouteTypes {
     | '/projects/new'
     | '/settings/billing'
     | '/settings/data'
+    | '/settings/modules'
     | '/settings/notifications'
     | '/settings/organization'
     | '/settings/preferences'
@@ -898,7 +921,6 @@ export interface FileRouteTypes {
     | '/tickets/new'
     | '/analytics/'
     | '/crm/'
-    | '/docs/'
     | '/hr/'
     | '/invoices/'
     | '/projects/'
@@ -918,6 +940,7 @@ export interface FileRouteTypes {
     | '/invoices/products/new'
     | '/invoices/quotes/$quoteId'
     | '/invoices/quotes/new'
+    | '/settings/modules/compare'
     | '/crm/activities/'
     | '/crm/companies/'
     | '/crm/contacts/'
@@ -946,9 +969,11 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/setup'
     | '/signup'
     | '/verify-email'
     | '/dashboard'
+    | '/docs'
     | '/client-portal/$token'
     | '/client-portal'
     | '/analytics/dashboards'
@@ -968,6 +993,7 @@ export interface FileRouteTypes {
     | '/projects/new'
     | '/settings/billing'
     | '/settings/data'
+    | '/settings/modules'
     | '/settings/notifications'
     | '/settings/organization'
     | '/settings/preferences'
@@ -978,7 +1004,6 @@ export interface FileRouteTypes {
     | '/tickets/new'
     | '/analytics'
     | '/crm'
-    | '/docs'
     | '/hr'
     | '/invoices'
     | '/projects'
@@ -998,6 +1023,7 @@ export interface FileRouteTypes {
     | '/invoices/products/new'
     | '/invoices/quotes/$quoteId'
     | '/invoices/quotes/new'
+    | '/settings/modules/compare'
     | '/crm/activities'
     | '/crm/companies'
     | '/crm/contacts'
@@ -1027,6 +1053,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/setup'
     | '/signup'
     | '/verify-email'
     | '/_authenticated/analytics'
@@ -1057,6 +1084,7 @@ export interface FileRouteTypes {
     | '/_authenticated/projects/new'
     | '/_authenticated/settings/billing'
     | '/_authenticated/settings/data'
+    | '/_authenticated/settings/modules'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/settings/organization'
     | '/_authenticated/settings/preferences'
@@ -1067,7 +1095,6 @@ export interface FileRouteTypes {
     | '/_authenticated/tickets/new'
     | '/_authenticated/analytics/'
     | '/_authenticated/crm/'
-    | '/_authenticated/docs/'
     | '/_authenticated/hr/'
     | '/_authenticated/invoices/'
     | '/_authenticated/projects/'
@@ -1087,6 +1114,7 @@ export interface FileRouteTypes {
     | '/_authenticated/invoices/products/new'
     | '/_authenticated/invoices/quotes/$quoteId'
     | '/_authenticated/invoices/quotes/new'
+    | '/_authenticated/settings/modules/compare'
     | '/_authenticated/crm/activities/'
     | '/_authenticated/crm/companies/'
     | '/_authenticated/crm/contacts/'
@@ -1117,6 +1145,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SetupRoute: typeof SetupRoute
   SignupRoute: typeof SignupRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ClientPortalTokenRoute: typeof ClientPortalTokenRoute
@@ -1138,6 +1167,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -1287,13 +1323,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHrIndexRouteImport
       parentRoute: typeof AuthenticatedHrRoute
     }
-    '/_authenticated/docs/': {
-      id: '/_authenticated/docs/'
-      path: '/'
-      fullPath: '/docs/'
-      preLoaderRoute: typeof AuthenticatedDocsIndexRouteImport
-      parentRoute: typeof AuthenticatedDocsRoute
-    }
     '/_authenticated/crm/': {
       id: '/_authenticated/crm/'
       path: '/'
@@ -1362,6 +1391,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/settings/notifications'
       preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/modules': {
+      id: '/_authenticated/settings/modules'
+      path: '/modules'
+      fullPath: '/settings/modules'
+      preLoaderRoute: typeof AuthenticatedSettingsModulesRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/data': {
@@ -1630,6 +1666,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCrmActivitiesIndexRouteImport
       parentRoute: typeof AuthenticatedCrmRoute
     }
+    '/_authenticated/settings/modules/compare': {
+      id: '/_authenticated/settings/modules/compare'
+      path: '/compare'
+      fullPath: '/settings/modules/compare'
+      preLoaderRoute: typeof AuthenticatedSettingsModulesCompareRouteImport
+      parentRoute: typeof AuthenticatedSettingsModulesRoute
+    }
     '/_authenticated/invoices/quotes/new': {
       id: '/_authenticated/invoices/quotes/new'
       path: '/quotes/new'
@@ -1799,7 +1842,6 @@ interface AuthenticatedDocsRouteChildren {
   AuthenticatedDocsRecentRoute: typeof AuthenticatedDocsRecentRoute
   AuthenticatedDocsSettingsRoute: typeof AuthenticatedDocsSettingsRoute
   AuthenticatedDocsTrashRoute: typeof AuthenticatedDocsTrashRoute
-  AuthenticatedDocsIndexRoute: typeof AuthenticatedDocsIndexRoute
   AuthenticatedDocsFileFileIdRoute: typeof AuthenticatedDocsFileFileIdRoute
   AuthenticatedDocsFolderFolderIdRoute: typeof AuthenticatedDocsFolderFolderIdRoute
 }
@@ -1810,7 +1852,6 @@ const AuthenticatedDocsRouteChildren: AuthenticatedDocsRouteChildren = {
   AuthenticatedDocsRecentRoute: AuthenticatedDocsRecentRoute,
   AuthenticatedDocsSettingsRoute: AuthenticatedDocsSettingsRoute,
   AuthenticatedDocsTrashRoute: AuthenticatedDocsTrashRoute,
-  AuthenticatedDocsIndexRoute: AuthenticatedDocsIndexRoute,
   AuthenticatedDocsFileFileIdRoute: AuthenticatedDocsFileFileIdRoute,
   AuthenticatedDocsFolderFolderIdRoute: AuthenticatedDocsFolderFolderIdRoute,
 }
@@ -1926,9 +1967,25 @@ const AuthenticatedProjectsRouteWithChildren =
     AuthenticatedProjectsRouteChildren,
   )
 
+interface AuthenticatedSettingsModulesRouteChildren {
+  AuthenticatedSettingsModulesCompareRoute: typeof AuthenticatedSettingsModulesCompareRoute
+}
+
+const AuthenticatedSettingsModulesRouteChildren: AuthenticatedSettingsModulesRouteChildren =
+  {
+    AuthenticatedSettingsModulesCompareRoute:
+      AuthenticatedSettingsModulesCompareRoute,
+  }
+
+const AuthenticatedSettingsModulesRouteWithChildren =
+  AuthenticatedSettingsModulesRoute._addFileChildren(
+    AuthenticatedSettingsModulesRouteChildren,
+  )
+
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsBillingRoute: typeof AuthenticatedSettingsBillingRoute
   AuthenticatedSettingsDataRoute: typeof AuthenticatedSettingsDataRoute
+  AuthenticatedSettingsModulesRoute: typeof AuthenticatedSettingsModulesRouteWithChildren
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsOrganizationRoute: typeof AuthenticatedSettingsOrganizationRoute
   AuthenticatedSettingsPreferencesRoute: typeof AuthenticatedSettingsPreferencesRoute
@@ -1941,6 +1998,8 @@ interface AuthenticatedSettingsRouteChildren {
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsBillingRoute: AuthenticatedSettingsBillingRoute,
   AuthenticatedSettingsDataRoute: AuthenticatedSettingsDataRoute,
+  AuthenticatedSettingsModulesRoute:
+    AuthenticatedSettingsModulesRouteWithChildren,
   AuthenticatedSettingsNotificationsRoute:
     AuthenticatedSettingsNotificationsRoute,
   AuthenticatedSettingsOrganizationRoute:
@@ -2019,6 +2078,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SetupRoute: SetupRoute,
   SignupRoute: SignupRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ClientPortalTokenRoute: ClientPortalTokenRoute,

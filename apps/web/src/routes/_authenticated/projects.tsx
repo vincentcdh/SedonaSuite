@@ -5,7 +5,8 @@
 import { createFileRoute, Outlet, Link, useLocation } from '@tanstack/react-router'
 import { cn } from '@sedona/ui'
 import { FolderKanban, List, Calendar, Clock, Lock } from 'lucide-react'
-import { usePlan } from '@/hooks/usePlan'
+import { useOrganization } from '@/lib/auth'
+import { useIsModulePaid } from '@sedona/billing'
 
 export const Route = createFileRoute('/_authenticated/projects')({
   component: ProjectsLayout,
@@ -20,8 +21,9 @@ const navItems = [
 
 function ProjectsLayout() {
   const location = useLocation()
-  const { hasAccess } = usePlan()
-  const hasPro = hasAccess('PRO')
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
+  const { isPaid: hasPro } = useIsModulePaid(organizationId, 'projects')
 
   return (
     <div className="flex flex-col h-full">

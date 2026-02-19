@@ -40,8 +40,8 @@ import {
   DialogFooter,
   Label,
 } from '@sedona/ui'
-import { ANALYTICS_PLAN_LIMITS } from '@sedona/analytics'
-import { usePlan } from '@/hooks/usePlan'
+import { useOrganization } from '@/lib/auth'
+import { useModuleLimit, useIsModulePaid } from '@sedona/billing'
 
 export const Route = createFileRoute('/_authenticated/analytics/dashboards')({
   component: DashboardsPage,
@@ -73,17 +73,20 @@ function DashboardsPage() {
   const [search, setSearch] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [newDashboardName, setNewDashboardName] = useState('')
-  const { isFree } = usePlan()
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
 
-  const limits = isFree ? ANALYTICS_PLAN_LIMITS.FREE : ANALYTICS_PLAN_LIMITS.PRO
-  const canCreateMore = mockDashboards.length < limits.maxDashboards
+  // Module-based billing: check if analytics is paid and get limits
+  const { isPaid: isAnalyticsPaid } = useIsModulePaid(organizationId, 'analytics')
+  const { limit, usage: currentCount, isUnlimited } = useModuleLimit(organizationId, 'analytics', 'dashboards')
 
-  // Usage tracking for FREE plan
-  const currentCount = mockDashboards.length
-  const limit = limits.maxDashboards
-  const usagePercent = (currentCount / limit) * 100
-  const isNearLimit = usagePercent >= 80
-  const isAtLimit = currentCount >= limit
+  const isFree = !isAnalyticsPaid
+  const canCreateMore = isUnlimited || mockDashboards.length < limit
+
+  // Usage tracking (only for free tier)
+  const usagePercent = isUnlimited ? 0 : (currentCount / limit) * 100
+  const isNearLimit = !isUnlimited && usagePercent >= 80
+  const isAtLimit = !isUnlimited && currentCount >= limit
 
   const filteredDashboards = mockDashboards.filter((d) =>
     d.name.toLowerCase().includes(search.toLowerCase())
@@ -131,10 +134,7 @@ function DashboardsPage() {
               className={`h-1.5 w-32 ${isAtLimit ? '[&>div]:bg-red-500' : isNearLimit ? '[&>div]:bg-orange-500' : ''}`}
             />
           </div>
-          <span className="text-sm text-muted-foreground">
-            ({limits.maxWidgetsPerDashboard} widgets max par dashboard)
-          </span>
-          <Link to="/settings/billing" className="text-xs text-primary hover:underline flex items-center gap-1 ml-auto">
+          <Link to="/settings/modules" className="text-xs text-primary hover:underline flex items-center gap-1 ml-auto">
             <Sparkles className="h-3 w-3" />
             Illimite en PRO
           </Link>

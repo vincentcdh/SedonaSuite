@@ -1,5 +1,5 @@
 // ===========================================
-// AUTOMATIONS PAGE (PRO FEATURE)
+// AUTOMATIONS PAGE (PRO FEATURE - tickets module)
 // ===========================================
 
 import { createFileRoute } from '@tanstack/react-router'
@@ -8,14 +8,9 @@ import {
   Plus,
   Play,
   Pause,
-  Clock,
-  Mail,
-  Tag,
   AlertTriangle,
   CheckCircle2,
   ArrowRight,
-  Bot,
-  Bell,
   Loader2,
 } from 'lucide-react'
 import {
@@ -24,23 +19,15 @@ import {
   CardContent,
   Badge,
   Switch,
+  ModulePaidGuard,
 } from '@sedona/ui'
-import { ProFeatureMask } from '@/components/pro'
 import { useOrganization } from '@/lib/auth'
+import { useModuleAccess, useUpgradeModule } from '@/hooks/useModuleAccess'
 import { useAutomationRules, useToggleAutomationRule } from '@sedona/tickets'
 
 export const Route = createFileRoute('/_authenticated/tickets/automations/')({
   component: AutomationsPage,
 })
-
-// PRO features to display in upgrade card
-const automationFeatures = [
-  { icon: Bot, label: 'Auto-assignation intelligente' },
-  { icon: Mail, label: 'Reponses automatiques' },
-  { icon: Tag, label: 'Tagging automatique' },
-  { icon: Bell, label: 'Alertes et rappels SLA' },
-  { icon: Clock, label: 'Actions planifiees' },
-]
 
 // Trigger type labels
 const triggerLabels: Record<string, string> = {
@@ -66,15 +53,24 @@ const actionLabels: Record<string, string> = {
 }
 
 function AutomationsPage() {
+  const { isPaid, isLoading: isLoadingAccess } = useModuleAccess('tickets')
+  const { upgrade } = useUpgradeModule()
+
+  const handleUpgrade = async () => {
+    await upgrade('tickets', 'monthly')
+  }
+
   return (
-    <ProFeatureMask
-      requiredPlan="PRO"
+    <ModulePaidGuard
+      moduleId="tickets"
+      isPaid={isPaid}
+      isLoading={isLoadingAccess}
       title="Automatisations"
       description="Les automatisations vous permettent de gagner du temps en automatisant les taches repetitives et les workflows de support."
-      features={automationFeatures}
+      onUpgrade={handleUpgrade}
     >
       <AutomationsContent />
-    </ProFeatureMask>
+    </ModulePaidGuard>
   )
 }
 

@@ -1,4 +1,14 @@
-import { getSupabaseClient } from '@sedona/database'
+import {
+  getSupabaseClient,
+  validateOrganizationId,
+  validateResourceId,
+  safeTextSchema,
+  emailSchema,
+  phoneSchema,
+  postalCodeSchema,
+  z,
+} from '@sedona/database'
+import { assertCrmContactLimit } from '@sedona/billing/server'
 import type {
   Contact,
   CreateContactInput,
@@ -7,6 +17,34 @@ import type {
   PaginatedResult,
   PaginationParams,
 } from '../types'
+
+// ===========================================
+// VALIDATION SCHEMAS
+// ===========================================
+
+const createContactSchema = z.object({
+  firstName: safeTextSchema.optional(),
+  lastName: safeTextSchema.optional(),
+  email: emailSchema.optional().or(z.literal('')),
+  phone: phoneSchema,
+  mobile: phoneSchema,
+  jobTitle: safeTextSchema.optional(),
+  companyId: z.string().uuid().optional().nullable(),
+  source: z.enum(['website', 'referral', 'linkedin', 'cold_call', 'event', 'other']).optional(),
+  sourceDetails: safeTextSchema.optional(),
+  addressLine1: safeTextSchema.optional(),
+  addressLine2: safeTextSchema.optional(),
+  city: safeTextSchema.optional(),
+  postalCode: postalCodeSchema,
+  country: z.string().max(100).default('France'),
+  customFields: z.record(z.unknown()).optional(),
+  tags: z.array(safeTextSchema).max(50).optional(),
+  ownerId: z.string().uuid().optional().nullable(),
+})
+
+const updateContactSchema = z.object({
+  id: z.string().uuid(),
+}).merge(createContactSchema.partial())
 
 // ===========================================
 // CONTACTS SERVER FUNCTIONS
@@ -25,6 +63,9 @@ export async function getContacts(
   filters: ContactFilters = {},
   pagination: PaginationParams = {}
 ): Promise<PaginatedResult<Contact>> {
+  // SECURITY: Validate organization ID
+  const validOrgId = validateOrganizationId(organizationId)
+
   const client = getClient()
   const { page = 1, pageSize = 25, sortBy = 'created_at', sortOrder = 'desc' } = pagination
 
@@ -32,7 +73,7 @@ export async function getContacts(
   let query = client
     .from('crm_contacts')
     .select('*, company:crm_companies(*)', { count: 'exact' })
-    .eq('organization_id', organizationId)
+    .eq('organization_id', validOrgId)
     .is('deleted_at', null) as any
 
   // Apply filters
@@ -101,12 +142,15 @@ export async function getContacts(
  * Get a single contact by ID
  */
 export async function getContact(contactId: string): Promise<Contact | null> {
+  // SECURITY: Validate contact ID
+  const validId = validateResourceId(contactId, 'Contact')
+
   const client = getClient()
 
   const { data, error } = await client
     .from('crm_contacts')
     .select('*, company:crm_companies(*)')
-    .eq('id', contactId)
+    .eq('id', validId)
     .is('deleted_at', null)
     .single()
 
@@ -125,30 +169,37 @@ export async function createContact(
   organizationId: string,
   input: CreateContactInput
 ): Promise<Contact> {
+  // SECURITY: Validate inputs
+  const validOrgId = validateOrganizationId(organizationId)
+  const validInput = createContactSchema.parse(input)
+
+  // Check module limit before creating
+  await assertCrmContactLimit(validOrgId)
+
   const client = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (client
     .from('crm_contacts') as any)
     .insert({
-      organization_id: organizationId,
-      first_name: input.firstName,
-      last_name: input.lastName,
-      email: input.email,
-      phone: input.phone,
-      mobile: input.mobile,
-      job_title: input.jobTitle,
-      company_id: input.companyId,
-      source: input.source,
-      source_details: input.sourceDetails,
-      address_line1: input.addressLine1,
-      address_line2: input.addressLine2,
-      city: input.city,
-      postal_code: input.postalCode,
-      country: input.country || 'France',
-      custom_fields: input.customFields || {},
-      tags: input.tags || [],
-      owner_id: input.ownerId,
+      organization_id: validOrgId,
+      first_name: validInput.firstName,
+      last_name: validInput.lastName,
+      email: validInput.email,
+      phone: validInput.phone,
+      mobile: validInput.mobile,
+      job_title: validInput.jobTitle,
+      company_id: validInput.companyId,
+      source: validInput.source,
+      source_details: validInput.sourceDetails,
+      address_line1: validInput.addressLine1,
+      address_line2: validInput.addressLine2,
+      city: validInput.city,
+      postal_code: validInput.postalCode,
+      country: validInput.country || 'France',
+      custom_fields: validInput.customFields || {},
+      tags: validInput.tags || [],
+      owner_id: validInput.ownerId,
     })
     .select('*, company:crm_companies(*)')
     .single()
@@ -164,34 +215,37 @@ export async function createContact(
  * Update a contact
  */
 export async function updateContact(input: UpdateContactInput): Promise<Contact> {
+  // SECURITY: Validate inputs
+  const validInput = updateContactSchema.parse(input)
+
   const client = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: Record<string, any> = {}
 
-  if (input.firstName !== undefined) updateData['first_name'] = input.firstName
-  if (input.lastName !== undefined) updateData['last_name'] = input.lastName
-  if (input.email !== undefined) updateData['email'] = input.email
-  if (input.phone !== undefined) updateData['phone'] = input.phone
-  if (input.mobile !== undefined) updateData['mobile'] = input.mobile
-  if (input.jobTitle !== undefined) updateData['job_title'] = input.jobTitle
-  if (input.companyId !== undefined) updateData['company_id'] = input.companyId
-  if (input.source !== undefined) updateData['source'] = input.source
-  if (input.sourceDetails !== undefined) updateData['source_details'] = input.sourceDetails
-  if (input.addressLine1 !== undefined) updateData['address_line1'] = input.addressLine1
-  if (input.addressLine2 !== undefined) updateData['address_line2'] = input.addressLine2
-  if (input.city !== undefined) updateData['city'] = input.city
-  if (input.postalCode !== undefined) updateData['postal_code'] = input.postalCode
-  if (input.country !== undefined) updateData['country'] = input.country
-  if (input.customFields !== undefined) updateData['custom_fields'] = input.customFields
-  if (input.tags !== undefined) updateData['tags'] = input.tags
-  if (input.ownerId !== undefined) updateData['owner_id'] = input.ownerId
+  if (validInput.firstName !== undefined) updateData['first_name'] = validInput.firstName
+  if (validInput.lastName !== undefined) updateData['last_name'] = validInput.lastName
+  if (validInput.email !== undefined) updateData['email'] = validInput.email
+  if (validInput.phone !== undefined) updateData['phone'] = validInput.phone
+  if (validInput.mobile !== undefined) updateData['mobile'] = validInput.mobile
+  if (validInput.jobTitle !== undefined) updateData['job_title'] = validInput.jobTitle
+  if (validInput.companyId !== undefined) updateData['company_id'] = validInput.companyId
+  if (validInput.source !== undefined) updateData['source'] = validInput.source
+  if (validInput.sourceDetails !== undefined) updateData['source_details'] = validInput.sourceDetails
+  if (validInput.addressLine1 !== undefined) updateData['address_line1'] = validInput.addressLine1
+  if (validInput.addressLine2 !== undefined) updateData['address_line2'] = validInput.addressLine2
+  if (validInput.city !== undefined) updateData['city'] = validInput.city
+  if (validInput.postalCode !== undefined) updateData['postal_code'] = validInput.postalCode
+  if (validInput.country !== undefined) updateData['country'] = validInput.country
+  if (validInput.customFields !== undefined) updateData['custom_fields'] = validInput.customFields
+  if (validInput.tags !== undefined) updateData['tags'] = validInput.tags
+  if (validInput.ownerId !== undefined) updateData['owner_id'] = validInput.ownerId
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (client
     .from('crm_contacts') as any)
     .update(updateData)
-    .eq('id', input.id)
+    .eq('id', validInput.id)
     .select('*, company:crm_companies(*)')
     .single()
 
@@ -206,13 +260,16 @@ export async function updateContact(input: UpdateContactInput): Promise<Contact>
  * Delete a contact (soft delete)
  */
 export async function deleteContact(contactId: string): Promise<void> {
+  // SECURITY: Validate input
+  const validId = validateResourceId(contactId, 'Contact')
+
   const client = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (client
     .from('crm_contacts') as any)
     .update({ deleted_at: new Date().toISOString() })
-    .eq('id', contactId)
+    .eq('id', validId)
 
   if (error) {
     throw new Error(`Failed to delete contact: ${error.message}`)
@@ -223,13 +280,16 @@ export async function deleteContact(contactId: string): Promise<void> {
  * Bulk delete contacts
  */
 export async function bulkDeleteContacts(contactIds: string[]): Promise<void> {
+  // SECURITY: Validate all IDs
+  const validIds = z.array(z.string().uuid()).parse(contactIds)
+
   const client = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (client
     .from('crm_contacts') as any)
     .update({ deleted_at: new Date().toISOString() })
-    .in('id', contactIds)
+    .in('id', validIds)
 
   if (error) {
     throw new Error(`Failed to delete contacts: ${error.message}`)

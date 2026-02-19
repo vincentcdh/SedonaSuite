@@ -121,6 +121,9 @@ importers:
       '@sedona/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@sedona/billing':
+        specifier: workspace:*
+        version: link:../../packages/billing
       '@sedona/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -221,6 +224,9 @@ importers:
 
   packages/analytics:
     dependencies:
+      '@sedona/billing':
+        specifier: workspace:*
+        version: link:../billing
       '@sedona/core':
         specifier: workspace:*
         version: link:../core
@@ -372,6 +378,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.71.1(react@18.3.1))
+      '@sedona/billing':
+        specifier: workspace:*
+        version: link:../billing
       '@sedona/core':
         specifier: workspace:*
         version: link:../core
@@ -424,6 +433,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.47.10
         version: 2.93.2
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       '@sedona/eslint-config':
         specifier: workspace:*
@@ -446,6 +458,9 @@ importers:
 
   packages/docs:
     dependencies:
+      '@sedona/billing':
+        specifier: workspace:*
+        version: link:../billing
       '@sedona/core':
         specifier: workspace:*
         version: link:../core
@@ -550,6 +565,9 @@ importers:
 
   packages/hr:
     dependencies:
+      '@sedona/billing':
+        specifier: workspace:*
+        version: link:../billing
       '@sedona/core':
         specifier: workspace:*
         version: link:../core
@@ -599,6 +617,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.71.1(react@18.3.1))
+      '@sedona/billing':
+        specifier: workspace:*
+        version: link:../billing
       '@sedona/core':
         specifier: workspace:*
         version: link:../core
@@ -657,6 +678,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@18.3.1)
+      '@sedona/billing':
+        specifier: workspace:*
+        version: link:../billing
       '@sedona/core':
         specifier: workspace:*
         version: link:../core
@@ -706,6 +730,9 @@ importers:
 
   packages/tickets:
     dependencies:
+      '@sedona/billing':
+        specifier: workspace:*
+        version: link:../billing
       '@sedona/core':
         specifier: workspace:*
         version: link:../core

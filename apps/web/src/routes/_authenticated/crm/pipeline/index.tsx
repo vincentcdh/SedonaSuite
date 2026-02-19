@@ -2,15 +2,10 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { Button, Card, Progress, Dialog, DialogContent, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@sedona/ui'
 import { Plus, Settings, MoreHorizontal, User, Building2, Calendar, Euro, Sparkles, AlertTriangle, Loader2, Kanban, Trophy, XCircle, Trash2, Edit } from 'lucide-react'
 import { useState } from 'react'
-import { usePlan } from '@/hooks/usePlan'
 import { useOrganization } from '@/lib/auth'
 import { useDefaultPipeline, usePipelineWithDeals, useMoveDeal, useCreatePipeline, useCreateDeal, useMarkDealAsWon, useMarkDealAsLost, useDeleteDeal, useContacts, useCompanies, DealForm } from '@sedona/crm'
 import { useQueryClient } from '@tanstack/react-query'
-
-// Plan limits
-const FREE_PLAN_LIMITS = {
-  deals: 25,
-}
+import { useModuleLimit, useIsModulePaid } from '@sedona/billing'
 
 export const Route = createFileRoute('/_authenticated/crm/pipeline/')({
   component: PipelinePage,
@@ -21,10 +16,13 @@ function PipelinePage() {
   const [isCreating, setIsCreating] = useState(false)
   const [showCreateDealDialog, setShowCreateDealDialog] = useState(false)
   const [defaultStageId, setDefaultStageId] = useState<string | undefined>()
-  const { isFree } = usePlan()
   const { organization } = useOrganization()
   const organizationId = organization?.id || ''
   const queryClient = useQueryClient()
+
+  // Module-based billing: check if CRM is paid and get limits
+  const { isPaid: isCrmPaid } = useIsModulePaid(organizationId, 'crm')
+  const { limit, isUnlimited } = useModuleLimit(organizationId, 'crm', 'deals')
 
   // Fetch default pipeline
   const { data: defaultPipeline, isLoading: isLoadingDefault } = useDefaultPipeline(organizationId)
@@ -121,12 +119,12 @@ function PipelinePage() {
   // Get stages from pipeline data
   const stages = pipelineData?.stages || []
 
-  // Usage tracking for FREE plan
+  // Usage tracking (only for free tier)
   const totalDeals = stages.reduce((sum, stage) => sum + ((stage as any).deals?.length || 0), 0)
-  const limit = FREE_PLAN_LIMITS.deals
-  const usagePercent = (totalDeals / limit) * 100
-  const isNearLimit = usagePercent >= 80
-  const isAtLimit = totalDeals >= limit
+  const usagePercent = isUnlimited ? 0 : (totalDeals / limit) * 100
+  const isNearLimit = !isUnlimited && usagePercent >= 80
+  const isAtLimit = !isUnlimited && totalDeals >= limit
+  const isFree = !isCrmPaid
 
   if (error) {
     return (
@@ -199,7 +197,7 @@ function PipelinePage() {
                   className={`h-1.5 w-24 ${isAtLimit ? '[&>div]:bg-red-500' : isNearLimit ? '[&>div]:bg-orange-500' : ''}`}
                 />
               </div>
-              <Link to="/settings/billing" className="text-xs text-primary hover:underline flex items-center gap-1">
+              <Link to="/settings/modules" className="text-xs text-primary hover:underline flex items-center gap-1">
                 <Sparkles className="h-3 w-3" />
                 Illimite en PRO
               </Link>
@@ -212,7 +210,7 @@ function PipelinePage() {
             Parametres
           </Button>
           {isAtLimit && isFree ? (
-            <Link to="/settings/billing">
+            <Link to="/settings/modules">
               <Button size="sm" variant="default">
                 <Sparkles className="h-4 w-4 mr-2" />
                 Passer en PRO

@@ -22,6 +22,7 @@
     "@hookform/resolvers": "^3.9.1",
     "@sedona/analytics": "workspace:*",
     "@sedona/auth": "workspace:*",
+    "@sedona/billing": "workspace:*",
     "@sedona/core": "workspace:*",
     "@sedona/crm": "workspace:*",
     "@sedona/database": "workspace:*",

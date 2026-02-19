@@ -29,17 +29,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@sedona/ui'
-import { ANALYTICS_PLAN_LIMITS } from '@sedona/analytics'
+import { useOrganization } from '@/lib/auth'
+import { useIsModulePaid, useModuleLimit } from '@sedona/billing'
+import { Link } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_authenticated/analytics/settings')({
   component: AnalyticsSettingsPage,
 })
 
-// Simulated PRO status
-const isPro = false
-const limits = isPro ? ANALYTICS_PLAN_LIMITS.PRO : ANALYTICS_PLAN_LIMITS.FREE
-
 function AnalyticsSettingsPage() {
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
+
+  // Module-based billing: check if analytics module is paid
+  const { isPaid: isPro } = useIsModulePaid(organizationId, 'analytics')
+  const { limit: maxDashboards, isUnlimited: dashboardsUnlimited } = useModuleLimit(organizationId, 'analytics', 'dashboards')
+  const { limit: maxWidgetsPerDashboard } = useModuleLimit(organizationId, 'analytics', 'widgets_per_dashboard')
+  const { limit: maxGoals, isUnlimited: goalsUnlimited } = useModuleLimit(organizationId, 'analytics', 'goals')
+
+  // Derived limits values
+  const limits = {
+    maxDashboards: dashboardsUnlimited ? 'Illimite' : (maxDashboards || 1),
+    maxWidgetsPerDashboard: maxWidgetsPerDashboard || 6,
+    maxGoals: goalsUnlimited ? 'Illimite' : (maxGoals || 3),
+    scheduledReports: isPro,
+    customMetrics: isPro,
+    exportFormats: isPro ? ['PDF', 'CSV', 'EXCEL'] : ['PDF'],
+    dataRetentionDays: isPro ? 365 : 90,
+  }
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       {/* Header */}
@@ -136,7 +153,7 @@ function AnalyticsSettingsPage() {
                 <span className="text-sm">Formats d'export</span>
               </div>
               <span className="text-sm text-muted-foreground">
-                {limits.exportFormats.map((f) => f.toUpperCase()).join(', ')}
+                {limits.exportFormats.join(', ')}
               </span>
             </div>
           </div>
@@ -152,7 +169,9 @@ function AnalyticsSettingsPage() {
                 <p className="text-sm text-muted-foreground mb-3">
                   Debloquez les dashboards illimites, rapports automatises, export Excel et plus encore.
                 </p>
-                <Button>Passer a PRO</Button>
+                <Link to="/settings/modules">
+                  <Button>Passer a PRO</Button>
+                </Link>
               </div>
             </>
           )}

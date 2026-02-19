@@ -26,24 +26,36 @@ import {
   Separator,
   Progress,
 } from '@sedona/ui'
-import { formatFileSize, PLAN_LIMITS } from '@sedona/docs/utils'
+import { formatFileSize } from '@sedona/docs/utils'
+import { useOrganization } from '@/lib/auth'
+import { useIsModulePaid, useModuleLimit } from '@sedona/billing'
+import { useStorageUsage } from '@sedona/docs'
+import { Link } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_authenticated/docs/settings')({
   component: DocsSettingsPage,
 })
 
-// Simulated PRO status
-const isPro = false
-
-// Mock storage usage
-const storageUsage = {
-  usedBytes: 750 * 1024 * 1024, // 750 MB
-  limitBytes: isPro ? PLAN_LIMITS.PRO.maxStorageBytes : PLAN_LIMITS.FREE.maxStorageBytes,
-  fileCount: 156,
-  folderCount: 12,
-}
-
 function DocsSettingsPage() {
+  const { organization } = useOrganization()
+  const organizationId = organization?.id || ''
+
+  // Module-based billing: check if docs module is paid
+  const { isPaid: isPro } = useIsModulePaid(organizationId, 'docs')
+  const { limit: storageLimitBytes, isUnlimited: storageUnlimited } = useModuleLimit(organizationId, 'docs', 'storage')
+  const { limit: maxFileSizeBytes } = useModuleLimit(organizationId, 'docs', 'file_size')
+  const { limit: maxFolders, isUnlimited: foldersUnlimited } = useModuleLimit(organizationId, 'docs', 'folders')
+
+  // Fetch storage usage from Supabase
+  const { data: storageData } = useStorageUsage(organizationId)
+  const defaultLimit = 1024 * 1024 * 1024 // 1GB default
+  const storageUsage = {
+    usedBytes: storageData?.usedBytes || 0,
+    limitBytes: storageData?.limitBytes || storageLimitBytes || defaultLimit,
+    fileCount: storageData?.fileCount || 0,
+    folderCount: storageData?.folderCount || 0,
+  }
+
   const storagePercentage = Math.round(
     (storageUsage.usedBytes / storageUsage.limitBytes) * 100
   )
@@ -131,7 +143,7 @@ function DocsSettingsPage() {
               </p>
             </div>
             <Badge variant="secondary">
-              {formatFileSize(isPro ? PLAN_LIMITS.PRO.maxFileSizeBytes : PLAN_LIMITS.FREE.maxFileSizeBytes)}
+              {formatFileSize(maxFileSizeBytes || 10 * 1024 * 1024)}
             </Badge>
           </div>
           <Separator />
@@ -143,7 +155,7 @@ function DocsSettingsPage() {
               </p>
             </div>
             <Badge variant="secondary">
-              {isPro ? 'Illimite' : PLAN_LIMITS.FREE.maxFolders}
+              {foldersUnlimited ? 'Illimite' : maxFolders || 10}
             </Badge>
           </div>
         </CardContent>

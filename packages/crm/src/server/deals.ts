@@ -1,4 +1,5 @@
-import { getSupabaseClient } from '@sedona/database'
+import { getSupabaseClient, validateOrganizationId } from '@sedona/database'
+import { assertCrmDealLimit } from '@sedona/billing/server'
 import type {
   Deal,
   CreateDealInput,
@@ -141,13 +142,19 @@ export async function createDeal(
   organizationId: string,
   input: CreateDealInput
 ): Promise<Deal> {
+  // Validate organization ID
+  const validOrgId = validateOrganizationId(organizationId)
+
+  // Check module limit before creating
+  await assertCrmDealLimit(validOrgId)
+
   const client = getClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (client
     .from('crm_deals') as any)
     .insert({
-      organization_id: organizationId,
+      organization_id: validOrgId,
       pipeline_id: input.pipelineId,
       stage_id: input.stageId,
       name: input.name,

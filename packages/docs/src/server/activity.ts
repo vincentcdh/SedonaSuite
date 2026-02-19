@@ -24,7 +24,7 @@ export async function getActivityLog(
   const offset = (page - 1) * pageSize
 
   let query = getSupabaseClient()
-    .from('docs.activity_log')
+    .from('docs_activity_log')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
 
@@ -90,7 +90,7 @@ export async function getActivityLog(
   let files: any[] = []
   if (fileIds.length > 0) {
     const { data: fileData } = await getSupabaseClient()
-      .from('docs.files')
+      .from('docs_files')
       .select('id, name, file_type')
       .in('id', fileIds)
     files = fileData || []
@@ -107,7 +107,7 @@ export async function getActivityLog(
   let folders: any[] = []
   if (folderIds.length > 0) {
     const { data: folderData } = await getSupabaseClient()
-      .from('docs.folders')
+      .from('docs_folders')
       .select('id, name')
       .in('id', folderIds)
     folders = folderData || []
@@ -161,7 +161,7 @@ export async function getFileActivity(
   const offset = (page - 1) * pageSize
 
   const { data, error, count } = await getSupabaseClient()
-    .from('docs.activity_log')
+    .from('docs_activity_log')
     .select('*', { count: 'exact' })
     .eq('file_id', fileId)
     .order('created_at', { ascending: false })
@@ -214,7 +214,7 @@ export async function logDownload(
   userId?: string
 ): Promise<void> {
   await getSupabaseClient()
-    .from('docs.activity_log')
+    .from('docs_activity_log')
     .insert({
       organization_id: organizationId,
       action: 'downloaded',

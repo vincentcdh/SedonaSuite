@@ -1,5 +1,5 @@
 // ===========================================
-// HR TIME TRACKING PAGE (PRO FEATURE)
+// HR TIME TRACKING PAGE (PRO FEATURE - hr module)
 // ===========================================
 
 import { useState } from 'react'
@@ -15,8 +15,6 @@ import {
   Calendar,
   BarChart3,
   Timer,
-  Coffee,
-  FileSpreadsheet,
   TrendingUp,
   Loader2,
   LogIn,
@@ -46,8 +44,8 @@ import {
   SelectValue,
   Textarea,
   cn,
+  ModulePaidGuard,
 } from '@sedona/ui'
-import { ProFeatureMask } from '@/components/pro'
 import {
   useOrganizationTimeStats,
   useEmployees,
@@ -59,6 +57,7 @@ import {
   type Badge as HrBadge,
 } from '@sedona/hr'
 import { useOrganization, useAuth } from '@/lib/auth'
+import { useModuleAccess, useUpgradeModule } from '@/hooks/useModuleAccess'
 
 export const Route = createFileRoute('/_authenticated/hr/time-tracking/')({
   component: HRTimeTrackingPage,
@@ -213,15 +212,6 @@ function TimelineBar({ badges, isClockedIn }: TimelineBarProps) {
   )
 }
 
-// PRO features to display in upgrade card
-const hrTimeFeatures = [
-  { icon: Timer, label: 'Pointage en temps reel' },
-  { icon: Calendar, label: 'Historique complet' },
-  { icon: TrendingUp, label: 'Suivi des heures sup.' },
-  { icon: FileSpreadsheet, label: 'Export Excel/PDF' },
-  { icon: BarChart3, label: 'Rapports et statistiques' },
-]
-
 // Schema for time entry form
 const timeEntryFormSchema = z.object({
   employeeId: z.string().min(1, 'L\'employe est requis'),
@@ -235,15 +225,24 @@ const timeEntryFormSchema = z.object({
 type TimeEntryFormData = z.infer<typeof timeEntryFormSchema>
 
 function HRTimeTrackingPage() {
+  const { isPaid, isLoading: isLoadingAccess } = useModuleAccess('hr')
+  const { upgrade } = useUpgradeModule()
+
+  const handleUpgrade = async () => {
+    await upgrade('hr', 'monthly')
+  }
+
   return (
-    <ProFeatureMask
-      requiredPlan="PRO"
+    <ModulePaidGuard
+      moduleId="hr"
+      isPaid={isPaid}
+      isLoading={isLoadingAccess}
       title="Temps de travail"
       description="Le suivi du temps de travail vous permet de gerer les heures de vos employes, les heures supplementaires et d'exporter des rapports detailles."
-      features={hrTimeFeatures}
+      onUpgrade={handleUpgrade}
     >
       <HRTimeTrackingContent />
-    </ProFeatureMask>
+    </ModulePaidGuard>
   )
 }
 

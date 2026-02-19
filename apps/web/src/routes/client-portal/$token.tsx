@@ -2,7 +2,7 @@
 // CLIENT PORTAL - SHARE LINK ACCESS
 // ===========================================
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   Button,
@@ -15,10 +15,89 @@ import {
   Label,
 } from '@sedona/ui'
 import { FolderKanban, Lock, AlertCircle, Loader2 } from 'lucide-react'
+import { logRateLimitExceeded, logAuditEvent } from '@/lib/audit'
 
 export const Route = createFileRoute('/client-portal/$token')({
   component: ShareLinkAccessPage,
 })
+
+// ===========================================
+// TOKEN VALIDATION UTILITIES
+// ===========================================
+
+// Validate token format (UUID or base64-like string)
+function isValidTokenFormat(token: string): boolean {
+  // Minimum length
+  if (token.length < 20) return false
+
+  // Maximum length
+  if (token.length > 128) return false
+
+  // Only alphanumeric, hyphens, and underscores
+  const validPattern = /^[a-zA-Z0-9_-]+$/
+  return validPattern.test(token)
+}
+
+// Rate limiting for password attempts
+const RATE_LIMIT_KEY = 'sedona_portal_rate_limit'
+const MAX_ATTEMPTS = 5
+const LOCKOUT_DURATION = 15 * 60 * 1000 // 15 minutes
+
+interface RateLimitState {
+  attempts: number
+  lastAttempt: number
+  lockedUntil?: number
+}
+
+function getRateLimitState(): RateLimitState {
+  try {
+    const stored = localStorage.getItem(RATE_LIMIT_KEY)
+    if (stored) return JSON.parse(stored)
+  } catch {
+    // ignore
+  }
+  return { attempts: 0, lastAttempt: 0 }
+}
+
+function updateRateLimitState(failed: boolean) {
+  const state = getRateLimitState()
+
+  // Reset if last attempt was more than 15 minutes ago
+  if (Date.now() - state.lastAttempt > LOCKOUT_DURATION) {
+    state.attempts = 0
+    delete state.lockedUntil
+  }
+
+  if (failed) {
+    state.attempts++
+    state.lastAttempt = Date.now()
+
+    // Lock if too many attempts
+    if (state.attempts >= MAX_ATTEMPTS) {
+      state.lockedUntil = Date.now() + LOCKOUT_DURATION
+    }
+  } else {
+    // Reset on success
+    state.attempts = 0
+    delete state.lockedUntil
+  }
+
+  localStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(state))
+  return state
+}
+
+function isRateLimited(): { limited: boolean; remainingTime?: number } {
+  const state = getRateLimitState()
+
+  if (state.lockedUntil && state.lockedUntil > Date.now()) {
+    return {
+      limited: true,
+      remainingTime: Math.ceil((state.lockedUntil - Date.now()) / 1000 / 60),
+    }
+  }
+
+  return { limited: false }
+}
 
 function ShareLinkAccessPage() {
   const { token } = Route.useParams()
@@ -29,8 +108,12 @@ function ShareLinkAccessPage() {
   const [error, setError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const validationAttempted = useRef(false)
 
   useEffect(() => {
+    // Prevent double validation in React Strict Mode
+    if (validationAttempted.current) return
+    validationAttempted.current = true
     validateToken()
   }, [token])
 
@@ -39,20 +122,39 @@ function ShareLinkAccessPage() {
     setError(null)
 
     try {
-      // TODO: Implement actual token validation
-      console.log('Validating token:', token)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // SECURITY: Validate token format first
+      if (!isValidTokenFormat(token)) {
+        logAuditEvent('security.token.invalid', {
+          success: false,
+          details: { tokenLength: token.length },
+          errorMessage: 'Invalid token format',
+        })
+        setError('Format de lien invalide')
+        setIsValidating(false)
+        return
+      }
 
-      // Mock response
+      // Simulate API call delay
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      // TODO: Replace with actual API call to validate token
+      // For now, use mock validation with proper format check
       const mockResponse = {
         valid: true,
-        passwordProtected: token.includes('protected'), // Mock: if token contains 'protected'
-        projectName: 'Refonte Site Web Client A',
-        projectId: 'mock-project-id',
+        passwordProtected: token.includes('protected'),
+        projectName: 'Projet Demo',
+        projectId: `project-${token.substring(0, 8)}`,
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000, // Mock: 24h from now
+      }
+
+      // Check expiration
+      if (mockResponse.expiresAt < Date.now()) {
+        setError('Ce lien a expiré')
+        return
       }
 
       if (!mockResponse.valid) {
-        setError('Ce lien n\'est pas valide ou a expire')
+        setError('Ce lien n\'est pas valide ou a expiré')
         return
       }
 
@@ -66,8 +168,8 @@ function ShareLinkAccessPage() {
           params: { projectId: mockResponse.projectId },
         })
       }
-    } catch (err) {
-      setError('Impossible de verifier ce lien')
+    } catch {
+      setError('Impossible de vérifier ce lien')
     } finally {
       setIsValidating(false)
     }
@@ -75,21 +177,39 @@ function ShareLinkAccessPage() {
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // SECURITY: Check rate limiting
+    const rateLimit = isRateLimited()
+    if (rateLimit.limited) {
+      logRateLimitExceeded() // Audit log
+      setError(`Trop de tentatives. Réessayez dans ${rateLimit.remainingTime} minutes.`)
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
 
     try {
-      // TODO: Implement actual password verification
-      console.log('Verifying password for token:', token)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      // Mock: accept any password for demo
+      // TODO: Replace with actual password verification API call
+      // For demo, accept "demo123" as password
+      const demoPassword = 'demo123'
+      if (password !== demoPassword) {
+        updateRateLimitState(true)
+        throw new Error('Mot de passe incorrect')
+      }
+
+      // Success - reset rate limit
+      updateRateLimitState(false)
+
       navigate({
         to: '/client-portal/project/$projectId',
-        params: { projectId: 'mock-project-id' },
+        params: { projectId: `project-${token.substring(0, 8)}` },
       })
     } catch (err) {
-      setError('Mot de passe incorrect')
+      setError(err instanceof Error ? err.message : 'Mot de passe incorrect')
     } finally {
       setIsSubmitting(false)
     }

@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(powershell -Command \"Stop-Process -Id 11716 -Force\")",
-      "Bash(supabase status:*)"
+      "Bash(supabase status:*)",
+      "Bash(curl:*)",
+      "Bash(pnpm install:*)"
     ]
   }
 }

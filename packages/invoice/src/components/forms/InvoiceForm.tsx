@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 import type { Invoice, InvoiceClient, Product, CreateInvoiceInput, InvoiceSettings } from '../../types'
 import { invoiceFormSchema, type InvoiceFormData, type LineItemFormData } from '../schemas'
-import { ClientSelector } from '../shared/ClientSelector'
+import { ClientSelector, type CrmEntry } from '../shared/ClientSelector'
 import { LineItemsEditor } from '../shared/LineItemsEditor'
 import { TotalsDisplay } from '../shared/TotalsDisplay'
 import { useLineItems } from '../hooks/useLineItems'
@@ -33,6 +33,8 @@ interface InvoiceFormProps {
   clients: InvoiceClient[]
   products: Product[]
   settings?: InvoiceSettings | null
+  crmEntries?: CrmEntry[]
+  onCreateClientFromCrm?: (entry: CrmEntry) => Promise<InvoiceClient>
   onSubmit: (data: CreateInvoiceInput) => Promise<void>
   onCancel: () => void
   isLoading?: boolean
@@ -43,11 +45,14 @@ export const InvoiceForm: FC<InvoiceFormProps> = ({
   clients,
   products,
   settings,
+  crmEntries = [],
+  onCreateClientFromCrm,
   onSubmit,
   onCancel,
   isLoading,
 }) => {
   const isEditing = !!invoice
+  const [isCreatingClient, setIsCreatingClient] = useState(false)
 
   // Initialiser les lignes
   const initialLineItems: LineItemFormData[] = invoice?.lineItems?.map((li) => ({
@@ -132,6 +137,21 @@ export const InvoiceForm: FC<InvoiceFormProps> = ({
     }
   }
 
+  // Gerer la selection d'une entree CRM (creer un client de facturation)
+  const handleCrmEntrySelect = async (entry: CrmEntry) => {
+    if (!onCreateClientFromCrm) return
+
+    setIsCreatingClient(true)
+    try {
+      const newClient = await onCreateClientFromCrm(entry)
+      handleClientSelect(newClient)
+    } catch (error) {
+      console.error('Failed to create client from CRM entry:', error)
+    } finally {
+      setIsCreatingClient(false)
+    }
+  }
+
   const handleFormSubmit = async (data: InvoiceFormData) => {
     await onSubmit({
       clientId: data.clientId,
@@ -172,9 +192,17 @@ export const InvoiceForm: FC<InvoiceFormProps> = ({
               <Label>Selectionner un client *</Label>
               <ClientSelector
                 clients={clients}
+                crmEntries={crmEntries}
                 value={clientId}
                 onSelect={handleClientSelect}
+                onSelectCrmEntry={onCreateClientFromCrm ? handleCrmEntrySelect : undefined}
               />
+              {isCreatingClient && (
+                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Creation du client...
+                </p>
+              )}
               {errors.clientId && (
                 <p className="text-sm text-error">{errors.clientId.message}</p>
               )}

@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useLocation } from '@tanstack/react-rout
 import {
   User,
   Building2,
-  CreditCard,
+  Boxes,
   Users,
   Shield,
   Bell,
@@ -49,7 +49,7 @@ const navSections: NavSection[] = [
     items: [
       { href: '/settings/organization', label: 'Organisation', icon: Building2, description: 'Parametres entreprise', requiresAdmin: true },
       { href: '/settings/team', label: 'Equipe', icon: Users, description: 'Gerer les membres', requiresAdmin: true },
-      { href: '/settings/billing', label: 'Abonnement', icon: CreditCard, description: 'Plan et facturation' },
+      { href: '/settings/modules', label: 'Mes Modules', icon: Boxes, description: 'Gerer vos abonnements' },
     ],
   },
   {

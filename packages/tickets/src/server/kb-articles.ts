@@ -2,7 +2,8 @@
 // KNOWLEDGE BASE ARTICLES SERVER FUNCTIONS (PRO Feature)
 // ===========================================
 
-import { getSupabaseClient } from '@sedona/database'
+import { getSupabaseClient, validateOrganizationId } from '@sedona/database'
+import { assertKbArticleLimit } from '@sedona/billing/server'
 import type {
   KbArticle,
   CreateKbArticleInput,
@@ -216,6 +217,10 @@ export async function createKbArticle(
   input: CreateKbArticleInput,
   _userId?: string
 ): Promise<KbArticle> {
+  // Validate organization ID and check KB article limit
+  const validOrgId = validateOrganizationId(organizationId)
+  await assertKbArticleLimit(validOrgId)
+
   // Generate slug if not provided
   const slug = input.slug || generateSlug(input.title)
 
@@ -224,7 +229,7 @@ export async function createKbArticle(
   const { data, error } = await getSupabaseClient()
     .from('tickets_kb_articles')
     .insert({
-      organization_id: organizationId,
+      organization_id: validOrgId,
       title: input.title,
       slug,
       content: input.content,

@@ -17,7 +17,7 @@ import {
 } from '@sedona/ui'
 import { useTheme } from '@/lib/theme'
 import { UserDropdown } from './UserDropdown'
-import { OrganizationBadge } from './OrganizationBadge'
+import { OrganizationSelector } from './OrganizationSelector'
 
 export const Header: FC = () => {
   const { resolvedTheme, toggleTheme } = useTheme()
@@ -42,8 +42,8 @@ export const Header: FC = () => {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
-        {/* Organization Badge */}
-        <OrganizationBadge />
+        {/* Organization Selector */}
+        <OrganizationSelector />
 
         {/* Theme Toggle */}
         <Button

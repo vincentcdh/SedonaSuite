@@ -116,7 +116,7 @@ export const UserDropdown: FC<UserDropdownProps> = ({ showName = true }) => {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild className="cursor-pointer">
-            <Link to="/settings/billing">
+            <Link to="/settings/modules">
               <CreditCard className="h-4 w-4 mr-2" />
               <span>Abonnement</span>
             </Link>

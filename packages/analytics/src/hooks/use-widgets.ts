@@ -71,11 +71,11 @@ export function useWidgetData(
 // MUTATIONS
 // ===========================================
 
-export function useCreateWidget() {
+export function useCreateWidget(organizationId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: CreateWidgetInput) => createWidget(data),
+    mutationFn: (data: CreateWidgetInput) => createWidget(organizationId, data),
     onSuccess: (widget) => {
       queryClient.invalidateQueries({ queryKey: widgetKeys.list(widget.dashboardId) })
       queryClient.invalidateQueries({ queryKey: dashboardKeys.detail(widget.dashboardId) })

@@ -99,7 +99,7 @@ export function FileUpload({
 
   // Validate file
   const validateFile = (file: File): string | null => {
-    const extension = getExtension(file.name).toLowerCase()
+    const extension = (getExtension(file.name) ?? '').toLowerCase()
 
     // Check blocked extensions
     if (blockedExtensions.includes(extension)) {
@@ -139,7 +139,7 @@ export function FileUpload({
         name: file.name,
         size: file.size,
         type: fileType,
-        extension,
+        extension: extension ?? '',
         status: error ? 'error' : 'pending',
         progress: 0,
         error: error || undefined,
